@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <Company>ProtoSim</Company>
+    <Product>ProtoSim</Product>
+
+    <!-- bin/obj go to one artifacts folder. If the repo lives in a very deep folder,
+         use a short temp path instead so generated files stay under Windows' MAX_PATH. -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    <ArtifactsPath Condition="$(MSBuildThisFileDirectory.Length) &gt; 120">$([System.IO.Path]::GetTempPath())ProtoSim\artifacts</ArtifactsPath>
+  </PropertyGroup>
+</Project>

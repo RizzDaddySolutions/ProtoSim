@@ -1,0 +1,222 @@
+<Window x:Class="ProtoSim.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
+        xmlns:views="clr-namespace:ProtoSim.App.Views"
+        Title="{Binding Title}" Width="1440" Height="900" MinWidth="980" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+    <Window.InputBindings>
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding NewCommand}" />
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenCommand}" />
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}" />
+        <KeyBinding Key="S" Modifiers="Control+Shift" Command="{Binding SaveAsCommand}" />
+        <KeyBinding Key="F5" Command="{Binding StartAllCommand}" />
+        <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopAllCommand}" />
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
+            <views:DeviceView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ClientViewModel}">
+            <views:ClientView />
+        </DataTemplate>
+
+        <Style x:Key="PluginMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Header" Value="{Binding DisplayName}" />
+            <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="ToolTip" Value="{Binding Description}" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" Padding="4,2">
+            <MenuItem Header="_File">
+                <MenuItem Header="_New project" Command="{Binding NewCommand}" InputGestureText="Ctrl+N" />
+                <MenuItem Header="_Open…" Command="{Binding OpenCommand}" InputGestureText="Ctrl+O" />
+                <MenuItem Header="_Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
+                <MenuItem Header="Save _as…" Command="{Binding SaveAsCommand}" InputGestureText="Ctrl+Shift+S" />
+                <Separator />
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Simulation">
+                <MenuItem Header="Add _device" ItemsSource="{Binding AddDeviceActions}" ItemContainerStyle="{StaticResource PluginMenuItem}" />
+                <MenuItem Header="Add _client" ItemsSource="{Binding AddClientActions}" ItemContainerStyle="{StaticResource PluginMenuItem}" />
+                <MenuItem Header="D_uplicate device" Command="{Binding DuplicateSelectedCommand}" />
+                <MenuItem Header="_Remove selected" Command="{Binding RemoveSelectedCommand}" />
+                <Separator />
+                <MenuItem Header="_Start all devices" Command="{Binding StartAllCommand}" InputGestureText="F5" />
+                <MenuItem Header="S_top all devices" Command="{Binding StopAllCommand}" InputGestureText="Shift+F5" />
+                <MenuItem Header="_Pause value simulation" IsCheckable="True" IsChecked="{Binding SimulationPaused}" />
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="Theme: _system" Command="{Binding SetThemeCommand}" CommandParameter="System" />
+                <MenuItem Header="Theme: _light" Command="{Binding SetThemeCommand}" CommandParameter="Light" />
+                <MenuItem Header="Theme: _dark" Command="{Binding SetThemeCommand}" CommandParameter="Dark" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Command="{Binding AboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" />
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="290" MinWidth="220" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Navigation -->
+            <Grid Margin="12,12,6,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="3*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Margin="4,0,0,6">
+                    <Menu DockPanel.Dock="Right" Background="Transparent">
+                        <MenuItem ToolTip="Add a simulated device" ItemsSource="{Binding AddDeviceActions}" ItemContainerStyle="{StaticResource PluginMenuItem}">
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Add" />
+                                </StackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
+                    </Menu>
+                    <TextBlock Text="SIMULATED DEVICES" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Style="{StaticResource StatusDot}" Fill="{Binding State, Converter={StaticResource StateToBrush}}"
+                                         Margin="0,0,10,0" ToolTip="{Binding StatusText}" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Style="{StaticResource Caption}">
+                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Endpoint, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <DockPanel Grid.Row="2" Margin="4,14,0,6">
+                    <Menu DockPanel.Dock="Right" Background="Transparent">
+                        <MenuItem ToolTip="Add a client (master) session" ItemsSource="{Binding AddClientActions}" ItemContainerStyle="{StaticResource PluginMenuItem}">
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Add" />
+                                </StackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
+                    </Menu>
+                    <TextBlock Text="CLIENT SESSIONS" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox Grid.Row="3" ItemsSource="{Binding Clients}" SelectedItem="{Binding SelectedClient}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ClientViewModel}">
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Style="{StaticResource StatusDot}" Fill="{Binding IsConnected, Converter={StaticResource StateToBrush}}" Margin="0,0,10,0" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Style="{StaticResource Caption}">
+                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" → " /><Run Text="{Binding Endpoint, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button Command="{Binding StartAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Start all devices (F5)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                            <TextBlock Text="Start all" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding StopAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Stop all devices (Shift+F5)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE71A;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                            <TextBlock Text="Stop all" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove selected device or client">
+                        <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                          Background="Transparent" ResizeBehavior="PreviousAndNext" />
+
+            <!-- Content -->
+            <ContentControl Grid.Column="2" Content="{Binding Selected}" Margin="6,12,12,12" Focusable="False">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Selected}" Value="{x:Null}">
+                                <Setter Property="ContentTemplate">
+                                    <Setter.Value>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource Card}" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Padding="32">
+                                                <StackPanel>
+                                                    <TextBlock Text="&#xE968;" Style="{StaticResource Icon}" FontSize="40" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                                               Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                    <TextBlock Text="ProtoSim" Style="{StaticResource PageTitle}" />
+                                                    <TextBlock TextWrapping="Wrap" Margin="0,8,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               Text="Simulate devices that answer real protocol clients (SCADA, HMI, PLC programs), and test devices with built-in client sessions. Add a device or client from the left panel, or start with a ready-made demo." />
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ItemsControl ItemsSource="{Binding DataContext.DemoActions, RelativeSource={RelativeSource AncestorType=Window}}" Focusable="False">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Orientation="Horizontal" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Content="{Binding DisplayName}" Command="{Binding Command}" ToolTip="{Binding Description}"
+                                                                            Style="{DynamicResource AccentButtonStyle}" Padding="16,8" Margin="0,0,8,0" />
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <Button Content="Open project…" Padding="16,8"
+                                                                Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </Grid>
+    </DockPanel>
+</Window>

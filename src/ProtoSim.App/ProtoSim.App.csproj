@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ProtoSim.App</RootNamespace>
+    <AssemblyName>ProtoSim</AssemblyName>
+    <!-- Fluent ThemeMode APIs are flagged experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProtoSim.Core\ProtoSim.Core.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.ModbusTcp\ProtoSim.Protocols.ModbusTcp.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.OpcUa\ProtoSim.Protocols.OpcUa.csproj" />
+  </ItemGroup>
+
+</Project>

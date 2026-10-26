@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ProtoSim.App/ProtoSim.App.csproj" />
+    <Project Path="src/ProtoSim.Core/ProtoSim.Core.csproj" />
+    <Project Path="src/ProtoSim.Protocols.ModbusTcp/ProtoSim.Protocols.ModbusTcp.csproj" />
+    <Project Path="src/ProtoSim.Protocols.OpcUa/ProtoSim.Protocols.OpcUa.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OpcUa.Tests/ProtoSim.OpcUa.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/ModbusTcp.Tests/">
+    <Project Path="tests/ModbusTcp.Tests/ProtoSim.ModbusTcp.Tests.csproj" />
+  </Folder>
+</Solution>
