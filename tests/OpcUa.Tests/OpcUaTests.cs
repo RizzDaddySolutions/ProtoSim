@@ -110,6 +110,16 @@ public sealed class ServerFixture : IAsyncLifetime
         l.Stop();
         return port;
     }
+
+    ValueTask IAsyncLifetime.InitializeAsync()
+    {
+        return new ValueTask(InitializeAsync());
+    }
+
+    ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        return new ValueTask(DisposeAsync());
+    }
 }
 
 public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixture>
@@ -121,7 +131,7 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     public async Task Browse_ShowsTagHierarchy()
     {
         await using var client = fx.NewClient();
-        var r = await client.ExecuteAsync(Req(OpcUaOperation.Browse));
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Browse), TestContext.Current.CancellationToken);
         Assert.True(r.Success, r.Message);
         var level = Assert.Single(r.Rows, row => row.Raw == "ns=2;s=Plant/Tank1/Level");
         Assert.Equal(ValueConverter.Format(fx.Level.Read()), level.Value); // other tests change the value
@@ -136,7 +146,7 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     {
         await using var client = fx.NewClient();
         fx.Level.Write(77.25);
-        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"));
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"), TestContext.Current.CancellationToken);
         Assert.True(r.Success, r.Message);
         Assert.Equal("77.25", Assert.Single(r.Rows).Value);
         Assert.StartsWith("Good · Double", r.Rows[0].Raw);
@@ -146,7 +156,7 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     public async Task Write_UpdatesModel()
     {
         await using var client = fx.NewClient();
-        var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Level", "55.5"));
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Level", "55.5"), TestContext.Current.CancellationToken);
         Assert.True(r.Success, r.Message);
         Assert.Equal(55.5, fx.Setpoint.Read());
     }
@@ -155,7 +165,7 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     public async Task Write_WrongType_Fails()
     {
         await using var client = fx.NewClient();
-        var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Level", "not a number"));
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Level", "not a number"), TestContext.Current.CancellationToken);
         Assert.False(r.Success);
     }
 
@@ -164,17 +174,17 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     {
         await using var client = fx.NewClient();
         var req = Req(OpcUaOperation.Subscribe, "ns=2;s=Plant/Tank1/Level");
-        await client.ExecuteAsync(req);
+        await client.ExecuteAsync(req, TestContext.Current.CancellationToken);
 
         fx.Level.Write(1.0);
-        await Task.Delay(400);
+        await Task.Delay(400, TestContext.Current.CancellationToken);
         fx.Level.Write(2.0);
 
         string? last = null;
         for (int i = 0; i < 30 && last != "2"; i++)
         {
-            await Task.Delay(100);
-            var r = await client.ExecuteAsync(req);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            var r = await client.ExecuteAsync(req, TestContext.Current.CancellationToken);
             Assert.True(r.Success, r.Message);
             last = r.Rows[0].Value;
         }
@@ -187,11 +197,11 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
         await using var client = fx.NewClient();
         var temp = fx.Model.Bind("Dynamic/Temp", TagDataType.Int32, WordOrder.ABCD);
         temp.Write(7);
-        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Dynamic/Temp"));
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Dynamic/Temp"), TestContext.Current.CancellationToken);
         Assert.Equal("7", Assert.Single(r.Rows).Value);
 
         temp.Dispose();
-        r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Dynamic/Temp"));
+        r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Dynamic/Temp"), TestContext.Current.CancellationToken);
         Assert.StartsWith("BadNodeIdUnknown", Assert.Single(r.Rows).Raw);
     }
 
@@ -200,11 +210,11 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     {
         await using (var good = fx.NewClient(s => { s.UserName = "operator"; s.Password = "secret"; }))
         {
-            var r = await good.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"));
+            var r = await good.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"), TestContext.Current.CancellationToken);
             Assert.True(r.Success, r.Message);
         }
         await using var bad = fx.NewClient(s => { s.UserName = "operator"; s.Password = "nope"; });
-        var fail = await bad.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"));
+        var fail = await bad.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"), TestContext.Current.CancellationToken);
         Assert.False(fail.Success);
     }
 
@@ -212,7 +222,7 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     public async Task SecureConnection_Works()
     {
         await using var client = fx.NewClient(s => s.UseSecurity = true);
-        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"));
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"), TestContext.Current.CancellationToken);
         Assert.True(r.Success, r.Message);
     }
 
@@ -220,11 +230,11 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     public async Task FaultInjection_ErrorResponse()
     {
         await using var client = fx.NewClient();
-        await client.ConnectAsync();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
         fx.Faults.ErrorResponsePercent = 100;
         try
         {
-            var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"));
+            var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"), TestContext.Current.CancellationToken);
             Assert.False(r.Success);
             Assert.Contains("BadInternalError", r.Message);
         }
@@ -238,7 +248,7 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
     public async Task ConnectionsAndStatistics_AreTracked()
     {
         await using var client = fx.NewClient();
-        await client.ConnectAsync();
+        await client.ConnectAsync(TestContext.Current.CancellationToken);
         Assert.Contains(fx.Server.GetConnections(), c => c.RemoteEndPoint.Contains("ProtoSim client"));
         Assert.True(fx.Stats.ActiveConnections >= 1);
         Assert.True(fx.Stats.Requests > 0);
