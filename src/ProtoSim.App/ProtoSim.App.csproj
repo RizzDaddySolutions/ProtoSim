@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -8,7 +8,12 @@
     <AssemblyName>ProtoSim</AssemblyName>
     <!-- Fluent ThemeMode APIs are flagged experimental. -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="icon.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ProtoSim.Core\ProtoSim.Core.csproj" />

@@ -1,0 +1,66 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="120" x2="392" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="packet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#BAE6FD"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020817" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect x="32" y="32" width="448" height="448" rx="110" fill="url(#bg)"/>
+  <rect x="56" y="56" width="400" height="400" rx="86" fill="#0B1220" stroke="rgba(148,163,184,0.22)"/>
+
+  <!-- Outer network -->
+  <g opacity="0.9" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120 180C150 142 197 120 256 120C315 120 362 142 392 180"/>
+    <path d="M120 332C150 370 197 392 256 392C315 392 362 370 392 332"/>
+    <path d="M180 128L118 242L180 384"/>
+    <path d="M332 128L394 242L332 384"/>
+  </g>
+
+  <!-- Central node -->
+  <g filter="url(#shadow)">
+    <circle cx="256" cy="256" r="86" fill="#0F172A" stroke="url(#accent)" stroke-width="10"/>
+    <circle cx="256" cy="256" r="48" fill="url(#accent)" opacity="0.18"/>
+    <path d="M233 256L249 240L283 256L249 272L233 256Z" fill="url(#accent)"/>
+    <path d="M256 209V233M256 279V303M209 256H233M279 256H303" stroke="url(#accent)" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <!-- Connected nodes -->
+  <g>
+    <circle cx="120" cy="180" r="24" fill="#0F172A" stroke="#7DD3FC" stroke-width="6"/>
+    <circle cx="120" cy="332" r="24" fill="#0F172A" stroke="#7DD3FC" stroke-width="6"/>
+    <circle cx="392" cy="180" r="24" fill="#0F172A" stroke="#7DD3FC" stroke-width="6"/>
+    <circle cx="392" cy="332" r="24" fill="#0F172A" stroke="#7DD3FC" stroke-width="6"/>
+    <circle cx="180" cy="128" r="20" fill="#0F172A" stroke="#34D399" stroke-width="6"/>
+    <circle cx="180" cy="384" r="20" fill="#0F172A" stroke="#34D399" stroke-width="6"/>
+    <circle cx="332" cy="128" r="20" fill="#0F172A" stroke="#34D399" stroke-width="6"/>
+    <circle cx="332" cy="384" r="20" fill="#0F172A" stroke="#34D399" stroke-width="6"/>
+  </g>
+
+  <!-- Packet flow -->
+  <g>
+    <path d="M170 256H247" stroke="url(#packet)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M265 256H342" stroke="url(#packet)" stroke-width="12" stroke-linecap="round"/>
+    <rect x="206" y="236" width="60" height="40" rx="12" fill="url(#packet)" opacity="0.9"/>
+    <rect x="246" y="236" width="60" height="40" rx="12" fill="url(#packet)" opacity="0.75"/>
+    <path d="M246 236L238 220L224 236" stroke="#E2E8F0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Signal lines -->
+  <g opacity="0.7" stroke="#93C5FD" stroke-width="4" stroke-linecap="round">
+    <path d="M95 180H75M95 332H75M417 180H437M417 332H437M180 95V75M180 417V437M332 95V75M332 417V437"/>
+  </g>
+</svg>
