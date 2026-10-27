@@ -13,34 +13,17 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    private bool _shutdownStarted;
-
     protected override async void OnClosing(CancelEventArgs e)
     {
-        if (_shutdownStarted)
-        {
-            e.Cancel = true;
-            return;
-        }
+        base.OnClosing(e);
+        if (_shutdownComplete || DataContext is not MainViewModel vm) return;
 
-        _shutdownStarted = true;
+        // Stop servers and close sockets cleanly before the process exits.
         e.Cancel = true;
         IsEnabled = false;
-
-        try
-        {
-            if (DataContext is MainViewModel vm)
-                await vm.ShutdownAsync();
-        }
-        catch
-        {
-            // exiting anyway
-        }
-
-        // Do not call Close() from inside OnClosing.
-        await Application.Current.Dispatcher.BeginInvoke(() =>
-        {
-            Application.Current.Shutdown();
-        });
+        try { await vm.ShutdownAsync(); }
+        catch (Exception) { /* exiting anyway */ }
+        _shutdownComplete = true;
+        Close();
     }
 }
