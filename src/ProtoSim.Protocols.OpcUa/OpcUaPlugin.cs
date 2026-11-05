@@ -8,14 +8,9 @@ public sealed class OpcUaPlugin : IProtocolPlugin
 {
     public string Id => "opc-ua";
     public string DisplayName => "OPC UA";
-    public string Description => "OPC UA server (opc.tcp, None/Sign/SignAndEncrypt, anonymous or user login) with live variables, plus a client for browse, read, write and subscriptions.";
-
-    public bool SupportsServer => true;
-    public bool SupportsClient => true;
+    public string Description => "OPC UA server (opc.tcp, None/Sign/SignAndEncrypt, anonymous or user login) with live variables that clients can browse, read, write and subscribe to.";
 
     public Type ServerSettingsType => typeof(OpcUaServerSettings);
-    public Type ClientSettingsType => typeof(OpcUaClientSettings);
-    public Type ClientRequestType => typeof(OpcUaClientRequest);
 
     public string AddressHelp =>
         "Folder path such as Plant/Tank1/Level. It appears under Objects/<root folder> with NodeId ns=2;s=Plant/Tank1/Level. Folders are created automatically. Word order is ignored.";
@@ -30,19 +25,10 @@ public sealed class OpcUaPlugin : IProtocolPlugin
         return new OpcUaServerSettings { Port = port };
     }
 
-    public object CreateClientSettings() => new OpcUaClientSettings();
-
-    public object CreateClientSettingsFor(object serverSettings) =>
-        new OpcUaClientSettings { EndpointUrl = OpcUaServer.BuildEndpointUrl((OpcUaServerSettings)serverSettings) };
-    public object CreateClientRequest() => new OpcUaClientRequest();
-
     public IDeviceDataModel CreateDataModel(object serverSettings) => new OpcUaDataModel();
 
     public IProtocolServer CreateServer(object serverSettings, IDeviceDataModel dataModel, ServerContext context) =>
         new OpcUaServer((OpcUaServerSettings)serverSettings, (OpcUaDataModel)dataModel, context);
-
-    public IProtocolClient CreateClient(object clientSettings, ClientContext context) =>
-        new OpcUaClient((OpcUaClientSettings)clientSettings, context);
 
     public IEnumerable<SimTag> CreateSampleTags()
     {
@@ -76,6 +62,4 @@ public sealed class OpcUaPlugin : IProtocolPlugin
     }
 
     public string DescribeServer(object serverSettings) => OpcUaServer.BuildEndpointUrl((OpcUaServerSettings)serverSettings);
-
-    public string DescribeClient(object clientSettings) => ((OpcUaClientSettings)clientSettings).EndpointUrl;
 }

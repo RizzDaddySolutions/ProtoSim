@@ -8,14 +8,9 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
 {
     public string Id => "modbus-tcp";
     public string DisplayName => "Modbus TCP";
-    public string Description => "Modbus TCP/IP server (slave) and client (master). Function codes 1-6, 8, 15, 16, 22, 23 and 43/14.";
-
-    public bool SupportsServer => true;
-    public bool SupportsClient => true;
+    public string Description => "Simulated Modbus TCP/IP server (slave). Function codes 1-6, 8, 15, 16, 22, 23 and 43/14.";
 
     public Type ServerSettingsType => typeof(ModbusServerSettings);
-    public Type ClientSettingsType => typeof(ModbusClientSettings);
-    public Type ClientRequestType => typeof(ModbusClientRequest);
 
     public string AddressHelp => ModbusAddress.Help;
 
@@ -29,19 +24,10 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
         return new ModbusServerSettings { Port = port };
     }
 
-    public object CreateClientSettings() => new ModbusClientSettings();
-
-    public object CreateClientSettingsFor(object serverSettings) =>
-        new ModbusClientSettings { Host = "127.0.0.1", Port = ((ModbusServerSettings)serverSettings).Port };
-    public object CreateClientRequest() => new ModbusClientRequest();
-
     public IDeviceDataModel CreateDataModel(object serverSettings) => new ModbusDataModel((ModbusServerSettings)serverSettings);
 
     public IProtocolServer CreateServer(object serverSettings, IDeviceDataModel dataModel, ServerContext context) =>
         new ModbusTcpServer((ModbusServerSettings)serverSettings, (ModbusDataModel)dataModel, context);
-
-    public IProtocolClient CreateClient(object clientSettings, ClientContext context) =>
-        new ModbusTcpClient((ModbusClientSettings)clientSettings, context);
 
     public IEnumerable<SimTag> CreateSampleTags()
     {
@@ -78,11 +64,5 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
     {
         var s = (ModbusServerSettings)serverSettings;
         return $"{s.BindAddress}:{s.Port} · unit {s.UnitIds}";
-    }
-
-    public string DescribeClient(object clientSettings)
-    {
-        var s = (ModbusClientSettings)clientSettings;
-        return $"{s.Host}:{s.Port}";
     }
 }

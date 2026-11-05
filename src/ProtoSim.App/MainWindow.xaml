@@ -18,9 +18,6 @@
         <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
             <views:DeviceView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ClientViewModel}">
-            <views:ClientView />
-        </DataTemplate>
 
         <Style x:Key="PluginMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
             <Setter Property="Header" Value="{Binding DisplayName}" />
@@ -41,9 +38,8 @@
             </MenuItem>
             <MenuItem Header="_Simulation">
                 <MenuItem Header="Add _device" ItemsSource="{Binding AddDeviceActions}" ItemContainerStyle="{StaticResource PluginMenuItem}" />
-                <MenuItem Header="Add _client" ItemsSource="{Binding AddClientActions}" ItemContainerStyle="{StaticResource PluginMenuItem}" />
                 <MenuItem Header="D_uplicate device" Command="{Binding DuplicateSelectedCommand}" />
-                <MenuItem Header="_Remove selected" Command="{Binding RemoveSelectedCommand}" />
+                <MenuItem Header="_Remove device" Command="{Binding RemoveSelectedCommand}" />
                 <Separator />
                 <MenuItem Header="_Start all devices" Command="{Binding StartAllCommand}" InputGestureText="F5" />
                 <MenuItem Header="S_top all devices" Command="{Binding StopAllCommand}" InputGestureText="Shift+F5" />
@@ -75,9 +71,7 @@
             <Grid Margin="12,12,6,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="3*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
@@ -117,42 +111,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <DockPanel Grid.Row="2" Margin="4,14,0,6">
-                    <Menu DockPanel.Dock="Right" Background="Transparent">
-                        <MenuItem ToolTip="Add a client (master) session" ItemsSource="{Binding AddClientActions}" ItemContainerStyle="{StaticResource PluginMenuItem}">
-                            <MenuItem.Header>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                                    <TextBlock Text="Add" />
-                                </StackPanel>
-                            </MenuItem.Header>
-                        </MenuItem>
-                    </Menu>
-                    <TextBlock Text="CLIENT SESSIONS" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
-                </DockPanel>
-
-                <ListBox Grid.Row="3" ItemsSource="{Binding Clients}" SelectedItem="{Binding SelectedClient}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:ClientViewModel}">
-                            <Grid Margin="2,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Ellipse Style="{StaticResource StatusDot}" Fill="{Binding IsConnected, Converter={StaticResource StateToBrush}}" Margin="0,0,10,0" />
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Style="{StaticResource Caption}">
-                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" → " /><Run Text="{Binding Endpoint, Mode=OneWay}" />
-                                    </TextBlock>
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-
-                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,12,0,0">
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
                     <Button Command="{Binding StartAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Start all devices (F5)">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
@@ -165,7 +124,7 @@
                             <TextBlock Text="Stop all" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove selected device or client">
+                    <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove selected device">
                         <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
                     </Button>
                 </StackPanel>
@@ -189,7 +148,7 @@
                                                                Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
                                                     <TextBlock Text="ProtoSim" Style="{StaticResource PageTitle}" />
                                                     <TextBlock TextWrapping="Wrap" Margin="0,8,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                               Text="Simulate devices that answer real protocol clients (SCADA, HMI, PLC programs), and test devices with built-in client sessions. Add a device or client from the left panel, or start with a ready-made demo." />
+                                                               Text="Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to. Add a device from the left panel, or start with a ready-made demo." />
                                                     <StackPanel Orientation="Horizontal">
                                                         <ItemsControl ItemsSource="{Binding DataContext.DemoActions, RelativeSource={RelativeSource AncestorType=Window}}" Focusable="False">
                                                             <ItemsControl.ItemsPanel>

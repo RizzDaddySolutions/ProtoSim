@@ -69,20 +69,4 @@ internal static class OpcUaConfiguration
         TagDataType.Float64 => DataTypeIds.Double,
         _ => DataTypeIds.String,
     };
-
-    /// <summary>Maps an OPC UA built-in type to the closest tag type (null when not a simple scalar).</summary>
-    public static TagDataType? TagType(BuiltInType type) => type switch
-    {
-        BuiltInType.Boolean => TagDataType.Bool,
-        BuiltInType.SByte or BuiltInType.Int16 => TagDataType.Int16,
-        BuiltInType.Byte or BuiltInType.UInt16 => TagDataType.UInt16,
-        BuiltInType.Int32 => TagDataType.Int32,
-        BuiltInType.UInt32 => TagDataType.UInt32,
-        BuiltInType.Int64 => TagDataType.Int64,
-        BuiltInType.UInt64 => TagDataType.UInt64,
-        BuiltInType.Float => TagDataType.Float32,
-        BuiltInType.Double => TagDataType.Float64,
-        BuiltInType.String => TagDataType.String,
-        _ => null,
-    };
 }

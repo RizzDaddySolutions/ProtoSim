@@ -5,12 +5,19 @@ using Opc.Ua.Client;
 using Opc.Ua.Configuration;
 using ProtoSim.Core.Data;
 using ProtoSim.Core.Diagnostics;
-using ProtoSim.Core.Protocols;
+using ProtoSim.Protocols.OpcUa;
 
-namespace ProtoSim.Protocols.OpcUa;
+namespace ProtoSim.OpcUa.Tests;
 
-/// <summary>OPC UA client session: browse, read, write and subscribe.</summary>
-public sealed class OpcUaClient(OpcUaClientSettings settings, ClientContext context) : IProtocolClient
+public sealed record ClientResultRow(string Address, string Raw, string Value);
+
+public sealed record ClientResult(bool Success, string Message, IReadOnlyList<ClientResultRow> Rows, TimeSpan Elapsed)
+{
+    public static ClientResult Fail(string message, TimeSpan elapsed) => new(false, message, [], elapsed);
+}
+
+/// <summary>OPC UA client used by the tests to exercise the simulated server: browse, read, write and subscribe.</summary>
+public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentDictionary<string, (DataValue Value, long Updates)> _subscriptionValues = new();
@@ -21,7 +28,7 @@ public sealed class OpcUaClient(OpcUaClientSettings settings, ClientContext cont
 
     public bool IsConnected => _session?.Connected == true;
 
-    private ITrafficLog Log => context.Log;
+    private ITrafficLog Log { get; } = new TrafficLog();
     private string Remote => settings.EndpointUrl;
 
     // The OPC UA stack does blocking work (certificates, sockets) and must not run on a UI thread.
@@ -209,7 +216,7 @@ public sealed class OpcUaClient(OpcUaClientSettings settings, ClientContext cont
         {
             var text = texts.Length == 1 ? texts[0] : texts[i];
             var builtIn = current[i].WrappedValue.TypeInfo?.BuiltInType ?? BuiltInType.String;
-            var tagType = OpcUaConfiguration.TagType(builtIn)
+            var tagType = TagType(builtIn)
                 ?? throw new FormatException($"{ids[i]} has type {builtIn}, which this client cannot write.");
             object value = ValueConverter.Parse(text, tagType);
             value = builtIn switch
@@ -353,4 +360,20 @@ public sealed class OpcUaClient(OpcUaClientSettings settings, ClientContext cont
                 : new ClientResultRow(name, "waiting for first notification", "");
         }).ToList();
     }
+
+    /// <summary>Maps an OPC UA built-in type to the closest tag type (null when not a simple scalar).</summary>
+    private static TagDataType? TagType(BuiltInType type) => type switch
+    {
+        BuiltInType.Boolean => TagDataType.Bool,
+        BuiltInType.SByte or BuiltInType.Int16 => TagDataType.Int16,
+        BuiltInType.Byte or BuiltInType.UInt16 => TagDataType.UInt16,
+        BuiltInType.Int32 => TagDataType.Int32,
+        BuiltInType.UInt32 => TagDataType.UInt32,
+        BuiltInType.Int64 => TagDataType.Int64,
+        BuiltInType.UInt64 => TagDataType.UInt64,
+        BuiltInType.Float => TagDataType.Float32,
+        BuiltInType.Double => TagDataType.Float64,
+        BuiltInType.String => TagDataType.String,
+        _ => null,
+    };
 }

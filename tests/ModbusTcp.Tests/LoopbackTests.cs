@@ -6,7 +6,7 @@ using ProtoSim.Protocols.ModbusTcp;
 
 namespace ProtoSim.ModbusTcp.Tests;
 
-/// <summary>End-to-end tests: the simulator's server and client talking over a real loopback socket.</summary>
+/// <summary>End-to-end tests: the simulated server talking to a test client over a real loopback socket.</summary>
 public sealed class LoopbackTests : IAsyncLifetime
 {
     private readonly ModbusServerSettings _serverSettings = new() { BindAddress = "127.0.0.1", Port = 0, UnitIds = "1,5-6" };
@@ -15,21 +15,17 @@ public sealed class LoopbackTests : IAsyncLifetime
     private readonly TrafficLog _log = new();
     private ModbusDataModel _model = null!;
     private ModbusTcpServer _server = null!;
-    private ModbusTcpClient _client = null!;
+    private TestModbusClient _client = null!;
 
-    [Fact]
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _model = new ModbusDataModel(_serverSettings);
         _server = new ModbusTcpServer(_serverSettings, _model, new ServerContext(_log, _faults, _stats));
         await _server.StartAsync(TestContext.Current.CancellationToken);
-        _client = new ModbusTcpClient(
-            new ModbusClientSettings { Host = "127.0.0.1", Port = _server.LocalEndPoint!.Port, ResponseTimeoutMs = 500 },
-            new ClientContext(new TrafficLog()));
+        _client = new TestModbusClient(new TestModbusClientSettings { Port = _server.LocalEndPoint!.Port, ResponseTimeoutMs = 500 });
     }
 
-    [Fact]
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _client.DisposeAsync();
         await _server.DisposeAsync();
@@ -95,32 +91,19 @@ public sealed class LoopbackTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GenericExecute_DecodesFloats()
+    public async Task TagValues_UseConfiguredWordOrder()
     {
         _model.Bind("HR:50", TagDataType.Float32, WordOrder.CDAB).Write(12.5f);
-        var result = await _client.ExecuteAsync(new ModbusClientRequest
-        {
-            Function = ModbusClientFunction.ReadHoldingRegisters,
-            Address = 50,
-            Quantity = 2,
-            DataType = TagDataType.Float32,
-            WordOrder = WordOrder.CDAB,
-        }, TestContext.Current.CancellationToken);
-        Assert.True(result.Success, result.Message);
-        Assert.Equal("12.5", Assert.Single(result.Rows).Value);
+        var words = await _client.ReadHoldingRegistersAsync(1, 50, 2, TestContext.Current.CancellationToken);
+        Assert.Equal(12.5f, RegisterCodec.Decode(words, TagDataType.Float32, WordOrder.CDAB));
     }
 
     [Fact]
-    public async Task GenericExecute_WritesTypedValues()
+    public async Task RemoteWrites_UpdateTags()
     {
-        var result = await _client.ExecuteAsync(new ModbusClientRequest
-        {
-            Function = ModbusClientFunction.WriteMultipleRegisters,
-            Address = 0,
-            Values = "-1, 70000",
-            DataType = TagDataType.Int32,
-        }, TestContext.Current.CancellationToken);
-        Assert.True(result.Success, result.Message);
+        var words = RegisterCodec.Encode(-1, TagDataType.Int32, WordOrder.ABCD)
+            .Concat(RegisterCodec.Encode(70000, TagDataType.Int32, WordOrder.ABCD)).ToArray();
+        await _client.WriteMultipleRegistersAsync(1, 0, words, TestContext.Current.CancellationToken);
         Assert.Equal(-1, _model.Bind("HR:0", TagDataType.Int32, WordOrder.ABCD).Read());
         Assert.Equal(70000, _model.Bind("HR:2", TagDataType.Int32, WordOrder.ABCD).Read());
     }
@@ -149,15 +132,5 @@ public sealed class LoopbackTests : IAsyncLifetime
         Assert.Equal(ServerState.Stopped, _server.State);
         await _server.StartAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ServerState.Running, _server.State);
-    }
-
-    ValueTask IAsyncLifetime.InitializeAsync()
-    {
-        throw new NotImplementedException();
-    }
-
-    ValueTask IAsyncDisposable.DisposeAsync()
-    {
-        throw new NotImplementedException();
     }
 }

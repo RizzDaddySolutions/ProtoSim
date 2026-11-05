@@ -95,11 +95,11 @@ public sealed class ServerFixture : IAsyncLifetime
 
     public string Url => $"opc.tcp://localhost:{Settings.Port}";
 
-    public OpcUaClient NewClient(Action<OpcUaClientSettings>? configure = null)
+    public TestOpcUaClient NewClient(Action<OpcUaClientSettings>? configure = null)
     {
         var s = new OpcUaClientSettings { EndpointUrl = Url, OperationTimeoutMs = 10_000 };
         configure?.Invoke(s);
-        return new OpcUaClient(s, new ClientContext(new TrafficLog()));
+        return new TestOpcUaClient(s);
     }
 
     private static int FreePort()

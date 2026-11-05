@@ -8,7 +8,7 @@ namespace ProtoSim.Core.Protocols;
 /// <summary>
 /// Entry point for a protocol. Implement this in a class library referencing ProtoSim.Core
 /// and drop the DLL in the app's Plugins folder to add a new protocol.
-/// Settings and request objects are plain classes; the UI edits their public properties
+/// Settings objects are plain classes; the UI edits their public properties
 /// (honouring [Display], [Range] and [Browsable(false)]) and persists them as JSON.
 /// </summary>
 public interface IProtocolPlugin
@@ -18,12 +18,7 @@ public interface IProtocolPlugin
     string DisplayName { get; }
     string Description { get; }
 
-    bool SupportsServer { get; }
-    bool SupportsClient { get; }
-
     Type ServerSettingsType { get; }
-    Type ClientSettingsType { get; }
-    Type ClientRequestType { get; }
 
     /// <summary>Help text describing the tag address syntax.</summary>
     string AddressHelp { get; }
@@ -33,20 +28,13 @@ public interface IProtocolPlugin
 
     /// <summary>Creates settings for a new device; <paramref name="existing"/> lets the plugin avoid e.g. port clashes.</summary>
     object CreateServerSettings(IEnumerable<object> existing);
-    object CreateClientSettings();
-
-    /// <summary>Client settings that connect to a simulated device with the given server settings (used by demos).</summary>
-    object CreateClientSettingsFor(object serverSettings);
-    object CreateClientRequest();
 
     IDeviceDataModel CreateDataModel(object serverSettings);
     IProtocolServer CreateServer(object serverSettings, IDeviceDataModel dataModel, ServerContext context);
-    IProtocolClient CreateClient(object clientSettings, ClientContext context);
 
     IEnumerable<SimTag> CreateSampleTags();
 
     string DescribeServer(object serverSettings);
-    string DescribeClient(object clientSettings);
 }
 
 public enum ServerState
@@ -61,8 +49,6 @@ public enum ServerState
 /// <summary>Services a server receives from the host. Statistics and faults persist across restarts.</summary>
 public sealed record ServerContext(ITrafficLog Log, FaultSettings Faults, ServerStatistics Statistics);
 
-public sealed record ClientContext(ITrafficLog Log);
-
 /// <summary>A running (or startable) protocol server/slave/outstation.</summary>
 public interface IProtocolServer : IAsyncDisposable
 {
@@ -75,22 +61,6 @@ public interface IProtocolServer : IAsyncDisposable
 
     IReadOnlyList<ConnectionInfo> GetConnections();
     void DropConnection(long connectionId);
-}
-
-/// <summary>A protocol client/master. Requests are plugin-defined objects edited in the UI.</summary>
-public interface IProtocolClient : IAsyncDisposable
-{
-    bool IsConnected { get; }
-    Task ConnectAsync(CancellationToken cancellationToken = default);
-    Task DisconnectAsync();
-    Task<ClientResult> ExecuteAsync(object request, CancellationToken cancellationToken = default);
-}
-
-public sealed record ClientResultRow(string Address, string Raw, string Value);
-
-public sealed record ClientResult(bool Success, string Message, IReadOnlyList<ClientResultRow> Rows, TimeSpan Elapsed)
-{
-    public static ClientResult Fail(string message, TimeSpan elapsed) => new(false, message, [], elapsed);
 }
 
 public sealed class ConnectionInfo

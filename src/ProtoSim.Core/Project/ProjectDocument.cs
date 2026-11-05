@@ -11,7 +11,7 @@ public sealed class ProjectDocument
 {
     public int Version { get; set; } = 1;
     public List<DeviceDocument> Devices { get; set; } = [];
-    public List<ClientDocument> Clients { get; set; } = [];
+    // Older files may also contain a "clients" list; it is ignored when loading.
 }
 
 public sealed class DeviceDocument
@@ -70,15 +70,6 @@ public sealed class TagDocument
         Description = Description,
         Simulation = Simulation.Clone(),
     };
-}
-
-public sealed class ClientDocument
-{
-    public string PluginId { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public JsonElement? Settings { get; set; }
-    public JsonElement? Request { get; set; }
-    public int PollIntervalMs { get; set; } = 1000;
 }
 
 public static class ProjectSerializer

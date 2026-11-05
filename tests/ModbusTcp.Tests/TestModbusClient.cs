@@ -1,28 +1,34 @@
 using System.Buffers.Binary;
-using System.Diagnostics;
-using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
-using ProtoSim.Core.Data;
 using ProtoSim.Core.Diagnostics;
-using ProtoSim.Core.Protocols;
+using ProtoSim.Protocols.ModbusTcp;
 
-namespace ProtoSim.Protocols.ModbusTcp;
+namespace ProtoSim.ModbusTcp.Tests;
 
-/// <summary>Modbus TCP client (master) with typed helpers and a generic request executor for the UI.</summary>
-public sealed class ModbusTcpClient : IProtocolClient
+public sealed class TestModbusClientSettings
 {
-    private readonly ModbusClientSettings _settings;
+    public string Host { get; set; } = "127.0.0.1";
+    public int Port { get; set; } = 502;
+    public int ConnectTimeoutMs { get; set; } = 3000;
+    public int ResponseTimeoutMs { get; set; } = 1000;
+    public int Retries { get; set; }
+}
+
+/// <summary>Minimal Modbus TCP client (master) used by the tests to exercise the simulated server over a real socket.</summary>
+public sealed class TestModbusClient : IAsyncDisposable
+{
+    private readonly TestModbusClientSettings _settings;
     private readonly ITrafficLog _log;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private TcpClient? _tcp;
     private NetworkStream? _stream;
     private ushort _transactionId;
 
-    public ModbusTcpClient(ModbusClientSettings settings, ClientContext context)
+    public TestModbusClient(TestModbusClientSettings settings)
     {
         _settings = settings;
-        _log = context.Log;
+        _log = new TrafficLog();
     }
 
     public bool IsConnected => _tcp?.Connected == true;
@@ -303,145 +309,5 @@ public sealed class ModbusTcpClient : IProtocolClient
             next = resp[5];
         }
         return result;
-    }
-
-    // ---- Generic executor used by the UI ----
-
-    public async Task<ClientResult> ExecuteAsync(object request, CancellationToken cancellationToken = default)
-    {
-        var r = (ModbusClientRequest)request;
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            var rows = await ExecuteCoreAsync(r, cancellationToken);
-            return new ClientResult(true, $"{r.Function}: OK ({rows.Count} rows)", rows, sw.Elapsed);
-        }
-        catch (ModbusException ex)
-        {
-            return ClientResult.Fail($"Exception {(byte)ex.Code:X2}: {ModbusNames.Describe(ex.Code)}", sw.Elapsed);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return ClientResult.Fail(ex.Message, sw.Elapsed);
-        }
-    }
-
-    private async Task<IReadOnlyList<ClientResultRow>> ExecuteCoreAsync(ModbusClientRequest r, CancellationToken ct)
-    {
-        byte unit = (byte)Math.Clamp(r.UnitId, 0, 255);
-        ushort addr = (ushort)Math.Clamp(r.Address, 0, 65535);
-        ushort qty = (ushort)Math.Clamp(r.Quantity, 1, 2000);
-
-        switch (r.Function)
-        {
-            case ModbusClientFunction.ReadCoils:
-                return BitRows(ModbusAreaKind.Coils, addr, await ReadCoilsAsync(unit, addr, qty, ct));
-            case ModbusClientFunction.ReadDiscreteInputs:
-                return BitRows(ModbusAreaKind.DiscreteInputs, addr, await ReadDiscreteInputsAsync(unit, addr, qty, ct));
-            case ModbusClientFunction.ReadHoldingRegisters:
-                return RegisterRows(ModbusAreaKind.HoldingRegisters, addr, await ReadHoldingRegistersAsync(unit, addr, qty, ct), r);
-            case ModbusClientFunction.ReadInputRegisters:
-                return RegisterRows(ModbusAreaKind.InputRegisters, addr, await ReadInputRegistersAsync(unit, addr, qty, ct), r);
-
-            case ModbusClientFunction.WriteSingleCoil:
-            {
-                var v = (bool)ValueConverter.Parse(FirstValue(r.Values), TagDataType.Bool);
-                await WriteSingleCoilAsync(unit, addr, v, ct);
-                return BitRows(ModbusAreaKind.Coils, addr, [v]);
-            }
-            case ModbusClientFunction.WriteSingleRegister:
-            {
-                var words = RegisterCodec.Encode(ValueConverter.Parse(FirstValue(r.Values), r.DataType == TagDataType.Int16 ? TagDataType.Int16 : TagDataType.UInt16), TagDataType.UInt16, WordOrder.ABCD);
-                await WriteSingleRegisterAsync(unit, addr, words[0], ct);
-                return RegisterRows(ModbusAreaKind.HoldingRegisters, addr, words, new ModbusClientRequest { DataType = TagDataType.UInt16 });
-            }
-            case ModbusClientFunction.WriteMultipleCoils:
-            {
-                var bits = SplitValues(r.Values).Select(v => (bool)ValueConverter.Parse(v, TagDataType.Bool)).ToArray();
-                if (bits.Length == 0) throw new FormatException("Enter at least one value.");
-                await WriteMultipleCoilsAsync(unit, addr, bits, ct);
-                return BitRows(ModbusAreaKind.Coils, addr, bits);
-            }
-            case ModbusClientFunction.WriteMultipleRegisters:
-            {
-                var words = EncodeValues(r);
-                await WriteMultipleRegistersAsync(unit, addr, words, ct);
-                return RegisterRows(ModbusAreaKind.HoldingRegisters, addr, words, r);
-            }
-            case ModbusClientFunction.MaskWriteRegister:
-            {
-                var parts = SplitValues(r.Values);
-                if (parts.Length != 2) throw new FormatException("Enter AND mask and OR mask, e.g. 0xFF00,0x0012.");
-                var and = (ushort)ValueConverter.Parse(parts[0], TagDataType.UInt16);
-                var or = (ushort)ValueConverter.Parse(parts[1], TagDataType.UInt16);
-                await MaskWriteRegisterAsync(unit, addr, and, or, ct);
-                return [new ClientResultRow(Format(ModbusAreaKind.HoldingRegisters, addr), $"AND 0x{and:X4} OR 0x{or:X4}", "Mask applied")];
-            }
-            case ModbusClientFunction.ReadWriteMultipleRegisters:
-            {
-                var words = EncodeValues(r);
-                var regs = await ReadWriteMultipleRegistersAsync(unit, addr, (ushort)Math.Min((int)qty, ModbusLimits.MaxReadRegisters), (ushort)Math.Clamp(r.WriteAddress, 0, 65535), words, ct);
-                return RegisterRows(ModbusAreaKind.HoldingRegisters, addr, regs, r);
-            }
-            case ModbusClientFunction.ReadDeviceIdentification:
-            {
-                var objects = await ReadDeviceIdentificationAsync(unit, 2, ct);
-                return objects.Select(o => new ClientResultRow($"Object {o.Id}", $"0x{o.Id:X2}", $"{ObjectName(o.Id)}: {o.Value}")).ToList();
-            }
-            default:
-                throw new NotSupportedException(r.Function.ToString());
-        }
-    }
-
-    private static string ObjectName(byte id) => id switch
-    {
-        0 => "VendorName",
-        1 => "ProductCode",
-        2 => "MajorMinorRevision",
-        3 => "VendorUrl",
-        4 => "ProductName",
-        5 => "ModelName",
-        6 => "UserApplicationName",
-        _ => "Object",
-    };
-
-    private static string[] SplitValues(string text) =>
-        (text ?? string.Empty).Split([',', ';', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-
-    private static string FirstValue(string text) =>
-        SplitValues(text).FirstOrDefault() ?? throw new FormatException("Enter a value to write.");
-
-    private static ushort[] EncodeValues(ModbusClientRequest r)
-    {
-        var values = SplitValues(r.Values);
-        if (values.Length == 0) throw new FormatException("Enter at least one value.");
-        var type = r.DataType == TagDataType.Bool ? TagDataType.UInt16 : r.DataType;
-        return values.SelectMany(v => RegisterCodec.Encode(ValueConverter.Parse(v, type), type, r.WordOrder)).ToArray();
-    }
-
-    private static string Format(ModbusAreaKind kind, int index) => $"{ModbusNames.Prefix(kind)}:{index} ({ModbusNames.Modicon(kind, index)})";
-
-    private static List<ClientResultRow> BitRows(ModbusAreaKind kind, int start, bool[] bits) =>
-        bits.Select((b, i) => new ClientResultRow(Format(kind, start + i), b ? "1" : "0", b ? "ON" : "OFF")).ToList();
-
-    private static List<ClientResultRow> RegisterRows(ModbusAreaKind kind, int start, ushort[] regs, ModbusClientRequest r)
-    {
-        var type = r.DataType == TagDataType.Bool ? TagDataType.UInt16 : r.DataType;
-        int n = RegisterCodec.WordCount(type);
-        var rows = new List<ClientResultRow>();
-        int i = 0;
-        for (; i + n <= regs.Length; i += n)
-        {
-            var slice = regs.AsSpan(i, n);
-            string raw = string.Join(" ", slice.ToArray().Select(w => $"0x{w:X4}"));
-            rows.Add(new ClientResultRow(Format(kind, start + i), raw, ValueConverter.Format(RegisterCodec.Decode(slice, type, r.WordOrder))));
-        }
-        for (; i < regs.Length; i++)
-            rows.Add(new ClientResultRow(Format(kind, start + i), $"0x{regs[i]:X4}", regs[i].ToString(CultureInfo.InvariantCulture)));
-        return rows;
     }
 }
