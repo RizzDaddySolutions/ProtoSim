@@ -222,14 +222,15 @@ public sealed class MainViewModel : ObservableObject
         IsLoadingProject = true;
         try
         {
-            var doc = await ProjectSerializer.LoadAsync(path).ConfigureAwait(true);
-            await Task.Yield();
+            // JSON parsing and deserialization can be substantial for large projects. Keep it
+            // off the dispatcher so the loading overlay can render and animate immediately.
+            var doc = await Task.Run(() => ProjectSerializer.LoadAsync(path)).ConfigureAwait(true);
             await ClearAsync();
             var missing = new List<string>();
 
             foreach (var dd in doc.Devices)
             {
-                await Task.Yield();
+                await Task.Delay(1);
                 var plugin = Catalog.Find(dd.PluginId);
                 if (plugin == null) { missing.Add(dd.PluginId); continue; }
                 var settings = ProjectSerializer.FromElement(dd.Settings, plugin.ServerSettingsType) ?? plugin.CreateServerSettings([]);
@@ -238,7 +239,9 @@ public sealed class MainViewModel : ObservableObject
                 var restoreValues = new List<(TagViewModel Tag, string Value)>();
                 foreach (var td in dd.Tags)
                 {
-                    if ((restoreValues.Count & 31) == 0) await Task.Yield();
+                    // Task.Yield alone can repeatedly resume before WPF gets a render pass.
+                    // A short real delay gives the dispatcher time to paint and animate the overlay.
+                    if ((restoreValues.Count & 15) == 0) await Task.Delay(1);
                     var tvm = device.AddTag(td.ToTag());
                     if (td.Value != null) restoreValues.Add((tvm, td.Value));
                 }
@@ -246,7 +249,10 @@ public sealed class MainViewModel : ObservableObject
                 {
                     if (!dd.Data.TryGetValue(area.ShortName, out var values)) continue;
                     foreach (var (index, value) in values)
+                    {
                         if (index >= 0 && index < area.Count) area.Write(index, value);
+                        if ((index & 255) == 0) await Task.Delay(1);
+                    }
                 }
                 foreach (var (tvm, value) in restoreValues) tvm.ValueText = value;
             }
