@@ -4,6 +4,17 @@
              xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
              xmlns:views="clr-namespace:ProtoSim.App.Views"
              xmlns:controls="clr-namespace:ProtoSim.App.Controls">
+    <UserControl.Resources>
+        <Style x:Key="TagGridComboBoxItem" TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        </Style>
+        <Style x:Key="TagGridComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TagGridComboBoxItem}" />
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -85,18 +96,18 @@
                                   Visibility="{Binding IsWord, Converter={StaticResource BoolToVisibility}}"
                                   PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=OneWay}" IsReadOnly="True" ElementStyle="{StaticResource MonoCell}" Width="110" />
-                                <DataGridTextColumn Header="Offset" Binding="{Binding Index, Mode=OneWay}" IsReadOnly="True" ElementStyle="{StaticResource MonoCell}" Width="90" />
-                                <DataGridTextColumn Header="Value (double-click to edit)" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="260" />
-                                <DataGridTextColumn Header="" Binding="{Binding Error, Mode=OneWay}" IsReadOnly="True" Foreground="#D83B3B" Width="*" />
+                            <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=OneWay}" IsReadOnly="True" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                            <DataGridTextColumn Header="Offset" Binding="{Binding Index, Mode=OneWay}" IsReadOnly="True" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                            <DataGridTextColumn Header="Value (double-click to edit)" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                            <DataGridTextColumn Header="" Binding="{Binding Error, Mode=OneWay}" IsReadOnly="True" Foreground="#D83B3B" Width="Auto" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <DataGrid ItemsSource="{Binding Rows}" RowStyle="{StaticResource ChangedRow}"
                                   Visibility="{Binding IsBit, Converter={StaticResource BoolToVisibility}}" IsReadOnly="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=OneWay}" ElementStyle="{StaticResource MonoCell}" Width="110" />
-                                <DataGridTextColumn Header="Offset" Binding="{Binding Index, Mode=OneWay}" ElementStyle="{StaticResource MonoCell}" Width="90" />
-                                <DataGridTemplateColumn Header="Value" Width="*">
+                            <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=OneWay}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                            <DataGridTextColumn Header="Offset" Binding="{Binding Index, Mode=OneWay}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                            <DataGridTemplateColumn Header="Value" Width="Auto">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
@@ -134,20 +145,20 @@
                     <DataGrid x:Name="TagGrid" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
                               PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding" FrozenColumnCount="1">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Tag.Name}" Width="150" />
-                            <DataGridTextColumn Header="Address" Binding="{Binding Tag.Address}" ElementStyle="{StaticResource MonoCell}" Width="180" />
-                            <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" Width="90" />
-                            <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" Width="80" />
-                            <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="120" />
-                            <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" Width="70" />
-                            <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" Width="115" />
-                            <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" Width="65" />
-                            <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" Width="65" />
-                            <DataGridTextColumn Header="Period (s)" Binding="{Binding Tag.Simulation.PeriodSeconds}" Width="80" />
-                            <DataGridTextColumn Header="Step" Binding="{Binding Tag.Simulation.Step}" Width="60" />
-                            <DataGridTextColumn Header="Every (ms)" Binding="{Binding Tag.Simulation.IntervalMs}" Width="85" />
-                            <DataGridTextColumn Header="Description" Binding="{Binding Tag.Description}" Width="160" />
-                            <DataGridTemplateColumn Header="Status" Width="*" IsReadOnly="True">
+                                <DataGridTextColumn Header="Name" Binding="{Binding Tag.Name}" Width="Auto" />
+                                <DataGridTextColumn Header="Address" Binding="{Binding Tag.Address}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                            <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                                <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                            <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" Width="Auto" />
+                            <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" Width="Auto" />
+                            <DataGridTextColumn Header="Period (s)" Binding="{Binding Tag.Simulation.PeriodSeconds}" Width="Auto" />
+                            <DataGridTextColumn Header="Step" Binding="{Binding Tag.Simulation.Step}" Width="Auto" />
+                            <DataGridTextColumn Header="Every (ms)" Binding="{Binding Tag.Simulation.IntervalMs}" Width="Auto" />
+                            <DataGridTextColumn Header="Description" Binding="{Binding Tag.Description}" Width="Auto" />
+                            <DataGridTemplateColumn Header="Status" Width="Auto" IsReadOnly="True">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Error}" Foreground="#D83B3B" TextTrimming="CharacterEllipsis"
@@ -198,11 +209,11 @@
                     </DockPanel>
                     <DataGrid ItemsSource="{Binding Connections}" IsReadOnly="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50" />
-                            <DataGridTextColumn Header="Remote endpoint" Binding="{Binding RemoteEndPoint}" Width="220" />
-                            <DataGridTextColumn Header="Connected at" Binding="{Binding ConnectedAt}" Width="120" />
-                            <DataGridTextColumn Header="Requests" Binding="{Binding Requests}" Width="100" />
-                            <DataGridTextColumn Header="Last activity" Binding="{Binding LastActivity}" Width="130" />
+                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="Auto" />
+                            <DataGridTextColumn Header="Remote endpoint" Binding="{Binding RemoteEndPoint}" Width="Auto" />
+                            <DataGridTextColumn Header="Connected at" Binding="{Binding ConnectedAt}" Width="Auto" />
+                            <DataGridTextColumn Header="Requests" Binding="{Binding Requests}" Width="Auto" />
+                            <DataGridTextColumn Header="Last activity" Binding="{Binding LastActivity}" Width="Auto" />
                             <DataGridTemplateColumn Width="*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

@@ -31,8 +31,8 @@
 
         <DataGrid x:Name="Grid" ItemsSource="{Binding View}" IsReadOnly="True" FontSize="12">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Time" Binding="{Binding Time}" ElementStyle="{StaticResource MonoCell}" Width="100" />
-                <DataGridTemplateColumn Header="Type" Width="64">
+                <DataGridTextColumn Header="Time" Binding="{Binding Time}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                <DataGridTemplateColumn Header="Type" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding DirectionText}" FontWeight="SemiBold" VerticalAlignment="Center"
@@ -40,9 +40,9 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Remote" Binding="{Binding Remote}" Width="150" />
-                <DataGridTextColumn Header="Summary" Binding="{Binding Summary}" Width="2*" />
-                <DataGridTextColumn Header="Bytes" Binding="{Binding Hex}" ElementStyle="{StaticResource MonoCell}" Width="1.5*" />
+                <DataGridTextColumn Header="Remote" Binding="{Binding Remote}" Width="Auto" />
+                <DataGridTextColumn Header="Summary" Binding="{Binding Summary}" Width="Auto" />
+                <DataGridTextColumn Header="Bytes" Binding="{Binding Hex}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>
