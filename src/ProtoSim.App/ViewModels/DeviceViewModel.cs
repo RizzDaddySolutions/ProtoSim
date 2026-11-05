@@ -81,6 +81,7 @@ public sealed class DeviceViewModel : ObservableObject
     private string _endpoint = string.Empty;
     private AreaViewModel? _selectedArea;
     private TagViewModel? _selectedTag;
+    private bool _isImporting;
 
     public DeviceViewModel(IProtocolPlugin plugin, string name, object settings, SimulationEngine engine)
     {
@@ -101,7 +102,7 @@ public sealed class DeviceViewModel : ObservableObject
         RemoveTagCommand = new RelayCommand(p => RemoveTag(p as TagViewModel ?? SelectedTag), p => (p ?? SelectedTag) != null);
         DuplicateTagCommand = new RelayCommand(DuplicateTag, () => SelectedTag != null);
         ExportTagsCommand = new RelayCommand(ExportTags, () => Tags.Count > 0);
-        ImportTagsCommand = new RelayCommand(ImportTags);
+        ImportTagsCommand = new AsyncRelayCommand(ImportTagsAsync, () => !IsImporting);
         DropConnectionCommand = new RelayCommand(p => { if (p is ConnectionViewModel c) _server?.DropConnection(c.Id); });
         ResetStatisticsCommand = new RelayCommand(() => Statistics.Reset());
     }
@@ -134,6 +135,12 @@ public sealed class DeviceViewModel : ObservableObject
     public ICommand ImportTagsCommand { get; }
     public ICommand DropConnectionCommand { get; }
     public ICommand ResetStatisticsCommand { get; }
+
+    public bool IsImporting
+    {
+        get => _isImporting;
+        private set => SetProperty(ref _isImporting, value);
+    }
 
     public string Name { get => _name; set => SetProperty(ref _name, value); }
     public bool AutoStart { get => _autoStart; set => SetProperty(ref _autoStart, value); }
@@ -303,19 +310,24 @@ public sealed class DeviceViewModel : ObservableObject
         TagCsv.Write(dlg.FileName, Tags.Select(t => t.Tag));
     }
 
-    private void ImportTags()
+    private async Task ImportTagsAsync()
     {
         var dlg = new OpenFileDialog { Title = "Import tags", Filter = "CSV (*.csv)|*.csv|All files (*.*)|*.*" };
         if (dlg.ShowDialog() != true) return;
+        IsImporting = true;
         try
         {
-            var tags = TagCsv.Read(dlg.FileName);
+            var tags = await Task.Run(() => TagCsv.Read(dlg.FileName));
             foreach (var t in tags) AddTag(t);
             MessageBox.Show($"Imported {tags.Count} tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Import tags", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsImporting = false;
         }
     }
 }

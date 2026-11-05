@@ -5,6 +5,10 @@
              xmlns:views="clr-namespace:ProtoSim.App.Views"
              xmlns:controls="clr-namespace:ProtoSim.App.Controls">
     <UserControl.Resources>
+        <Storyboard x:Key="LoadingSpin" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="LoadingRotation" Storyboard.TargetProperty="Angle"
+                             From="0" To="360" Duration="0:0:0.9" />
+        </Storyboard>
         <Style x:Key="TagGridComboBoxItem" TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
@@ -150,7 +154,7 @@
                                 <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                                 <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
-                                <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
+                                <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCheckBoxCell}" EditingElementStyle="{StaticResource CenteredCheckBoxCell}" Width="Auto" />
                                 <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" Width="Auto" />
                             <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" Width="Auto" />
@@ -251,5 +255,30 @@
                 </DockPanel>
             </TabItem>
         </TabControl>
+
+        <Border Grid.RowSpan="2" Background="#88000000" Visibility="{Binding IsImporting, Converter={StaticResource BoolToVisibility}}">
+            <Border.InputBindings>
+                <MouseBinding MouseAction="LeftClick" Command="{x:Static ApplicationCommands.NotACommand}" />
+            </Border.InputBindings>
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    Margin="20" Padding="28,22">
+                <StackPanel>
+                    <StackPanel.Triggers>
+                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                            <BeginStoryboard Storyboard="{StaticResource LoadingSpin}" />
+                        </EventTrigger>
+                    </StackPanel.Triggers>
+                    <Grid Width="42" Height="42" HorizontalAlignment="Center">
+                        <Grid.RenderTransform>
+                            <RotateTransform x:Name="LoadingRotation" CenterX="21" CenterY="21" />
+                        </Grid.RenderTransform>
+                        <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="32"
+                                   Foreground="{DynamicResource AccentFillColorDefaultBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Text="Loading tags…" Margin="0,12,0,0" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </UserControl>

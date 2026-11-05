@@ -9,6 +9,21 @@
     <!-- Fluent ThemeMode APIs are flagged experimental. -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <ApplicationIcon>icon.ico</ApplicationIcon>
+
+    <!-- Standalone Windows publish defaults. External plugins remain separate DLLs in Plugins. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+    <PublishReferencesSymbols>false</PublishReferencesSymbols>
+    <AllowedReferenceRelatedFileExtensions></AllowedReferenceRelatedFileExtensions>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,5 +36,12 @@
     <ProjectReference Include="..\ProtoSim.Protocols.OpcUa\ProtoSim.Protocols.OpcUa.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Mqtt\ProtoSim.Protocols.Mqtt.csproj" />
   </ItemGroup>
+
+  <Target Name="RemovePublishSymbols" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <PublishedSymbols Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(PublishedSymbols)" />
+  </Target>
 
 </Project>
