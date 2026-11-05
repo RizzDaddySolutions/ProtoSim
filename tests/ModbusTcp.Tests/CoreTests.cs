@@ -144,7 +144,7 @@ public class SimulationTests
         {
             Address = "HR:0",
             DataType = TagDataType.UInt16,
-            Simulation = new SimulationSettings { Kind = SimulationKind.Counter, Min = 0, Max = 2, Step = 1, IntervalMs = 100 },
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Counter, Min = 0, Max = 2, Step = 1, IntervalMs = 100 },
         };
         tag.Binding = model.Bind(tag.Address, tag.DataType, tag.WordOrder);
 
@@ -154,6 +154,24 @@ public class SimulationTests
         SimulationEngine.Step(tag, 0.2);
         SimulationEngine.Step(tag, 0.4);
         Assert.Equal((ushort)0, model.HoldingRegisters.Read(0)); // 1 -> 2 -> wraps to 0
+    }
+
+    [Fact]
+    public void DisabledSimulation_DoesNotChangeValue()
+    {
+        var model = new ModbusDataModel(new ModbusServerSettings());
+        var tag = new SimTag
+        {
+            Address = "HR:0",
+            DataType = TagDataType.UInt16,
+            Simulation = new SimulationSettings { Kind = SimulationKind.Random, Min = 1, Max = 100 },
+        };
+        tag.Binding = model.Bind(tag.Address, tag.DataType, tag.WordOrder);
+        tag.Binding.Write((ushort)42);
+
+        SimulationEngine.Step(tag, 1.0);
+
+        Assert.Equal((ushort)42, model.HoldingRegisters.Read(0));
     }
 
     [Fact]

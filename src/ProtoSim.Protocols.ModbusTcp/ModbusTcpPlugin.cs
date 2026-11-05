@@ -34,28 +34,28 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
         yield return new SimTag
         {
             Name = "Tank level", Address = "HR:0", DataType = TagDataType.Float32, Description = "Level in % (float, 2 registers)",
-            Simulation = new SimulationSettings { Kind = SimulationKind.Sine, Min = 0, Max = 100, PeriodSeconds = 30, IntervalMs = 250 },
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Sine, Min = 0, Max = 100, PeriodSeconds = 30, IntervalMs = 250 },
         };
         yield return new SimTag
         {
             Name = "Temperature", Address = "HR:2", DataType = TagDataType.Int16, Description = "Tenths of °C",
-            Simulation = new SimulationSettings { Kind = SimulationKind.RandomWalk, Min = 180, Max = 260, Step = 3, IntervalMs = 1000 },
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.RandomWalk, Min = 180, Max = 260, Step = 3, IntervalMs = 1000 },
         };
         yield return new SimTag
         {
             Name = "Production count", Address = "HR:10", DataType = TagDataType.UInt32,
-            Simulation = new SimulationSettings { Kind = SimulationKind.Counter, Min = 0, Max = 1_000_000, Step = 1, IntervalMs = 1000 },
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Counter, Min = 0, Max = 1_000_000, Step = 1, IntervalMs = 1000 },
         };
         yield return new SimTag { Name = "Setpoint", Address = "HR:20", DataType = TagDataType.UInt16, Description = "Writable by clients" };
         yield return new SimTag
         {
             Name = "Flow rate", Address = "IR:0", DataType = TagDataType.UInt16,
-            Simulation = new SimulationSettings { Kind = SimulationKind.Random, Min = 400, Max = 600, IntervalMs = 500 },
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Random, Min = 400, Max = 600, IntervalMs = 500 },
         };
         yield return new SimTag
         {
             Name = "Pump running", Address = "DI:0", DataType = TagDataType.Bool,
-            Simulation = new SimulationSettings { Kind = SimulationKind.Square, Min = 0, Max = 1, PeriodSeconds = 10, IntervalMs = 250 },
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Square, Min = 0, Max = 1, PeriodSeconds = 10, IntervalMs = 250 },
         };
         yield return new SimTag { Name = "Start command", Address = "CO:0", DataType = TagDataType.Bool, Description = "Writable by clients" };
     }

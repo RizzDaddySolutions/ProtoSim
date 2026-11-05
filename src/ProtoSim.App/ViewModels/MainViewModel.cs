@@ -21,13 +21,14 @@ public sealed class MainViewModel : ObservableObject
     private object? _selected;
     private DeviceViewModel? _selectedDevice;
     private string? _filePath;
-    private bool _simulationPaused;
+    private bool _simulationEnabled;
     private string _statusText = "Ready";
 
     public MainViewModel(PluginCatalog catalog, IReadOnlyList<string> pluginErrors)
     {
         Catalog = catalog;
         PluginErrors = pluginErrors;
+        Engine.IsEnabled = false;
         Engine.Start();
 
         AddDeviceActions = catalog.Plugins
@@ -44,9 +45,6 @@ public sealed class MainViewModel : ObservableObject
         SetThemeCommand = new RelayCommand(p => SetTheme(p as string));
         AboutCommand = new RelayCommand(ShowAbout);
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
-        DemoActions = catalog.Plugins
-            .Select(p => new PluginActionViewModel($"{p.DisplayName} demo", p.Description, new AsyncRelayCommand(() => QuickStartAsync(p.Id)))).ToList();
-
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
     }
@@ -68,9 +66,6 @@ public sealed class MainViewModel : ObservableObject
     public ICommand SetThemeCommand { get; }
     public ICommand AboutCommand { get; }
     public ICommand ExitCommand { get; }
-    /// <summary>One "start a demo" action per protocol.</summary>
-    public IReadOnlyList<PluginActionViewModel> DemoActions { get; }
-
     public object? Selected { get => _selected; private set => SetProperty(ref _selected, value); }
 
     public DeviceViewModel? SelectedDevice
@@ -83,10 +78,10 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public bool SimulationPaused
+    public bool SimulationEnabled
     {
-        get => _simulationPaused;
-        set { if (SetProperty(ref _simulationPaused, value)) Engine.IsEnabled = !value; }
+        get => _simulationEnabled;
+        set { if (SetProperty(ref _simulationEnabled, value)) Engine.IsEnabled = value; }
     }
 
     public string Title => $"{(_filePath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_filePath))} – ProtoSim";
@@ -99,7 +94,7 @@ public sealed class MainViewModel : ObservableObject
         int running = Devices.Count(d => d.IsRunning);
         long connections = Devices.Sum(d => d.Stats.ActiveConnections);
         double rate = Devices.Sum(d => d.Stats.RequestsPerSecond);
-        StatusText = $"{running}/{Devices.Count} devices running · {connections} connections · {rate:F1} req/s · simulation {(SimulationPaused ? "paused" : "running")}";
+        StatusText = $"{running}/{Devices.Count} devices running · {connections} connections · {rate:F1} req/s · simulation {(SimulationEnabled ? "enabled" : "disabled")}";
     }
 
     // ---- Devices ----
@@ -181,16 +176,6 @@ public sealed class MainViewModel : ObservableObject
     private async Task StopAllAsync()
     {
         foreach (var d in Devices.Where(d => d.IsRunning).ToList()) await d.StopAsync();
-    }
-
-    /// <summary>Creates a ready-to-use demo: a running device with sample tags.</summary>
-    /// <param name="pluginId">Protocol to demo; the first installed protocol when null.</param>
-    public async Task QuickStartAsync(string? pluginId = null)
-    {
-        var plugin = pluginId == null ? Catalog.Plugins.FirstOrDefault() : Catalog.Find(pluginId);
-        if (plugin == null) return;
-        var device = AddDevice(plugin);
-        await device.StartAsync();
     }
 
     public async Task ShutdownAsync()

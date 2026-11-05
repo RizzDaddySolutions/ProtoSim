@@ -3,6 +3,7 @@
     <Project Path="src/ProtoSim.App/ProtoSim.App.csproj" />
     <Project Path="src/ProtoSim.Core/ProtoSim.Core.csproj" />
     <Project Path="src/ProtoSim.Protocols.ModbusTcp/ProtoSim.Protocols.ModbusTcp.csproj" />
+    <Project Path="src/ProtoSim.Protocols.Mqtt/ProtoSim.Protocols.Mqtt.csproj" />
     <Project Path="src/ProtoSim.Protocols.OpcUa/ProtoSim.Protocols.OpcUa.csproj" />
   </Folder>
   <Folder Name="/tests/">

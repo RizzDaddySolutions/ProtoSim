@@ -9,7 +9,7 @@ namespace ProtoSim.App.Services;
 public static class TagCsv
 {
     private static readonly string[] Columns =
-        ["Name", "Address", "DataType", "WordOrder", "Simulation", "Min", "Max", "PeriodSeconds", "Step", "IntervalMs", "Description"];
+        ["Name", "Address", "DataType", "WordOrder", "Simulate", "Simulation", "Min", "Max", "PeriodSeconds", "Step", "IntervalMs", "Description"];
 
     public static void Write(string path, IEnumerable<SimTag> tags)
     {
@@ -20,7 +20,7 @@ public static class TagCsv
         {
             var s = t.Simulation;
             sb.AppendLine(string.Join(",",
-                Quote(t.Name), Quote(t.Address), t.DataType, t.WordOrder, s.Kind,
+                Quote(t.Name), Quote(t.Address), t.DataType, t.WordOrder, s.Enabled, s.Kind,
                 s.Min.ToString(inv), s.Max.ToString(inv), s.PeriodSeconds.ToString(inv), s.Step.ToString(inv),
                 s.IntervalMs.ToString(inv), Quote(t.Description)));
         }
@@ -55,6 +55,7 @@ public static class TagCsv
                 Description = Get("Description"),
                 Simulation = new SimulationSettings
                 {
+                        Enabled = bool.TryParse(Get("Simulate"), out var enabled) && enabled,
                     Kind = En("Simulation", SimulationKind.None),
                     Min = Num("Min", 0),
                     Max = Num("Max", 100),

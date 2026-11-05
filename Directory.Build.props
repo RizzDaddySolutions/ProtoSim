@@ -12,5 +12,6 @@
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
     <ArtifactsPath Condition="$(MSBuildThisFileDirectory.Length) &gt; 120">$([System.IO.Path]::GetTempPath())ProtoSim\artifacts</ArtifactsPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(ArtifactsPath)/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

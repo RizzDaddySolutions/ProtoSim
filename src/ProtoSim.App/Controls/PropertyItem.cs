@@ -49,8 +49,18 @@ public sealed class PropertyItem : ObservableObject, INotifyDataErrorInfo
         get => _property.GetValue(_target);
         set
         {
-            if (TrySet(value)) OnPropertyChanged();
+            if (TrySet(value))
+            {
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BoolValue));
+            }
         }
+    }
+
+    public bool? BoolValue
+    {
+        get => Value is bool value ? value : null;
+        set => Value = value;
     }
 
     public string Text

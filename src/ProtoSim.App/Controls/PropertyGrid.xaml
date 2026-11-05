@@ -31,8 +31,8 @@
                     <TextBox Grid.Column="1" MinHeight="32"
                              Text="{Binding Text, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}"
                              Visibility="{Binding IsText, Converter={StaticResource BoolToVisibility}}" />
-                    <CheckBox Grid.Column="1" IsChecked="{Binding Value}" VerticalAlignment="Center"
-                              Visibility="{Binding IsBool, Converter={StaticResource BoolToVisibility}}" />
+                    <CheckBox Grid.Column="1" IsChecked="{Binding BoolValue}" VerticalAlignment="Center"
+                               Visibility="{Binding IsBool, Converter={StaticResource BoolToVisibility}}" />
                     <ComboBox Grid.Column="1" ItemsSource="{Binding EnumValues}" SelectedItem="{Binding Value}" MinHeight="32"
                               Visibility="{Binding IsEnum, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>

@@ -19,6 +19,7 @@ public enum SimulationKind
 /// <summary>How a tag's value changes over time.</summary>
 public sealed class SimulationSettings : ObservableObject
 {
+    private bool _enabled;
     private SimulationKind _kind;
     private double _min;
     private double _max = 100;
@@ -26,6 +27,7 @@ public sealed class SimulationSettings : ObservableObject
     private double _step = 1;
     private int _intervalMs = 500;
 
+    public bool Enabled { get => _enabled; set => SetProperty(ref _enabled, value); }
     public SimulationKind Kind { get => _kind; set => SetProperty(ref _kind, value); }
     public double Min { get => _min; set => SetProperty(ref _min, value); }
     public double Max { get => _max; set => SetProperty(ref _max, value); }
@@ -35,6 +37,7 @@ public sealed class SimulationSettings : ObservableObject
 
     public SimulationSettings Clone() => new()
     {
+        Enabled = Enabled,
         Kind = Kind,
         Min = Min,
         Max = Max,
@@ -146,7 +149,7 @@ public sealed class SimulationEngine : IDisposable
     {
         var sim = tag.Simulation;
         var binding = tag.Binding;
-        if (sim.Kind == SimulationKind.None || binding == null) return;
+        if (!sim.Enabled || sim.Kind == SimulationKind.None || binding == null) return;
 
         double interval = Math.Max(sim.IntervalMs, 10) / 1000.0;
         if (t - tag.LastSimTime < interval) return;

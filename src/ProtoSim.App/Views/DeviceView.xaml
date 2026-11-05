@@ -139,6 +139,7 @@
                             <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" Width="90" />
                             <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" Width="80" />
                             <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="120" />
+                            <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" Width="70" />
                             <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" Width="115" />
                             <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" Width="65" />
                             <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" Width="65" />

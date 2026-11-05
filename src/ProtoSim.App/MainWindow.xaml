@@ -43,7 +43,6 @@
                 <Separator />
                 <MenuItem Header="_Start all devices" Command="{Binding StartAllCommand}" InputGestureText="F5" />
                 <MenuItem Header="S_top all devices" Command="{Binding StopAllCommand}" InputGestureText="Shift+F5" />
-                <MenuItem Header="_Pause value simulation" IsCheckable="True" IsChecked="{Binding SimulationPaused}" />
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="Theme: _system" Command="{Binding SetThemeCommand}" CommandParameter="System" />
@@ -61,14 +60,25 @@
         </Border>
 
         <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="290" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <Border Grid.Row="0" Margin="12,8,12,0" Padding="10,6"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                <CheckBox Content="Enable simulated values" IsChecked="{Binding SimulationEnabled, UpdateSourceTrigger=PropertyChanged}"
+                          ToolTip="Allow enabled tags to update their simulated values."
+                          HorizontalAlignment="Left" />
+            </Border>
+
             <!-- Navigation -->
-            <Grid Margin="12,12,6,12">
+            <Grid Grid.Row="1" Margin="12,12,6,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -130,11 +140,11 @@
                 </StackPanel>
             </Grid>
 
-            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+            <GridSplitter Grid.Row="1" Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!-- Content -->
-            <ContentControl Grid.Column="2" Content="{Binding Selected}" Margin="6,12,12,12" Focusable="False">
+            <ContentControl Grid.Row="1" Grid.Column="2" Content="{Binding Selected}" Margin="6,12,12,12" Focusable="False">
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
                         <Style.Triggers>
@@ -147,22 +157,9 @@
                                                     <TextBlock Text="&#xE968;" Style="{StaticResource Icon}" FontSize="40" HorizontalAlignment="Left" Margin="0,0,0,12"
                                                                Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
                                                     <TextBlock Text="ProtoSim" Style="{StaticResource PageTitle}" />
-                                                    <TextBlock TextWrapping="Wrap" Margin="0,8,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                               Text="Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to. Add a device from the left panel, or start with a ready-made demo." />
+                                                     <TextBlock TextWrapping="Wrap" Margin="0,8,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                Text="Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to. Add a device from the left panel to get started." />
                                                     <StackPanel Orientation="Horizontal">
-                                                        <ItemsControl ItemsSource="{Binding DataContext.DemoActions, RelativeSource={RelativeSource AncestorType=Window}}" Focusable="False">
-                                                            <ItemsControl.ItemsPanel>
-                                                                <ItemsPanelTemplate>
-                                                                    <StackPanel Orientation="Horizontal" />
-                                                                </ItemsPanelTemplate>
-                                                            </ItemsControl.ItemsPanel>
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <Button Content="{Binding DisplayName}" Command="{Binding Command}" ToolTip="{Binding Description}"
-                                                                            Style="{DynamicResource AccentButtonStyle}" Padding="16,8" Margin="0,0,8,0" />
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
                                                         <Button Content="Open project…" Padding="16,8"
                                                                 Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                                                     </StackPanel>
