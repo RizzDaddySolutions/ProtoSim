@@ -35,15 +35,15 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             _root = new FolderState(null)
             {
                 SymbolicName = rootName,
-                ReferenceTypeId = ReferenceTypes.Organizes,
+                ReferenceTypeId = new NodeId(ReferenceTypes.Organizes),
                 TypeDefinitionId = ObjectTypeIds.FolderType,
                 NodeId = new NodeId(rootName, NamespaceIndex),
                 BrowseName = new QualifiedName(rootName, NamespaceIndex),
                 DisplayName = new LocalizedText("en", rootName),
                 EventNotifier = EventNotifiers.SubscribeToEvents,
             };
-            _root.AddReference(ReferenceTypes.Organizes, true, ObjectIds.ObjectsFolder);
-            references.Add(new NodeStateReference(ReferenceTypes.Organizes, false, _root.NodeId));
+            _root.AddReference(new NodeId(ReferenceTypes.Organizes), true, new ExpandedNodeId(ObjectIds.ObjectsFolder));
+            references.Add(new NodeStateReference(new NodeId(ReferenceTypes.Organizes), false, _root));
             AddRootNotifier(_root);
             AddPredefinedNode(SystemContext, _root);
 
@@ -86,7 +86,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         lock (Lock)
         {
             if (!_nodes.TryGetValue(v, out var node)) return;
-            node.Value = v.Value;
+            node.Value = new Variant(v.Value);
             node.Timestamp = DateTime.UtcNow;
             node.StatusCode = StatusCodes.Good;
             node.ClearChangeMasks(SystemContext, false);
@@ -105,7 +105,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         folder = new FolderState(parent)
         {
             SymbolicName = name,
-            ReferenceTypeId = ReferenceTypes.Organizes,
+            ReferenceTypeId = new NodeId(ReferenceTypes.Organizes),
             TypeDefinitionId = ObjectTypeIds.FolderType,
             NodeId = new NodeId(folderPath, NamespaceIndex),
             BrowseName = new QualifiedName(name, NamespaceIndex),
@@ -127,7 +127,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         var node = new BaseDataVariableState(parent)
         {
             SymbolicName = v.Name,
-            ReferenceTypeId = ReferenceTypes.Organizes,
+            ReferenceTypeId = new NodeId(ReferenceTypes.Organizes),
             TypeDefinitionId = VariableTypeIds.BaseDataVariableType,
             NodeId = new NodeId(v.Path, NamespaceIndex),
             BrowseName = new QualifiedName(v.Name, NamespaceIndex),
@@ -140,24 +140,24 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             UserAccessLevel = access,
             MinimumSamplingInterval = _settings.MinSamplingIntervalMs,
             Historizing = false,
-            Value = v.Value,
+            Value = new Variant(v.Value),
             StatusCode = StatusCodes.Good,
             Timestamp = DateTime.UtcNow,
         };
-        node.OnSimpleWriteValue = (ISystemContext context, NodeState n, ref object value) => OnClientWrite(v, ref value);
+        node.OnSimpleWriteValue = (ISystemContext context, NodeState n, ref Variant value) => OnClientWrite(v, ref value);
         parent.AddChild(node);
         AddPredefinedNode(SystemContext, node);
         _nodes[v] = node;
     }
 
-    private ServiceResult OnClientWrite(OpcUaVariable v, ref object value)
+    private ServiceResult OnClientWrite(OpcUaVariable v, ref Variant value)
     {
         if (!_settings.AllowWrites) return StatusCodes.BadNotWritable;
         try
         {
-            var converted = ValueConverter.Coerce(value, v.DataType);
+            var converted = ValueConverter.Coerce(value.Value, v.DataType);
             OpcUaDataModel.SetRemote(v, converted);
-            value = converted;
+            value = new Variant(converted);
             return ServiceResult.Good;
         }
         catch (Exception)

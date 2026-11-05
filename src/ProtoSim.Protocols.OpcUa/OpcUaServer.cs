@@ -99,18 +99,20 @@ public sealed class OpcUaServer(OpcUaServerSettings settings, OpcUaDataModel mod
             DiagnosticsEnabled = true,
         };
 
-        server.SecurityPolicies.Clear();
-        if (settings.AllowSecurityNone)
-            server.SecurityPolicies.Add(new ServerSecurityPolicy { SecurityMode = MessageSecurityMode.None, SecurityPolicyUri = SecurityPolicies.None });
-        if (settings.AllowSign)
-            server.SecurityPolicies.Add(new ServerSecurityPolicy { SecurityMode = MessageSecurityMode.Sign, SecurityPolicyUri = SecurityPolicies.Basic256Sha256 });
-        if (settings.AllowSignAndEncrypt)
-            server.SecurityPolicies.Add(new ServerSecurityPolicy { SecurityMode = MessageSecurityMode.SignAndEncrypt, SecurityPolicyUri = SecurityPolicies.Basic256Sha256 });
+        var securityPolicies = new List<ServerSecurityPolicy>();
+        if (settings.AllowSecurityNone) securityPolicies.Add(new ServerSecurityPolicy { SecurityMode = MessageSecurityMode.None, SecurityPolicyUri = SecurityPolicies.None });
+        if (settings.AllowSign) securityPolicies.Add(new ServerSecurityPolicy { SecurityMode = MessageSecurityMode.Sign, SecurityPolicyUri = SecurityPolicies.Basic256Sha256 });
+        if (settings.AllowSignAndEncrypt) securityPolicies.Add(new ServerSecurityPolicy { SecurityMode = MessageSecurityMode.SignAndEncrypt, SecurityPolicyUri = SecurityPolicies.Basic256Sha256 });
+        server.SecurityPolicies = securityPolicies;
 
-        server.UserTokenPolicies.Clear();
-        if (settings.AllowAnonymous) server.UserTokenPolicies.Add(new UserTokenPolicy(UserTokenType.Anonymous));
+        var tokenPolicies = new List<UserTokenPolicy>();
+        if (settings.AllowAnonymous) tokenPolicies.Add(new UserTokenPolicy(UserTokenType.Anonymous));
         if (settings.UserName.Length > 0)
-            server.UserTokenPolicies.Add(new UserTokenPolicy(UserTokenType.UserName) { SecurityPolicyUri = SecurityPolicies.Basic256Sha256 });
+            tokenPolicies.Add(new UserTokenPolicy(UserTokenType.UserName)
+            {
+                SecurityPolicyUri = settings.AllowSecurityNone ? SecurityPolicies.None : SecurityPolicies.Basic256Sha256,
+            });
+        server.UserTokenPolicies = tokenPolicies;
 
         config.ServerConfiguration = server;
     }
@@ -171,14 +173,13 @@ public sealed class OpcUaServer(OpcUaServerSettings settings, OpcUaDataModel mod
             foreach (var s in sessions)
             {
                 live.Add(s.Id);
-                var d = s.SessionDiagnostics;
                 if (!_sessions.TryGetValue(s.Id, out var info))
                 {
                     info = new ConnectionInfo(Interlocked.Increment(ref _nextConnectionId), SimulationServer.Describe(s),
-                        d?.ClientConnectionTime.ToLocalTime() ?? DateTime.Now);
+                        DateTime.Now);
                     _sessions[s.Id] = info;
                 }
-                if (d != null) info.SetCounters(d.TotalRequestCount?.TotalCount ?? 0, d.ClientLastContactTime.ToLocalTime());
+                info.OnRequest();
                 result.Add(info);
             }
             foreach (var gone in _sessions.Keys.Where(k => !live.Contains(k)).ToList()) _sessions.Remove(gone);
@@ -194,7 +195,7 @@ public sealed class OpcUaServer(OpcUaServerSettings settings, OpcUaDataModel mod
         lock (_sessions) id = _sessions.FirstOrDefault(kv => kv.Value.Id == connectionId).Key;
         if (id == null) return;
         context.Log.Warn("", "Session closed by user");
-        server.CurrentInstance.SessionManager.CloseSession(id);
+        if (id is { } sessionId) _ = server.CurrentInstance.SessionManager.GetSession(sessionId).CloseAsync(CancellationToken.None);
     }
 
     public async ValueTask DisposeAsync()

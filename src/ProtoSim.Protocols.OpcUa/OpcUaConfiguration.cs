@@ -46,13 +46,6 @@ internal static class OpcUaConfiguration
         configure(config);
         await config.ValidateAsync(type, ct);
 
-        if (autoAccept)
-        {
-            config.CertificateValidator.CertificateValidation += (_, e) =>
-            {
-                if (e.Error.StatusCode == StatusCodes.BadCertificateUntrusted) e.Accept = true;
-            };
-        }
         return config;
     }
 

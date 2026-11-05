@@ -78,7 +78,8 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         _config ??= await CreateConfigurationAsync(ct);
         Log.Info(Remote, $"Connecting ({(settings.UseSecurity ? "most secure endpoint" : "security None")})…");
 
-        var endpointDescription = await CoreClientUtils.SelectEndpointAsync(_config, settings.EndpointUrl, settings.UseSecurity, OpcUaConfiguration.Telemetry, ct)
+        bool requireSecureChannel = settings.UseSecurity || !string.IsNullOrEmpty(settings.UserName);
+        var endpointDescription = await CoreClientUtils.SelectEndpointAsync(_config, settings.EndpointUrl, requireSecureChannel, OpcUaConfiguration.Telemetry, ct)
             ?? throw new InvalidOperationException($"{settings.EndpointUrl} offers no usable endpoint.");
         var endpoint = new ConfiguredEndpoint(null, endpointDescription, EndpointConfiguration.Create(_config));
         IUserIdentity identity = string.IsNullOrEmpty(settings.UserName)
@@ -87,13 +88,13 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
 
         var factory = new DefaultSessionFactory(OpcUaConfiguration.Telemetry);
         var session = (Session)await factory.CreateAsync(_config, endpoint, false, "ProtoSim client",
-            (uint)settings.SessionTimeoutMs, identity, null, ct);
+            (uint)settings.SessionTimeoutMs, identity, Array.Empty<string>(), ct);
         session.OperationTimeout = settings.OperationTimeoutMs;
         _session = session;
 
         var sec = endpointDescription.SecurityMode == MessageSecurityMode.None
             ? "None"
-            : $"{endpointDescription.SecurityMode} {SecurityPolicies.GetDisplayName(endpointDescription.SecurityPolicyUri)}";
+            : $"{endpointDescription.SecurityMode} {new SecurityPolicies().GetDisplayName(endpointDescription.SecurityPolicyUri)}";
         Log.Info(Remote, $"Session created · security {sec} · {(string.IsNullOrEmpty(settings.UserName) ? "anonymous" : $"user {settings.UserName}")}");
         return session;
     }
@@ -140,10 +141,11 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         }
         catch (ServiceResultException ex)
         {
-            Log.Error(Remote, $"{r.Operation} failed: {StatusCodes.GetBrowseName(ex.StatusCode)} {ex.Message}");
-            if (ex.StatusCode is StatusCodes.BadSessionIdInvalid or StatusCodes.BadSessionClosed or StatusCodes.BadConnectionClosed or StatusCodes.BadNotConnected)
+            Log.Error(Remote, $"{r.Operation} failed: {DescribeStatus(ex.StatusCode)} {ex.Message}");
+            if (ex.StatusCode == StatusCodes.BadSessionIdInvalid || ex.StatusCode == StatusCodes.BadSessionClosed ||
+                ex.StatusCode == StatusCodes.BadConnectionClosed || ex.StatusCode == StatusCodes.BadNotConnected)
                 await CloseCoreAsync();
-            return ClientResult.Fail($"{StatusCodes.GetBrowseName(ex.StatusCode)}: {ex.Message}", sw.Elapsed);
+            return ClientResult.Fail($"{DescribeStatus(ex.StatusCode)}: {ex.Message}", sw.Elapsed);
         }
         catch (Exception ex)
         {
@@ -182,8 +184,10 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         };
     }
 
+    private static string DescribeStatus(StatusCode status) => status.ToString();
+
     private static string Describe(DataValue dv) =>
-        $"{StatusCodes.GetBrowseName(dv.StatusCode.Code)} · {dv.WrappedValue.TypeInfo?.BuiltInType.ToString() ?? "?"} · {dv.SourceTimestamp.ToLocalTime():HH:mm:ss.fff}";
+        $"{DescribeStatus(dv.StatusCode)} · {dv.WrappedValue.TypeInfo.BuiltInType} · {dv.SourceTimestamp.ToLocalTime():HH:mm:ss.fff}";
 
     private async Task<IReadOnlyList<ClientResultRow>> ReadAsync(Session session, List<NodeId> ids, CancellationToken ct)
     {
@@ -191,15 +195,16 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         return ids.Select((id, i) => new ClientResultRow(id.ToString(), Describe(values[i]), FormatValue(values[i]))).ToList();
     }
 
-    private async Task<DataValueCollection> ReadValuesAsync(Session session, IList<NodeId> ids, CancellationToken ct)
+    private async Task<IList<DataValue>> ReadValuesAsync(Session session, IList<NodeId> ids, CancellationToken ct)
     {
-        var toRead = new ReadValueIdCollection(ids.Select(id => new ReadValueId { NodeId = id, AttributeId = Attributes.Value }));
+        var toRead = ids.Select(id => new ReadValueId { NodeId = id, AttributeId = Attributes.Value }).ToArray();
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Tx, Remote, $"Read {ids.Count} node(s)"));
         var response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, toRead, ct);
-        ClientBase.ValidateResponse(response.Results, toRead);
-        int good = response.Results.Count(v => StatusCode.IsGood(v.StatusCode));
+        var results = response.Results.ToArray();
+        ClientBase.ValidateResponse<ReadValueId, DataValue>((IReadOnlyList<DataValue>)results, (IReadOnlyList<ReadValueId>)toRead);
+        int good = results.Count(v => StatusCode.IsGood(v.StatusCode));
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Rx, Remote, $"Read → {good}/{ids.Count} Good"));
-        return response.Results;
+        return results;
     }
 
     private async Task<IReadOnlyList<ClientResultRow>> WriteAsync(Session session, OpcUaClientRequest r, CancellationToken ct)
@@ -211,11 +216,11 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
 
         // Read first so each value is converted to the node's actual data type.
         var current = await ReadValuesAsync(session, ids, ct);
-        var writes = new WriteValueCollection();
+        var writes = new List<WriteValue>();
         for (int i = 0; i < ids.Count; i++)
         {
             var text = texts.Length == 1 ? texts[0] : texts[i];
-            var builtIn = current[i].WrappedValue.TypeInfo?.BuiltInType ?? BuiltInType.String;
+            var builtIn = current[i].WrappedValue.TypeInfo.BuiltInType;
             var tagType = TagType(builtIn)
                 ?? throw new FormatException($"{ids[i]} has type {builtIn}, which this client cannot write.");
             object value = ValueConverter.Parse(text, tagType);
@@ -229,21 +234,23 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         }
 
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Tx, Remote, $"Write {writes.Count} node(s)"));
-        var response = await session.WriteAsync(null, writes, ct);
-        ClientBase.ValidateResponse(response.Results, writes);
+        var response = await session.WriteAsync(null, writes.ToArray(), ct);
+        var writeResults = response.Results.ToArray();
+        ClientBase.ValidateResponse<WriteValue, StatusCode>((IReadOnlyList<StatusCode>)writeResults, (IReadOnlyList<WriteValue>)writes.ToArray());
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Rx, Remote,
-            $"Write → {string.Join(", ", response.Results.Select(s => StatusCodes.GetBrowseName(s.Code)))}"));
+            $"Write → {string.Join(", ", writeResults.Select(s => DescribeStatus(s)))}"));
 
-        var bad = response.Results.FirstOrDefault(s => StatusCode.IsBad(s));
-        var rows = ids.Select((id, i) => new ClientResultRow(id.ToString(), StatusCodes.GetBrowseName(response.Results[i].Code),
+        var bad = writeResults.FirstOrDefault(s => StatusCode.IsBad(s));
+        var rows = ids.Select((id, i) => new ClientResultRow(id.ToString(), DescribeStatus(writeResults[i]),
             ValueConverter.Format(writes[i].Value.Value))).ToList();
-        if (StatusCode.IsBad(bad)) throw new ServiceResultException(bad.Code, $"Write rejected: {StatusCodes.GetBrowseName(bad.Code)}");
+        if (StatusCode.IsBad(bad)) throw new ServiceResultException(bad.Code, $"Write rejected: {DescribeStatus(bad)}");
         return rows;
     }
 
     private async Task<IReadOnlyList<ClientResultRow>> BrowseAsync(Session session, OpcUaClientRequest r, CancellationToken ct)
     {
-        var start = ParseNodeIds(r.NodeIds, required: false).FirstOrDefault() ?? ObjectIds.ObjectsFolder;
+        var parsed = ParseNodeIds(r.NodeIds, required: false);
+        var start = parsed.Count == 0 ? ObjectIds.ObjectsFolder : parsed[0];
         var found = new List<(ReferenceDescription Ref, NodeId Id, string Path, int Depth)>();
         await BrowseRecursiveAsync(session, start, "", 0, Math.Clamp(r.BrowseDepth, 1, 10), found, ct);
 
@@ -279,12 +286,12 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Tx, Remote, $"Browse {node}"));
         var response = await session.BrowseAsync(null, null, 0, [description], ct);
         var result = response.Results[0];
-        var references = new List<ReferenceDescription>(result.References);
+        var references = result.References.ToList();
         var continuation = result.ContinuationPoint;
         while (continuation is { Length: > 0 })
         {
             var next = await session.BrowseNextAsync(null, false, [continuation], ct);
-            references.AddRange(next.Results[0].References);
+            references.AddRange(next.Results[0].References.ToList());
             continuation = next.Results[0].ContinuationPoint;
         }
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Rx, Remote, $"Browse → {references.Count} references"));
