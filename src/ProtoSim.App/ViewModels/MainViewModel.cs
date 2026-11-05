@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject
     private string? _filePath;
     private bool _simulationEnabled;
     private string _statusText = "Ready";
+    private bool _isLoadingProject;
 
     public MainViewModel(PluginCatalog catalog, IReadOnlyList<string> pluginErrors)
     {
@@ -86,6 +87,7 @@ public sealed class MainViewModel : ObservableObject
 
     public string Title => $"{(_filePath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_filePath))} – ProtoSim";
     public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
+    public bool IsLoadingProject { get => _isLoadingProject; private set => SetProperty(ref _isLoadingProject, value); }
 
     private void Tick()
     {
@@ -216,41 +218,53 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task LoadAsync(string path)
     {
-        var doc = await ProjectSerializer.LoadAsync(path);
-        await ClearAsync();
-        var missing = new List<string>();
-
-        foreach (var dd in doc.Devices)
+        if (IsLoadingProject) return;
+        IsLoadingProject = true;
+        try
         {
-            var plugin = Catalog.Find(dd.PluginId);
-            if (plugin == null) { missing.Add(dd.PluginId); continue; }
-            var settings = ProjectSerializer.FromElement(dd.Settings, plugin.ServerSettingsType) ?? plugin.CreateServerSettings([]);
-            var device = CreateDevice(plugin, dd.Name, settings, dd.Faults);
-            device.AutoStart = dd.AutoStart;
-            var restoreValues = new List<(TagViewModel Tag, string Value)>();
-            foreach (var td in dd.Tags)
+            var doc = await ProjectSerializer.LoadAsync(path).ConfigureAwait(true);
+            await Task.Yield();
+            await ClearAsync();
+            var missing = new List<string>();
+
+            foreach (var dd in doc.Devices)
             {
-                var tvm = device.AddTag(td.ToTag());
-                if (td.Value != null) restoreValues.Add((tvm, td.Value));
+                await Task.Yield();
+                var plugin = Catalog.Find(dd.PluginId);
+                if (plugin == null) { missing.Add(dd.PluginId); continue; }
+                var settings = ProjectSerializer.FromElement(dd.Settings, plugin.ServerSettingsType) ?? plugin.CreateServerSettings([]);
+                var device = CreateDevice(plugin, dd.Name, settings, dd.Faults);
+                device.AutoStart = dd.AutoStart;
+                var restoreValues = new List<(TagViewModel Tag, string Value)>();
+                foreach (var td in dd.Tags)
+                {
+                    if ((restoreValues.Count & 31) == 0) await Task.Yield();
+                    var tvm = device.AddTag(td.ToTag());
+                    if (td.Value != null) restoreValues.Add((tvm, td.Value));
+                }
+                foreach (var area in device.DataModel.Areas)
+                {
+                    if (!dd.Data.TryGetValue(area.ShortName, out var values)) continue;
+                    foreach (var (index, value) in values)
+                        if (index >= 0 && index < area.Count) area.Write(index, value);
+                }
+                foreach (var (tvm, value) in restoreValues) tvm.ValueText = value;
             }
-            foreach (var area in device.DataModel.Areas)
-            {
-                if (!dd.Data.TryGetValue(area.ShortName, out var values)) continue;
-                foreach (var (index, value) in values)
-                    if (index >= 0 && index < area.Count) area.Write(index, value);
-            }
-            foreach (var (tvm, value) in restoreValues) tvm.ValueText = value;
+
+            _filePath = path;
+            OnPropertyChanged(nameof(Title));
+            if (Devices.Count > 0) SelectedDevice = Devices[0];
+
+            foreach (var d in Devices.Where(d => d.AutoStart)) await d.StartAsync();
+
+            if (missing.Count > 0)
+                MessageBox.Show($"These protocols are not installed and were skipped: {string.Join(", ", missing.Distinct())}",
+                    "Open project", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-
-        _filePath = path;
-        OnPropertyChanged(nameof(Title));
-        if (Devices.Count > 0) SelectedDevice = Devices[0];
-
-        foreach (var d in Devices.Where(d => d.AutoStart)) await d.StartAsync();
-
-        if (missing.Count > 0)
-            MessageBox.Show($"These protocols are not installed and were skipped: {string.Join(", ", missing.Distinct())}",
-                "Open project", MessageBoxButton.OK, MessageBoxImage.Warning);
+        finally
+        {
+            IsLoadingProject = false;
+        }
     }
 
     private async Task SaveAsync(bool saveAs)

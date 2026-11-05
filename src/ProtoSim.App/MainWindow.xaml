@@ -26,7 +26,8 @@
         </Style>
     </Window.Resources>
 
-    <DockPanel>
+    <Grid>
+        <DockPanel>
         <Menu DockPanel.Dock="Top" Padding="4,2">
             <MenuItem Header="_File">
                 <MenuItem Header="_New project" Command="{Binding NewCommand}" InputGestureText="Ctrl+N" />
@@ -174,5 +175,32 @@
                 </ContentControl.Style>
             </ContentControl>
         </Grid>
-    </DockPanel>
+        </DockPanel>
+
+        <Border Grid.RowSpan="2" Background="#88000000" Visibility="{Binding IsLoadingProject, Converter={StaticResource BoolToVisibility}}">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="28,22">
+                <StackPanel>
+                    <Grid Width="42" Height="42" HorizontalAlignment="Center">
+                        <Grid.RenderTransform>
+                            <RotateTransform x:Name="ProjectLoadingRotation" CenterX="21" CenterY="21" />
+                        </Grid.RenderTransform>
+                        <Grid.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="ProjectLoadingRotation" Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:0.9" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Grid.Triggers>
+                        <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="32"
+                                   Foreground="{DynamicResource AccentFillColorDefaultBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Text="Loading project…" Margin="0,12,0,0" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
 </Window>

@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using ProtoSim.App.ViewModels;
 
 namespace ProtoSim.App.Views;
@@ -19,6 +20,14 @@ public partial class DeviceView : UserControl
 
     private void OnCellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
     {
+        if (e.EditAction == DataGridEditAction.Commit)
+        {
+            if (e.EditingElement is ComboBox comboBox)
+                comboBox.GetBindingExpression(ComboBox.SelectedItemProperty)?.UpdateSource();
+            else if (e.EditingElement is CheckBox checkBox)
+                checkBox.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateSource();
+        }
+
         if (e.Row.Item is IEditableRow row) row.IsEditing = false;
     }
 }

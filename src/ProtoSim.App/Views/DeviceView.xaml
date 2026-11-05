@@ -151,11 +151,11 @@
                         <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Tag.Name}" Width="Auto" />
                                 <DataGridTextColumn Header="Address" Binding="{Binding Tag.Address}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
-                                <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
-                                <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
                                 <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCheckBoxCell}" EditingElementStyle="{StaticResource CenteredCheckBoxCell}" Width="Auto" />
-                                <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" Width="Auto" />
                             <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" Width="Auto" />
                             <DataGridTextColumn Header="Period (s)" Binding="{Binding Tag.Simulation.PeriodSeconds}" Width="Auto" />
