@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ProtoSim.Protocols.Dnp3</RootNamespace>
+    <AssemblyName>ProtoSim.Protocols.Dnp3</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="dnp3" Version="1.8.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ProtoSim.Core\ProtoSim.Core.csproj" />
+  </ItemGroup>
+</Project>

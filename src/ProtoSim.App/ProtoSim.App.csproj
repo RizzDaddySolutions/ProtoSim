@@ -35,6 +35,7 @@
     <ProjectReference Include="..\ProtoSim.Protocols.ModbusTcp\ProtoSim.Protocols.ModbusTcp.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.OpcUa\ProtoSim.Protocols.OpcUa.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Mqtt\ProtoSim.Protocols.Mqtt.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Dnp3\ProtoSim.Protocols.Dnp3.csproj" />
   </ItemGroup>
 
   <Target Name="RemovePublishSymbols" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">

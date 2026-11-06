@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
              xmlns:views="clr-namespace:ProtoSim.App.Views"
-             xmlns:controls="clr-namespace:ProtoSim.App.Controls">
+             xmlns:controls="clr-namespace:ProtoSim.App.Controls"
+             DataContextChanged="OnDataContextChanged">
     <UserControl.Resources>
         <Storyboard x:Key="LoadingSpin" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="LoadingRotation" Storyboard.TargetProperty="Angle"
@@ -146,8 +147,8 @@
                         <Run Text="Address formats: " /><Run Text="{Binding AddressHelp, Mode=OneWay}" />
                     </TextBlock>
 
-                    <DataGrid x:Name="TagGrid" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
-                              PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding" FrozenColumnCount="1">
+                     <DataGrid x:Name="TagGrid" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
+                               PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding" FrozenColumnCount="1">
                         <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Tag.Name}" Width="Auto" />
                                 <DataGridTextColumn Header="Address" Binding="{Binding Tag.Address}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
