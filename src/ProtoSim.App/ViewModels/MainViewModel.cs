@@ -45,6 +45,7 @@ public sealed class MainViewModel : ObservableObject
         DuplicateSelectedCommand = new RelayCommand(DuplicateSelected, () => _selectedDevice != null);
         SetThemeCommand = new RelayCommand(p => SetTheme(p as string));
         AboutCommand = new RelayCommand(ShowAbout);
+        HelpCommand = new RelayCommand(ShowHelp);
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
@@ -66,6 +67,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand DuplicateSelectedCommand { get; }
     public ICommand SetThemeCommand { get; }
     public ICommand AboutCommand { get; }
+    public ICommand HelpCommand { get; }
     public ICommand ExitCommand { get; }
     public object? Selected { get => _selected; private set => SetProperty(ref _selected, value); }
 
@@ -327,10 +329,17 @@ public sealed class MainViewModel : ObservableObject
 
     private void ShowAbout()
     {
-        var protocols = string.Join("\n", Catalog.Plugins.Select(p => $"  • {p.DisplayName} — {p.Description}"));
-        var errors = PluginErrors.Count > 0 ? "\n\nPlugin load errors:\n" + string.Join("\n", PluginErrors) : "";
-        MessageBox.Show(Application.Current.MainWindow!,
-            $"ProtoSim 1.0\n\nInstalled protocols:\n{protocols}\n\nAdd protocols by dropping plugin DLLs into the 'Plugins' folder next to the executable.{errors}",
-            "About", MessageBoxButton.OK, MessageBoxImage.Information);
+        new Views.AboutWindow(Catalog, PluginErrors) { Owner = Application.Current.MainWindow }.ShowDialog();
+    }
+
+    private static void ShowHelp()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Help", "index.html");
+        if (!File.Exists(path))
+        {
+            MessageBox.Show(Application.Current.MainWindow!, $"The help file was not found:{Environment.NewLine}{path}", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
     }
 }

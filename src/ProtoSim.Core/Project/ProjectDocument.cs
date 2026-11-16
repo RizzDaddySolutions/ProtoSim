@@ -45,7 +45,7 @@ public sealed class TagDocument
     public static TagDocument From(SimTag t)
     {
         string? value = null;
-        if (t.Simulation.Kind == SimulationKind.None && t.Binding is { } b)
+        if (!t.Simulation.Enabled && t.Binding is { } b)
         {
             try { value = ValueConverter.Format(b.Read()); } catch (Exception) { }
         }

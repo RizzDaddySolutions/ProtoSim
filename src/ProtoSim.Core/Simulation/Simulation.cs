@@ -5,6 +5,7 @@ namespace ProtoSim.Core.Simulation;
 
 public enum SimulationKind
 {
+    /// <summary>Legacy value from v1.0 project files. Treated as "simulation disabled"; not offered in the UI.</summary>
     None,
     Ramp,
     Sine,
@@ -20,7 +21,7 @@ public enum SimulationKind
 public sealed class SimulationSettings : ObservableObject
 {
     private bool _enabled;
-    private SimulationKind _kind;
+    private SimulationKind _kind = SimulationKind.Sine;
     private double _min;
     private double _max = 100;
     private double _periodSeconds = 10;
@@ -28,7 +29,30 @@ public sealed class SimulationSettings : ObservableObject
     private int _intervalMs = 500;
 
     public bool Enabled { get => _enabled; set => SetProperty(ref _enabled, value); }
-    public SimulationKind Kind { get => _kind; set => SetProperty(ref _kind, value); }
+    public SimulationKind Kind
+    {
+        get => _kind;
+        set
+        {
+            // "None" is the v1.0 way of turning simulation off; v1.1 uses the Enabled flag instead.
+            if (value == SimulationKind.None)
+            {
+                Enabled = false;
+                return;
+            }
+            SetProperty(ref _kind, value);
+        }
+    }
+
+    /// <summary>Min/Max bound the value (all kinds except Toggle).</summary>
+    public static bool UsesRange(SimulationKind k) => k != SimulationKind.Toggle;
+
+    /// <summary>Period applies to the periodic wave shapes.</summary>
+    public static bool UsesPeriod(SimulationKind k) =>
+        k is SimulationKind.Ramp or SimulationKind.Sine or SimulationKind.Triangle or SimulationKind.Square;
+
+    /// <summary>Step applies to incremental kinds.</summary>
+    public static bool UsesStep(SimulationKind k) => k is SimulationKind.RandomWalk or SimulationKind.Counter;
     public double Min { get => _min; set => SetProperty(ref _min, value); }
     public double Max { get => _max; set => SetProperty(ref _max, value); }
     public double PeriodSeconds { get => _periodSeconds; set => SetProperty(ref _periodSeconds, value); }

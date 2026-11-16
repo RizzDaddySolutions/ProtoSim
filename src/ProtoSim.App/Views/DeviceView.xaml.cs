@@ -17,7 +17,7 @@ public partial class DeviceView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        _wordOrderColumn.Visibility = e.NewValue is DeviceViewModel { Plugin.Id: "modbus-tcp" }
+        _wordOrderColumn.Visibility = e.NewValue is DeviceViewModel { Plugin.SupportsWordOrder: true }
             ? System.Windows.Visibility.Visible
             : System.Windows.Visibility.Collapsed;
     }

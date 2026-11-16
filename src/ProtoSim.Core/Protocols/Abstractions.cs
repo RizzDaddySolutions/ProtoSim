@@ -35,6 +35,10 @@ public interface IProtocolPlugin
     IEnumerable<SimTag> CreateSampleTags();
 
     string DescribeServer(object serverSettings);
+
+    /// <summary>True when multi-word values can use a configurable word order (e.g. Modbus registers).
+    /// The tag grid hides the Order column for protocols that don't.</summary>
+    bool SupportsWordOrder => false;
 }
 
 public enum ServerState

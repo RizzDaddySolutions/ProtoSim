@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using ProtoSim.App.Mvvm;
 using ProtoSim.App.Services;
+using ProtoSim.App.Views;
 using ProtoSim.Core;
 using ProtoSim.Core.Data;
 using ProtoSim.Core.Diagnostics;
@@ -318,7 +319,31 @@ public sealed class DeviceViewModel : ObservableObject
         try
         {
             var tags = await Task.Run(() => TagCsv.Read(dlg.FileName));
-            foreach (var t in tags) AddTag(t);
+            if (tags.Count == 0)
+            {
+                MessageBox.Show("The file contains no tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // Only ask how to merge when there is something to merge with.
+            if (Tags.Count > 0)
+            {
+                IsImporting = false;
+                var choice = new ImportTagsDialog(Path.GetFileName(dlg.FileName), tags.Count, Tags.Count)
+                {
+                    Owner = Application.Current.MainWindow,
+                };
+                if (choice.ShowDialog() != true) return;
+                IsImporting = true;
+                if (choice.Mode == TagImportMode.Overwrite) RemoveAllTags();
+            }
+
+            for (int i = 0; i < tags.Count; i++)
+            {
+                AddTag(tags[i]);
+                if ((i & 63) == 63) await Task.Delay(1); // let the loading overlay render on large imports
+            }
+            IsImporting = false;
             MessageBox.Show($"Imported {tags.Count} tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)

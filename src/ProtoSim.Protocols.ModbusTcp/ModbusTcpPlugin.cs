@@ -16,6 +16,8 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
 
     public string DefaultTagAddress(int n) => $"HR:{100 + n}";
 
+    public bool SupportsWordOrder => true;
+
     public object CreateServerSettings(IEnumerable<object> existing)
     {
         var used = existing.OfType<ModbusServerSettings>().Select(s => s.Port).ToHashSet();

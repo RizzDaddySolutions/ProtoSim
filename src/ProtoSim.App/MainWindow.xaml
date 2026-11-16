@@ -12,6 +12,7 @@
         <KeyBinding Key="S" Modifiers="Control+Shift" Command="{Binding SaveAsCommand}" />
         <KeyBinding Key="F5" Command="{Binding StartAllCommand}" />
         <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopAllCommand}" />
+        <KeyBinding Key="F1" Command="{Binding HelpCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
@@ -51,7 +52,9 @@
                 <MenuItem Header="Theme: _dark" Command="{Binding SetThemeCommand}" CommandParameter="Dark" />
             </MenuItem>
             <MenuItem Header="_Help">
-                <MenuItem Header="_About" Command="{Binding AboutCommand}" />
+                <MenuItem Header="_View help" Command="{Binding HelpCommand}" InputGestureText="F1" />
+                <Separator />
+                <MenuItem Header="_About ProtoSim" Command="{Binding AboutCommand}" />
             </MenuItem>
         </Menu>
 

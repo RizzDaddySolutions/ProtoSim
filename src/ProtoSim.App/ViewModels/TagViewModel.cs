@@ -9,7 +9,7 @@ public static class EnumLists
 {
     public static TagDataType[] DataTypes { get; } = Enum.GetValues<TagDataType>();
     public static WordOrder[] WordOrders { get; } = Enum.GetValues<WordOrder>();
-    public static SimulationKind[] SimulationKinds { get; } = Enum.GetValues<SimulationKind>();
+    public static SimulationKind[] SimulationKinds { get; } = Enum.GetValues<SimulationKind>().Where(k => k != SimulationKind.None).ToArray();
 }
 
 /// <summary>Grid row for a tag: keeps the binding in sync with address/type edits and shows the live value.</summary>
@@ -24,7 +24,32 @@ public sealed class TagViewModel : ObservableObject, IEditableRow
         Tag = tag;
         _model = model;
         Tag.PropertyChanged += OnTagChanged;
+        _simulation = tag.Simulation;
+        _simulation.PropertyChanged += OnSimulationChanged;
         Rebind();
+    }
+
+    private SimulationSettings _simulation;
+
+    // Which simulation parameters apply to this row's simulation kind (others are greyed out).
+    public bool UsesRange => SimulationSettings.UsesRange(Tag.Simulation.Kind);
+    public bool UsesPeriod => SimulationSettings.UsesPeriod(Tag.Simulation.Kind);
+    public bool UsesStep => SimulationSettings.UsesStep(Tag.Simulation.Kind);
+
+    /// <summary>Word order only matters for values that span more than one 16-bit register.</summary>
+    public bool UsesWordOrder => Tag.DataType is TagDataType.Int32 or TagDataType.UInt32 or TagDataType.Int64
+        or TagDataType.UInt64 or TagDataType.Float32 or TagDataType.Float64;
+
+    private void OnSimulationChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SimulationSettings.Kind) or null) RaiseSimulationShape();
+    }
+
+    private void RaiseSimulationShape()
+    {
+        OnPropertyChanged(nameof(UsesRange));
+        OnPropertyChanged(nameof(UsesPeriod));
+        OnPropertyChanged(nameof(UsesStep));
     }
 
     public SimTag Tag { get; }
@@ -57,6 +82,14 @@ public sealed class TagViewModel : ObservableObject, IEditableRow
     {
         if (e.PropertyName is nameof(SimTag.Address) or nameof(SimTag.DataType) or nameof(SimTag.WordOrder))
             Rebind();
+        if (e.PropertyName == nameof(SimTag.DataType)) OnPropertyChanged(nameof(UsesWordOrder));
+        else if (e.PropertyName == nameof(SimTag.Simulation) && !ReferenceEquals(_simulation, Tag.Simulation))
+        {
+            _simulation.PropertyChanged -= OnSimulationChanged;
+            _simulation = Tag.Simulation;
+            _simulation.PropertyChanged += OnSimulationChanged;
+            RaiseSimulationShape();
+        }
     }
 
     public void Rebind()
@@ -95,6 +128,7 @@ public sealed class TagViewModel : ObservableObject, IEditableRow
     public void Detach()
     {
         Tag.PropertyChanged -= OnTagChanged;
+        _simulation.PropertyChanged -= OnSimulationChanged;
         var b = Tag.Binding;
         Tag.Binding = null;
         b?.Dispose();

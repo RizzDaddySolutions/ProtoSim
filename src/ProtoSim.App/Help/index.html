@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProtoSim Help</title>
+<style>
+  :root {
+    --bg: #f3f3f3;
+    --card: #ffffff;
+    --text: #1b1b1b;
+    --muted: #5c5c5c;
+    --border: #e0e0e0;
+    --accent: #005fb8;
+    --accent-soft: #e5f0fa;
+    --code-bg: #f0f0f0;
+    --warn: #9d5d00;
+    --warn-soft: #fff4ce;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #202020;
+      --card: #2b2b2b;
+      --text: #ffffff;
+      --muted: #c5c5c5;
+      --border: #3d3d3d;
+      --accent: #60cdff;
+      --accent-soft: #1f3445;
+      --code-bg: #1c1c1c;
+      --warn: #fce100;
+      --warn-soft: #433519;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  .layout { display: flex; min-height: 100vh; }
+  nav {
+    width: 250px; flex: none;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    padding: 24px 12px 24px 20px;
+    border-right: 1px solid var(--border);
+  }
+  nav .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 20px 8px; }
+  nav .brand strong { font-size: 18px; }
+  nav .brand span { color: var(--muted); font-size: 12px; }
+  nav .logo {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+    display: grid; place-items: center; color: var(--card); font-weight: 700;
+  }
+  nav h4 {
+    margin: 18px 8px 4px; font-size: 11px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  nav a {
+    display: block; padding: 5px 8px; border-radius: 5px;
+    color: var(--text); text-decoration: none;
+  }
+  nav a:hover { background: var(--accent-soft); }
+  main { flex: 1; min-width: 0; padding: 32px 40px 80px; max-width: 980px; }
+  h1 { font-size: 30px; font-weight: 600; margin: 0 0 4px; }
+  .lead { color: var(--muted); font-size: 15px; margin: 0 0 28px; }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px 24px; margin: 0 0 16px;
+  }
+  h2 { font-size: 20px; font-weight: 600; margin: 0 0 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 20px 0 6px; }
+  p { margin: 0 0 10px; }
+  ul, ol { margin: 0 0 10px; padding-left: 22px; }
+  li { margin: 2px 0; }
+  a { color: var(--accent); }
+  code, kbd {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 12.5px;
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+  }
+  kbd { box-shadow: inset 0 -1px 0 var(--border); }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 12px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  tr:last-child td { border-bottom: 0; }
+  .yes { color: var(--accent); font-weight: 600; }
+  .no { color: var(--muted); }
+  .note {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0;
+  }
+  .note.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent); vertical-align: middle; margin-left: 6px;
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .grid2 > div { border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .grid2 > div h3 { margin-top: 0; }
+  @media (max-width: 800px) {
+    .layout { display: block; }
+    nav { position: static; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+    main { padding: 20px 16px 60px; }
+    section { padding: 16px; }
+    table { display: block; overflow-x: auto; }
+  }
+  @media print {
+    nav { display: none; }
+    section { break-inside: avoid; border-color: #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div><strong>ProtoSim</strong><br><span>Help · version 1.1</span></div>
+  </div>
+  <h4>Getting started</h4>
+  <a href="#overview">Overview</a>
+  <a href="#quick-start">Quick start</a>
+  <a href="#window">The main window</a>
+  <h4>Working with devices</h4>
+  <a href="#data">Data tab</a>
+  <a href="#tags">Tags &amp; simulation</a>
+  <a href="#simulation-kinds">Simulation kinds</a>
+  <a href="#csv">Import &amp; export CSV</a>
+  <a href="#traffic">Traffic</a>
+  <a href="#connections">Connections</a>
+  <a href="#settings">Settings</a>
+  <a href="#faults">Fault injection</a>
+  <h4>Protocols</h4>
+  <a href="#modbus">Modbus TCP</a>
+  <a href="#opcua">OPC UA</a>
+  <a href="#mqtt">MQTT</a>
+  <a href="#dnp3">DNP3</a>
+  <h4>Reference</h4>
+  <a href="#projects">Project files</a>
+  <a href="#shortcuts">Keyboard shortcuts</a>
+  <a href="#plugins">Plugins</a>
+  <a href="#whats-new">What's new in 1.1</a>
+</nav>
+
+<main>
+<h1>ProtoSim Help</h1>
+<p class="lead">Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to.</p>
+
+<section id="overview">
+  <h2>Overview</h2>
+  <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
+  <div class="grid2">
+    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT and DNP3 devices can run side by side in one project.</p></div>
+    <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
+    <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
+  </div>
+</section>
+
+<section id="quick-start">
+  <h2>Quick start</h2>
+  <ol>
+    <li>Choose <strong>Simulation › Add device</strong> (or the <strong>Add</strong> button above the device list) and pick a protocol. The new device comes with sample tags.</li>
+    <li>Click <strong>Start</strong> on the device, or press <kbd>F5</kbd> to start all devices.</li>
+    <li>Tick <strong>Enable simulated values</strong> at the top left so simulated tags start changing.</li>
+    <li>Point your client at the endpoint shown under the device name (for example <code>0.0.0.0:502</code>).</li>
+    <li>Save the project with <kbd>Ctrl</kbd>+<kbd>S</kbd>.</li>
+  </ol>
+  <div class="note">Ports below 1024 (such as Modbus 502) may already be used by another program. If a device shows <em>Faulted</em>, stop it, change the port on the <strong>Settings</strong> tab and start it again.</div>
+</section>
+
+<section id="window">
+  <h2>The main window</h2>
+  <ul>
+    <li><strong>Enable simulated values</strong> — the master switch for simulation. When off, every tag keeps its current value.</li>
+    <li><strong>Simulated devices</strong> — the list on the left. The dot shows the state: green running, amber starting/stopping, red faulted, grey stopped. <strong>Start all</strong>, <strong>Stop all</strong> and the delete button are below the list.</li>
+    <li><strong>Device pane</strong> — the selected device. Click its name to rename it. The tabs are described below.</li>
+    <li><strong>Status bar</strong> — devices running, open connections, request rate and whether simulation is on.</li>
+  </ul>
+</section>
+
+<section id="data">
+  <h2>Data tab <span class="badge">Modbus · DNP3</span></h2>
+  <p>Shows the raw memory of register- and point-based protocols, one area at a time (for example Holding Registers). Node- and topic-based protocols (OPC UA, MQTT) have no Data tab.</p>
+  <ul>
+    <li>Choose the area, the <strong>Start</strong> offset and the number of <strong>Rows</strong>; page with the arrow buttons.</li>
+    <li><strong>Format</strong> shows word values as unsigned, signed, hex, binary or ASCII.</li>
+    <li>Double-click a value to edit it. Bit areas have a check box per row.</li>
+    <li><strong>Fill</strong>, <strong>Clear</strong>, <strong>Randomize</strong> and <strong>Sequence</strong> act on the visible rows.</li>
+    <li>Rows whose value just changed are highlighted.</li>
+  </ul>
+</section>
+
+<section id="tags">
+  <h2>Tags &amp; simulation</h2>
+  <p>Each row is a tag. Use <strong>Add tag</strong>, <strong>Duplicate</strong> and <strong>Remove</strong> above the grid. The address formats for the device's protocol are shown above the grid.</p>
+  <table>
+    <tr><th>Column</th><th>Meaning</th></tr>
+    <tr><td>Name</td><td>Display name of the tag.</td></tr>
+    <tr><td>Address</td><td>Where the value lives in the protocol (register, node path, topic or point). See the protocol sections.</td></tr>
+    <tr><td>Type</td><td><code>Bool</code>, <code>Int16</code>, <code>UInt16</code>, <code>Int32</code>, <code>UInt32</code>, <code>Int64</code>, <code>UInt64</code>, <code>Float32</code>, <code>Float64</code>, <code>String</code> (String only for node/topic-based protocols).</td></tr>
+    <tr><td>Order</td><td>Word order for values that span several registers. <strong>Shown only for Modbus devices</strong>, and dimmed for single-register types (Bool, Int16, UInt16).</td></tr>
+    <tr><td>Value</td><td>The live value. Double-click to write a new one.</td></tr>
+    <tr><td>Simulate</td><td>Turns simulation on or off for this tag. When off, the tag keeps whatever value it is given.</td></tr>
+    <tr><td>Simulation</td><td>The simulation kind (see the next section).</td></tr>
+    <tr><td>Min / Max</td><td>Value range of the simulation.</td></tr>
+    <tr><td>Period (s)</td><td>Length of one cycle for wave shapes.</td></tr>
+    <tr><td>Step</td><td>Change per update for Counter and Random walk.</td></tr>
+    <tr><td>Every (ms)</td><td>How often the value updates.</td></tr>
+    <tr><td>Description</td><td>Free text.</td></tr>
+    <tr><td>Status</td><td>Shows an error when the address or type is invalid.</td></tr>
+  </table>
+  <div class="note">Parameter cells that don't apply to a row's simulation kind are dimmed and can't be edited. For example, <em>Period</em> is dimmed for a Counter, and <em>Step</em> is dimmed for a Sine.</div>
+</section>
+
+<section id="simulation-kinds">
+  <h2>Simulation kinds</h2>
+  <table>
+    <tr><th>Kind</th><th>Behaviour</th><th>Min/Max</th><th>Period</th><th>Step</th></tr>
+    <tr><td>Ramp</td><td>Rises linearly from Min to Max over one period, then jumps back.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Sine</td><td>Smooth sine wave between Min and Max.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Triangle</td><td>Rises to Max over half a period, falls back over the other half.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Square</td><td>Min for half a period, Max for the other half.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Random</td><td>A new random value between Min and Max each update.</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+    <tr><td>Random walk</td><td>Moves up or down by up to Step each update, staying within Min–Max.</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
+    <tr><td>Counter</td><td>Adds Step each update; wraps to Min after Max.</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
+    <tr><td>Toggle</td><td>Alternates between 0 and 1 each update.</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+  </table>
+  <p>All kinds use <strong>Every (ms)</strong>. For <code>Bool</code> tags, analog shapes become true when the value is above the midpoint of Min and Max, so a Square wave toggles cleanly.</p>
+</section>
+
+<section id="csv">
+  <h2>Import &amp; export CSV</h2>
+  <p><strong>Export CSV…</strong> saves the device's tags so you can edit them in a spreadsheet. <strong>Import CSV…</strong> reads them back.</p>
+  <p>When the device already has tags, the import asks what to do with them:</p>
+  <ul>
+    <li><strong>Append</strong> — keep the existing tags and add the imported ones after them.</li>
+    <li><strong>Overwrite</strong> — remove all existing tags and replace them with the imported ones.</li>
+  </ul>
+  <h3>Columns</h3>
+  <p><code>Name, Address, DataType, WordOrder, Simulate, Simulation, Min, Max, PeriodSeconds, Step, IntervalMs, Description</code></p>
+  <p>Only <code>Name</code> and <code>Address</code> are required; column order doesn't matter and names are case-insensitive. Numbers use a dot as the decimal separator. Missing values get defaults (UInt16, ABCD, simulation off, Sine, 0–100, 10 s, step 1, 500 ms).</p>
+</section>
+
+<section id="traffic">
+  <h2>Traffic</h2>
+  <p>A live log of received (Rx) and sent (Tx) messages with decoded summaries; Modbus also shows the raw bytes in hex. Use <strong>Capture</strong> to stop or resume recording (saves CPU under heavy load), <strong>Frames</strong> and <strong>Events</strong> to choose what is shown, <strong>Auto-scroll</strong> to follow new entries, and <strong>Clear</strong> to empty the log. <strong>Filter</strong> matches the summary, remote address or hex bytes. The log can be exported to <code>.log</code> or <code>.csv</code>.</p>
+</section>
+
+<section id="connections">
+  <h2>Connections</h2>
+  <p>Counters for active and total connections, requests per second, requests, responses, exceptions sent, unanswered requests, malformed frames and bytes in/out. <strong>Reset counters</strong> sets them back to zero. The table lists each connected client or session; <strong>Disconnect</strong> drops it.</p>
+</section>
+
+<section id="settings">
+  <h2>Settings</h2>
+  <p>Protocol settings such as bind address and port. Settings can only be changed while the device is stopped. Tick <strong>Start this device automatically when the project is opened</strong> to have it start on load.</p>
+</section>
+
+<section id="faults">
+  <h2>Fault injection</h2>
+  <p>Makes a device misbehave so you can test how clients cope. Changes apply immediately, even while the device is running.</p>
+  <table>
+    <tr><th>Setting</th><th>Effect</th></tr>
+    <tr><td>Response delay (ms)</td><td>Fixed delay before every response.</td></tr>
+    <tr><td>Delay jitter (ms)</td><td>Random extra delay between 0 and this value.</td></tr>
+    <tr><td>Drop responses (%)</td><td>Chance that a request gets no response (simulates a timeout).</td></tr>
+    <tr><td>Error responses (%)</td><td>Chance that a request is answered with a protocol error.</td></tr>
+    <tr><td>Error code</td><td>Error code to send. Modbus: 1 illegal function, 2 illegal address, 3 illegal value, 4 device failure, 6 busy.</td></tr>
+    <tr><td>Disconnect after response (%)</td><td>Chance that the connection is closed after a response.</td></tr>
+  </table>
+</section>
+
+<section id="modbus">
+  <h2>Modbus TCP</h2>
+  <p>A Modbus TCP server (slave), default port <code>502</code>. Supported function codes: 01–06, 08 (Return Query Data), 15, 16, 22, 23 and 43/14 (Device Identification).</p>
+  <h3>Tag addresses</h3>
+  <table>
+    <tr><th>Example</th><th>Meaning</th></tr>
+    <tr><td><code>HR:0</code> <code>IR:0</code> <code>CO:0</code> <code>DI:0</code></td><td>Holding register, input register, coil, discrete input — 0-based offsets.</td></tr>
+    <tr><td><code>40001</code> / <code>400001</code></td><td>Modicon-style, 1-based (4x = holding, 3x = input, 1x = discrete input, 0x = coil).</td></tr>
+    <tr><td><code>HR:10.3</code></td><td>Bit 3 of holding register 10.</td></tr>
+  </table>
+  <h3>Word order</h3>
+  <p>32- and 64-bit values span several registers. <code>ABCD</code> is big-endian (the Modbus norm), <code>CDAB</code> swaps words, <code>BADC</code> swaps bytes in each word, and <code>DCBA</code> is little-endian.</p>
+  <h3>Settings</h3>
+  <p>Unit IDs to answer (<code>*</code>, <code>1,2,10-20</code>), gateway exceptions for other unit IDs, unit 0 as broadcast, read-only mode, area sizes and device identification strings.</p>
+</section>
+
+<section id="opcua">
+  <h2>OPC UA</h2>
+  <p>An OPC UA server (<code>opc.tcp</code>), default port <code>4840</code>.</p>
+  <h3>Tag addresses</h3>
+  <p>A folder path such as <code>Plant/Tank1/Level</code>. It appears under <code>Objects/&lt;root folder&gt;</code> with NodeId <code>ns=2;s=Plant/Tank1/Level</code>. Folders are created automatically and nodes appear and disappear live as tags are added or removed.</p>
+  <h3>Security</h3>
+  <p>None, Basic256Sha256 Sign, or Sign &amp; Encrypt; anonymous and/or user-name login. A self-signed certificate is created on first start in <code>%LocalAppData%\ProtoSim\pki</code>. Untrusted client certificates can be accepted automatically.</p>
+</section>
+
+<section id="mqtt">
+  <h2>MQTT</h2>
+  <p>A built-in MQTT broker, default port <code>1883</code>. Each tag is a topic, for example <code>sensors/temperature</code> or <code>plant/pump/running</code>. Simulated values are published to the topic; external clients can publish and subscribe as with any broker. Anonymous access can be turned off and a user name and password required.</p>
+</section>
+
+<section id="dnp3">
+  <h2>DNP3</h2>
+  <p>A DNP3 TCP outstation, default port <code>20000</code>, outstation address 10 and master address 1.</p>
+  <table>
+    <tr><th>Address</th><th>Point type</th></tr>
+    <tr><td><code>BI:&lt;index&gt;</code></td><td>Binary input</td></tr>
+    <tr><td><code>AI:&lt;index&gt;</code></td><td>Analog input</td></tr>
+    <tr><td><code>C:&lt;index&gt;</code></td><td>Counter</td></tr>
+  </table>
+  <p>Settings include the outstation and master addresses, unsolicited responses, whether writes are allowed, and the maximum number of points.</p>
+</section>
+
+<section id="projects">
+  <h2>Project files</h2>
+  <p>Projects are saved as <code>.psim</code> files (JSON). A project holds the devices, their settings, fault settings, tags and values, and raw Modbus memory. To open a project at startup, pass its path on the command line: <code>ProtoSim.exe project.psim</code>.</p>
+  <div class="note">Projects from version 1.0 open unchanged. Tags that used the old <em>None</em> simulation kind are loaded with <strong>Simulate</strong> turned off.</div>
+</section>
+
+<section id="shortcuts">
+  <h2>Keyboard shortcuts</h2>
+  <table>
+    <tr><th>Keys</th><th>Action</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>New project</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open project</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Save as</td></tr>
+    <tr><td><kbd>F5</kbd></td><td>Start all devices</td></tr>
+    <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Stop all devices</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>Open this help</td></tr>
+  </table>
+</section>
+
+<section id="plugins">
+  <h2>Plugins</h2>
+  <p>Each protocol is a plugin. To add a protocol, copy its DLL into the <code>Plugins</code> folder next to <code>ProtoSim.exe</code> and restart. <strong>Help › About ProtoSim</strong> lists the installed protocols and any plugins that failed to load.</p>
+</section>
+
+<section id="whats-new">
+  <h2>What's new in 1.1</h2>
+  <ul>
+    <li>The Simulation drop-down no longer has a <em>None</em> option; use the <strong>Simulate</strong> check box to turn simulation off.</li>
+    <li>CSV import asks whether to <strong>append</strong> to or <strong>overwrite</strong> the existing tags.</li>
+    <li>New About window.</li>
+    <li>Tag grid columns adapt to the device and simulation kind: <em>Order</em> is shown only for Modbus, and parameters that don't apply are dimmed.</li>
+    <li>This help, available from <strong>Help › View help</strong> or <kbd>F1</kbd>.</li>
+  </ul>
+</section>
+</main>
+</div>
+</body>
+</html>

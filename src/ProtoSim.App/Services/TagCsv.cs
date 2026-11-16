@@ -55,8 +55,8 @@ public static class TagCsv
                 Description = Get("Description"),
                 Simulation = new SimulationSettings
                 {
-                        Enabled = bool.TryParse(Get("Simulate"), out var enabled) && enabled,
-                    Kind = En("Simulation", SimulationKind.None),
+                    Enabled = bool.TryParse(Get("Simulate"), out var enabled) && enabled,
+                    Kind = En("Simulation", SimulationKind.Sine),
                     Min = Num("Min", 0),
                     Max = Num("Max", 100),
                     PeriodSeconds = Num("PeriodSeconds", 10),
