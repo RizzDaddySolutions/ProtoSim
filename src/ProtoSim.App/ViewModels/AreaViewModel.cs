@@ -124,7 +124,7 @@ public sealed class AreaViewModel : ObservableObject
         }
         catch (FormatException ex)
         {
-            System.Windows.MessageBox.Show(ex.Message, "Fill", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            Views.MessageDialog.Show(ex.Message, "Fill", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         }
     }
 

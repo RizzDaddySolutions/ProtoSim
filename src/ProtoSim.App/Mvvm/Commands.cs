@@ -62,7 +62,7 @@ public sealed class AsyncRelayCommand : ICommand
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            MessageBox.Show(Application.Current?.MainWindow!, ex.Message, "ProtoSim", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Show(ex.Message, "Something went wrong", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {

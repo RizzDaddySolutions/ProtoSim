@@ -32,13 +32,13 @@ public partial class App : Application
         if (e.Args.Length > 0 && File.Exists(e.Args[0]))
         {
             try { await vm.LoadAsync(e.Args[0]); }
-            catch (Exception ex) { MessageBox.Show(window, ex.Message, "Open project", MessageBoxButton.OK, MessageBoxImage.Error); }
+            catch (Exception ex) { Views.MessageDialog.Show(ex.Message, "Couldn't open project", MessageBoxButton.OK, MessageBoxImage.Error, window); }
         }
     }
 
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        MessageBox.Show(MainWindow!, e.Exception.Message, "Unexpected error", MessageBoxButton.OK, MessageBoxImage.Error);
+        Views.MessageDialog.Show(e.Exception.Message, "Unexpected error", MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
 }

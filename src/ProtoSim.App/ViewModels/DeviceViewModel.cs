@@ -321,7 +321,7 @@ public sealed class DeviceViewModel : ObservableObject
             var tags = await Task.Run(() => TagCsv.Read(dlg.FileName));
             if (tags.Count == 0)
             {
-                MessageBox.Show("The file contains no tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialog.Show("The file contains no tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -344,11 +344,11 @@ public sealed class DeviceViewModel : ObservableObject
                 if ((i & 63) == 63) await Task.Delay(1); // let the loading overlay render on large imports
             }
             IsImporting = false;
-            MessageBox.Show($"Imported {tags.Count} tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageDialog.Show($"Imported {tags.Count} tags.", "Import tags", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Import tags", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageDialog.Show(ex.Message, "Import tags", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {

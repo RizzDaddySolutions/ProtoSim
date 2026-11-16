@@ -169,8 +169,7 @@ public sealed class MainViewModel : ObservableObject
         Selected = null;
     }
 
-    private static bool Confirm(string message) =>
-        MessageBox.Show(Application.Current.MainWindow!, message, "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+    private static bool Confirm(string message) => Views.MessageDialog.Confirm(message);
 
     private async Task StartAllAsync()
     {
@@ -266,7 +265,7 @@ public sealed class MainViewModel : ObservableObject
             foreach (var d in Devices.Where(d => d.AutoStart)) await d.StartAsync();
 
             if (missing.Count > 0)
-                MessageBox.Show($"These protocols are not installed and were skipped: {string.Join(", ", missing.Distinct())}",
+                Views.MessageDialog.Show($"These protocols are not installed and were skipped: {string.Join(", ", missing.Distinct())}",
                     "Open project", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
@@ -337,7 +336,7 @@ public sealed class MainViewModel : ObservableObject
         var path = Path.Combine(AppContext.BaseDirectory, "Help", "index.html");
         if (!File.Exists(path))
         {
-            MessageBox.Show(Application.Current.MainWindow!, $"The help file was not found:{Environment.NewLine}{path}", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Show($"The help file was not found:{Environment.NewLine}{path}", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
