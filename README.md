@@ -13,6 +13,8 @@ ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with 
 - **Traffic log** with decoded summaries (and hex bytes for Modbus), filtering, pause, auto-scroll, and export to .log/.csv.
 - **Connections and statistics**: connected clients or sessions (with a button to drop each one), requests/s, errors and unanswered requests.
 - **Fault injection** (applies while running): response delay and jitter, timeouts, error responses, and random disconnects.
+- **Record and replay**: record every tag's value changes to a CSV (`offset_s,tag,value`) and play them back at 0.25–60× speed, optionally looping. Timestamped CSVs (e.g. historian exports) replay too. Replayed tags pause their simulation.
+- **Scenario scripts**: a timed script per device, saved with the project, e.g. `0 ramp Tank level from 20 to 80 over 30s`, `30s set Pump running = false`, `+5s fault error 50 code 4`, `60s device stop`, with `repeat` to loop. Fault settings changed by a scenario are restored when it ends.
 
 **Projects**
 - Save and open `.psim` files (JSON). A project holds devices, settings, faults, tags and their values, and Modbus memory. Older files that contain client sessions still open; the sessions are ignored. A device can be set to start automatically when the project opens.
@@ -151,6 +153,7 @@ tests/
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
   Bacnet.Tests                  Address rules and loopback tests with a BACnet client (discovery, reads, commands, COV, DCC, faults)
   MTConnect.Tests               Address rules and HTTP tests for probe, current, sample, XPath, buffer wrap, errors and faults
+  Core.Tests                    Recording CSV, recorder, replayer, scenario parsing and scenario runner
   Script.Tests                  Rule parsing, templates, writes, framing, and TCP/UDP request/reply, greeting and periodic output
   Snmp.Tests                    OID/syntax rules, Get/GetNext/GetBulk/Set semantics, communities, faults, UDP and traps
   SparkplugB.Tests              Payload codec, addressing, and births/data/commands/STATE against the embedded broker

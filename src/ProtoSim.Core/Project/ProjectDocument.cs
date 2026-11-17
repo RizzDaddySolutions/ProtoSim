@@ -25,6 +25,9 @@ public sealed class DeviceDocument
 
     /// <summary>Non-zero values per area, keyed by area short name.</summary>
     public Dictionary<string, Dictionary<int, ushort>> Data { get; set; } = [];
+
+    /// <summary>Scenario script text; null in files from before scenarios existed.</summary>
+    public string? Scenario { get; set; }
 }
 
 public sealed class TagDocument

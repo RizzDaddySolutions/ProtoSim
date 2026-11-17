@@ -108,6 +108,297 @@ public sealed class DeviceViewModel : ObservableObject
         ImportTagsCommand = new AsyncRelayCommand(ImportTagsAsync, () => !IsImporting);
         DropConnectionCommand = new RelayCommand(p => { if (p is ConnectionViewModel c) _server?.DropConnection(c.Id); });
         ResetStatisticsCommand = new RelayCommand(() => Statistics.Reset());
+        Tags.CollectionChanged += (_, _) => _tagSnapshot = Tags.Select(t => t.Tag).ToArray();
+        StartRecordingCommand = new RelayCommand(StartRecording, () => _recorder == null && Tags.Count > 0);
+        StopRecordingCommand = new AsyncRelayCommand(StopRecordingAsync, () => _recorder != null);
+        ReplayCommand = new AsyncRelayCommand(ReplayAsync, () => _replayer == null && Tags.Count > 0);
+        StopReplayCommand = new AsyncRelayCommand(StopReplayAsync, () => _replayer != null);
+        RunScenarioCommand = new RelayCommand(RunScenario, () => _scenario == null);
+        StopScenarioCommand = new AsyncRelayCommand(StopScenarioAsync, () => _scenario != null);
+        InsertScenarioExampleCommand = new RelayCommand(() => ScenarioText = ScenarioScript.Example, () => _scenario == null);
+    }
+
+    // ---- Scenario ----
+
+    private ScenarioRunner? _scenario;
+    private string _scenarioText = ScenarioScript.Help;
+    private string _scenarioStatus = string.Empty;
+    private string? _scenarioError;
+    private double _scenarioSpeed = 1;
+
+    public ICommand RunScenarioCommand { get; }
+    public ICommand StopScenarioCommand { get; }
+    public ICommand InsertScenarioExampleCommand { get; }
+
+    /// <summary>The scenario script, saved with the project.</summary>
+    public string ScenarioText
+    {
+        get => _scenarioText;
+        set
+        {
+            if (!SetProperty(ref _scenarioText, value ?? string.Empty)) return;
+            ScenarioError = null;
+        }
+    }
+
+    public double ScenarioSpeed { get => _scenarioSpeed; set => SetProperty(ref _scenarioSpeed, value); }
+    public bool IsScenarioRunning => _scenario != null;
+    public string ScenarioStatus { get => _scenarioStatus; private set => SetProperty(ref _scenarioStatus, value); }
+    public string? ScenarioError { get => _scenarioError; private set => SetProperty(ref _scenarioError, value); }
+
+    private void RunScenario()
+    {
+        ScenarioScript script;
+        try
+        {
+            script = ScenarioScript.Parse(ScenarioText);
+        }
+        catch (FormatException ex)
+        {
+            ScenarioError = ex.Message;
+            return;
+        }
+        if (script.Steps.Count == 0)
+        {
+            ScenarioError = "The scenario has no steps.";
+            return;
+        }
+
+        var runner = new ScenarioRunner(script, new ScenarioHost(this, Tags.Select(t => t.Tag).ToList()), ScenarioSpeed);
+        if (runner.MissingTags.Count > 0)
+        {
+            ScenarioError = $"No tag named {string.Join(", ", runner.MissingTags.Select(t => $"'{t}'"))} on this device (tags are matched by name or address).";
+            return;
+        }
+
+        runner.Completed += (r, error) => Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(r, _scenario)) return;
+            _scenario = null;
+            r.Dispose();
+            if (error != null) ScenarioError = error.Message;
+            ScenarioStateChanged();
+        });
+        ScenarioError = null;
+        _scenario = runner;
+        runner.Start();
+        ScenarioStateChanged();
+    }
+
+    private async Task StopScenarioAsync()
+    {
+        var runner = _scenario;
+        if (runner == null) return;
+        _scenario = null;
+        await runner.StopAsync();
+        runner.Dispose();
+        TrafficLog.Info("", "Scenario stopped by user");
+        ScenarioStateChanged();
+    }
+
+    private void ScenarioStateChanged()
+    {
+        OnPropertyChanged(nameof(IsScenarioRunning));
+        UpdateScenarioStatus();
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void UpdateScenarioStatus()
+    {
+        if (_scenario is not { } s)
+        {
+            ScenarioStatus = string.Empty;
+            return;
+        }
+        static string T(double v) => TimeSpan.FromSeconds(v).ToString(v >= 3600 ? @"h\:mm\:ss" : @"m\:ss");
+        ScenarioStatus = $"▶ {T(s.ElapsedSeconds)} / {T(s.DurationSeconds)} · {s.Speed:0.##}×" +
+                         (s.Loops > 0 ? $" · repeat {s.Loops + 1}" : "") +
+                         (s.CurrentStep.Length > 0 ? $" · {s.CurrentStep}" : "") +
+                         (s.Errors > 0 ? $" · {s.Errors} problem(s), see Traffic" : "");
+    }
+
+    /// <summary>Gives a scenario access to this device. Tags are snapshotted so worker threads never touch the collection.</summary>
+    private sealed class ScenarioHost(DeviceViewModel device, IReadOnlyList<SimTag> tags) : IScenarioHost
+    {
+        public SimTag? FindTag(string nameOrAddress) =>
+            tags.FirstOrDefault(t => string.Equals(t.Name, nameOrAddress, StringComparison.OrdinalIgnoreCase))
+            ?? tags.FirstOrDefault(t => string.Equals(t.Address, nameOrAddress, StringComparison.OrdinalIgnoreCase));
+
+        public FaultSettings Faults => device.Faults;
+
+        public Task SetDeviceRunningAsync(bool running)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null) return Task.CompletedTask;
+            return dispatcher.InvokeAsync(() => running ? device.StartAsync() : device.StopAsync()).Task.Unwrap();
+        }
+
+        public void Log(string message) => device.TrafficLog.Info("", message);
+    }
+
+    // ---- Record & replay ----
+
+    private TagRecorder? _recorder;
+    private TagReplayer? _replayer;
+    private string _replayName = string.Empty;
+    private string _recordReplayStatus = string.Empty;
+    private double _replaySpeed = 1;
+    private bool _replayLoop;
+    private int _recordIntervalMs = 100;
+
+    public ICommand StartRecordingCommand { get; }
+    public ICommand StopRecordingCommand { get; }
+    public ICommand ReplayCommand { get; }
+    public ICommand StopReplayCommand { get; }
+
+    public static double[] ReplaySpeeds { get; } = [0.25, 0.5, 1, 2, 5, 10, 60];
+    public double ReplaySpeed { get => _replaySpeed; set => SetProperty(ref _replaySpeed, value); }
+    public bool ReplayLoop { get => _replayLoop; set => SetProperty(ref _replayLoop, value); }
+
+    /// <summary>How often tags are sampled while recording (only changes are kept).</summary>
+    public int RecordIntervalMs { get => _recordIntervalMs; set => SetProperty(ref _recordIntervalMs, Math.Clamp(value, 10, 60_000)); }
+
+    public bool IsRecording => _recorder != null;
+    public bool IsReplaying => _replayer != null;
+    public string RecordReplayStatus { get => _recordReplayStatus; private set => SetProperty(ref _recordReplayStatus, value); }
+
+    /// <summary>Tags as an array the recorder's worker thread can read safely; refreshed when the collection changes.</summary>
+    private volatile SimTag[] _tagSnapshot = [];
+
+    private void StartRecording()
+    {
+        _tagSnapshot = Tags.Select(t => t.Tag).ToArray();
+        _recorder = new TagRecorder(() => _tagSnapshot, RecordIntervalMs);
+        _recorder.Start();
+        RecordStateChanged();
+    }
+
+    private async Task StopRecordingAsync()
+    {
+        var recorder = _recorder;
+        if (recorder == null) return;
+        var recording = await recorder.StopAsync();
+        recorder.Dispose();
+        _recorder = null;
+        RecordStateChanged();
+
+        if (recording.Samples.Count == 0)
+        {
+            MessageDialog.Show("Nothing was recorded.", "Recording", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var dlg = new SaveFileDialog
+        {
+            Title = "Save recording",
+            Filter = "Recording CSV (*.csv)|*.csv",
+            FileName = $"{Name}-recording-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            RecordingCsv.Write(dlg.FileName, recording);
+        }
+        catch (Exception ex)
+        {
+            MessageDialog.Show(ex.Message, "Save recording", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ReplayAsync()
+    {
+        var dlg = new OpenFileDialog { Title = "Replay recording", Filter = "Recording CSV (*.csv)|*.csv|All files (*.*)|*.*" };
+        if (dlg.ShowDialog() != true) return;
+
+        TagRecording recording;
+        try
+        {
+            recording = await Task.Run(() => RecordingCsv.Read(dlg.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageDialog.Show(ex.Message, "Replay recording", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        if (recording.Samples.Count == 0)
+        {
+            MessageDialog.Show("The file contains no values.", "Replay recording", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        // Match recorded names to tags by name, then by address; snapshot so the worker never touches the collection.
+        var byName = new Dictionary<string, SimTag>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in Tags) byName.TryAdd(t.Tag.Name, t.Tag);
+        foreach (var t in Tags) byName.TryAdd(t.Tag.Address, t.Tag);
+        var replayer = new TagReplayer(recording, n => byName.GetValueOrDefault(n), ReplaySpeed, ReplayLoop);
+
+        if (replayer.MissingTags.Count == recording.TagNames.Count)
+        {
+            MessageDialog.Show($"None of the recorded tags ({string.Join(", ", recording.TagNames.Take(10))}) exist on this device. Tags are matched by name or address.",
+                "Replay recording", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (replayer.MissingTags.Count > 0)
+        {
+            var answer = MessageDialog.Show(
+                $"These recorded tags aren't on this device and will be skipped:\n{string.Join(", ", replayer.MissingTags.Take(20))}{(replayer.MissingTags.Count > 20 ? " …" : "")}\n\nReplay the rest?",
+                "Replay recording", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (answer != MessageBoxResult.Yes) return;
+        }
+
+        replayer.Completed += r => Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(r, _replayer)) return;
+            _replayer = null;
+            r.Dispose();
+            RecordStateChanged();
+        });
+        _replayName = Path.GetFileName(dlg.FileName);
+        _replayer = replayer;
+        replayer.Start();
+        RecordStateChanged();
+    }
+
+    private async Task StopReplayAsync()
+    {
+        var replayer = _replayer;
+        if (replayer == null) return;
+        _replayer = null;
+        await replayer.StopAsync();
+        replayer.Dispose();
+        RecordStateChanged();
+    }
+
+    /// <summary>Stops recording (discarding it) and replay, e.g. when the device is removed.</summary>
+    public async Task StopRecordAndReplayAsync()
+    {
+        await StopScenarioAsync();
+        if (_recorder is { } rec)
+        {
+            _recorder = null;
+            await rec.StopAsync();
+            rec.Dispose();
+        }
+        await StopReplayAsync();
+    }
+
+    private void RecordStateChanged()
+    {
+        OnPropertyChanged(nameof(IsRecording));
+        OnPropertyChanged(nameof(IsReplaying));
+        UpdateRecordReplayStatus();
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void UpdateRecordReplayStatus()
+    {
+        static string T(double s) => TimeSpan.FromSeconds(s).ToString(s >= 3600 ? @"h\:mm\:ss" : @"m\:ss");
+        var parts = new List<string>();
+        if (_recorder is { } rec)
+            parts.Add($"● Recording · {rec.Count:N0} values · {T(rec.ElapsedSeconds)}{(rec.IsFull ? " · full" : "")}");
+        if (_replayer is { } rep)
+            parts.Add($"▶ Replaying {_replayName} · {T(rep.PositionSeconds)} / {T(rep.DurationSeconds)} · {rep.Speed:0.##}×" +
+                      (rep.Loop ? $" · loop {rep.Loops + 1}" : "") + (rep.Errors > 0 ? $" · {rep.Errors} bad values" : ""));
+        RecordReplayStatus = string.Join("    ", parts);
     }
 
     public IProtocolPlugin Plugin { get; }
@@ -249,6 +540,8 @@ public sealed class DeviceViewModel : ObservableObject
         Log.Drain();
         Stats.Update(Statistics);
         Endpoint = Plugin.DescribeServer(Settings);
+        if (_recorder != null || _replayer != null) UpdateRecordReplayStatus();
+        if (_scenario != null) UpdateScenarioStatus();
         if (!isSelected) return;
 
         foreach (var t in Tags) t.Refresh();

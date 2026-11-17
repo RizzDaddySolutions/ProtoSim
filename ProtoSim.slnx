@@ -25,6 +25,9 @@
   <Folder Name="/tests/MTConnect.Tests/">
     <Project Path="tests/MTConnect.Tests/ProtoSim.MTConnect.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Core.Tests/">
+    <Project Path="tests/Core.Tests/ProtoSim.Core.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/Script.Tests/">
     <Project Path="tests/Script.Tests/ProtoSim.Script.Tests.csproj" />
   </Folder>

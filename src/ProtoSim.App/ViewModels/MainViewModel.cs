@@ -142,6 +142,7 @@ public sealed class MainViewModel : ObservableObject
             ProjectSerializer.FromElement(ProjectSerializer.ToElement(src.Faults), typeof(FaultSettings)) as FaultSettings);
         foreach (var t in src.Tags) copy.AddTag(TagDocument.From(t.Tag).ToTag());
         CopyData(src, copy);
+        copy.ScenarioText = src.ScenarioText;
         SelectedDevice = copy;
     }
 
@@ -160,6 +161,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_selected is not DeviceViewModel d) return;
         if (!Confirm($"Remove device '{d.Name}'?")) return;
+        await d.StopRecordAndReplayAsync();
         await d.StopAsync();
         d.RemoveAllTags();
         Devices.Remove(d);
@@ -201,6 +203,7 @@ public sealed class MainViewModel : ObservableObject
     {
         foreach (var d in Devices.ToList())
         {
+            await d.StopRecordAndReplayAsync();
             await d.StopAsync();
             d.RemoveAllTags();
         }
@@ -236,6 +239,7 @@ public sealed class MainViewModel : ObservableObject
                 var settings = ProjectSerializer.FromElement(dd.Settings, plugin.ServerSettingsType) ?? plugin.CreateServerSettings([]);
                 var device = CreateDevice(plugin, dd.Name, settings, dd.Faults);
                 device.AutoStart = dd.AutoStart;
+                if (dd.Scenario != null) device.ScenarioText = dd.Scenario;
                 var restoreValues = new List<(TagViewModel Tag, string Value)>();
                 foreach (var td in dd.Tags)
                 {
@@ -294,6 +298,7 @@ public sealed class MainViewModel : ObservableObject
                 Settings = ProjectSerializer.ToElement(d.Settings),
                 Faults = d.Faults,
                 Tags = d.Tags.Select(t => TagDocument.From(t.Tag)).ToList(),
+                Scenario = d.ScenarioText == ScenarioScript.Help || string.IsNullOrWhiteSpace(d.ScenarioText) ? null : d.ScenarioText,
             };
             foreach (var area in d.DataModel.Areas)
             {

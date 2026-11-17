@@ -127,6 +127,8 @@
   <a href="#tags">Tags &amp; simulation</a>
   <a href="#simulation-kinds">Simulation kinds</a>
   <a href="#csv">Import &amp; export CSV</a>
+  <a href="#record-replay">Record &amp; replay</a>
+  <a href="#scenarios">Scenario scripts</a>
   <a href="#traffic">Traffic</a>
   <a href="#connections">Connections</a>
   <a href="#settings">Settings</a>
@@ -247,6 +249,33 @@
   <h3>Columns</h3>
   <p><code>Name, Address, DataType, WordOrder, Simulate, Simulation, Min, Max, PeriodSeconds, Step, IntervalMs, Description</code></p>
   <p>Only <code>Name</code> and <code>Address</code> are required; column order doesn't matter and names are case-insensitive. Numbers use a dot as the decimal separator. Missing values get defaults (UInt16, ABCD, simulation off, Sine, 0–100, 10 s, step 1, 500 ms).</p>
+</section>
+
+<section id="record-replay">
+  <h2>Record &amp; replay</h2>
+  <p>On the <strong>Tags &amp; simulation</strong> tab, <strong>Record</strong> samples every tag (every 100 ms by default) and keeps each change, whether it came from simulation, a client's write or your edit. <strong>Stop &amp; save…</strong> writes the recording to a CSV file:</p>
+  <pre># ProtoSim recording, started 2026-11-17T09:00:00.0000000Z
+offset_s,tag,value
+0,Tank level,42.5
+0.25,Tank level,43.1
+3.5,Pump running,true</pre>
+  <p><strong>Replay…</strong> plays such a file back into the tags at the chosen speed (0.25× to 60×), optionally looping. Recorded names are matched to tags by name, then by address, and you're told about any that don't exist. While replaying, those tags' simulation pauses; it resumes when the replay ends or is stopped. The first column can also hold timestamps instead of offsets (<code>2026-03-01T08:00:30Z,Flow,12.5</code>), so data exported from a historian or a real device can be replayed as-is.</p>
+</section>
+
+<section id="scenarios">
+  <h2>Scenario scripts</h2>
+  <p>The <strong>Scenario</strong> tab holds a timed script for the device, saved with the project. Each line is <code>&lt;time&gt; &lt;action&gt;</code>; <code>#</code> starts a comment. Times are seconds or durations such as <code>500ms</code>, <code>30s</code>, <code>1m30s</code> or <code>2h</code>, and a leading <code>+</code> makes a time relative to the previous step.</p>
+  <table>
+    <tr><th>Action</th><th>Effect</th></tr>
+    <tr><td><code>set Pump running = true</code></td><td>Writes a tag (names with spaces are fine)</td></tr>
+    <tr><td><code>ramp Tank level from 20 to 80 over 30s</code></td><td>Moves a numeric tag linearly; without <code>from</code> it starts at the current value</td></tr>
+    <tr><td><code>simulate Tank level on</code> / <code>off</code></td><td>Hands a tag back to its simulation, or holds it at its value</td></tr>
+    <tr><td><code>fault error 50 code 4</code>, <code>fault drop 20</code>, <code>fault delay 200 jitter 50</code>, <code>fault disconnect 10</code>, <code>fault clear</code></td><td>Changes the device's fault injection</td></tr>
+    <tr><td><code>device stop</code> / <code>device start</code></td><td>Takes the simulated device offline and back</td></tr>
+    <tr><td><code>log Pump trips</code></td><td>Writes a line to the Traffic log</td></tr>
+    <tr><td><code>repeat</code> (last line)</td><td>Starts again from the beginning</td></tr>
+  </table>
+  <p><strong>Run scenario</strong> checks the script first and points at any bad line or unknown tag. While it runs, the tags it sets or ramps pause their simulation, every step is logged on the Traffic tab, and the status shows the time, speed and current step. When it ends or you stop it, held tags go back to their simulation and fault settings return to what they were before the run. <strong>Insert example</strong> replaces the script with an annotated example.</p>
 </section>
 
 <section id="traffic">
