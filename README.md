@@ -73,6 +73,15 @@ A local-only JSON API simulator (listens on `127.0.0.1`/`::1` only) with a confi
 - **Simulated GET endpoints**: each tag's address is a path (e.g. `sensors/temperature`), simulated like any other protocol; PUT/PATCH/POST to the path writes the value.
 - **JSON database** for everything else: `GET/POST /users`, `GET/PUT/PATCH/DELETE /users/{id}`, with json-server style filtering, sorting and paging. It is created once per device in `%LocalAppData%\ProtoSim\RestDatabases`, persists every change, and can be edited, recreated, exported and imported on the **Database** tab.
 
+## Sparkplug B
+
+A Sparkplug B edge node (`spBv1.0/{group}/.../{edge node}`) that can run its own MQTT broker or connect to an external one.
+
+- Tag addresses are metric names: `Inputs/Temperature` for an edge node metric, `Pump1:Speed` for a metric of device `Pump1`.
+- NBIRTH/DBIRTH on connect, NDEATH with `bdSeq` as the MQTT will, report-by-exception NDATA/DDATA with `seq`, optional aliases.
+- NCMD/DCMD write metrics; `Node Control/Rebirth` and tag changes trigger rebirths; optional primary host STATE awareness.
+- Payloads are encoded with a small built-in protobuf codec (no generated code).
+
 ## Architecture
 
 ```
@@ -83,11 +92,13 @@ src/
   ProtoSim.Protocols.OpcUa      OPC UA plugin: variable model, node manager, server
   ProtoSim.Protocols.Rest       REST API plugin: loopback HTTP/1.1 server, OAuth 2.0 client credentials,
                                 tag endpoints, JSON document database
+  ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
 tests/
   ModbusTcp.Tests               Codec, addressing, request handler and loopback tests (with a test-only client)
   OpcUa.Tests                   Variable model and loopback tests with a test-only client (browse, read, write, subscribe, security, login)
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
+  SparkplugB.Tests              Payload codec, addressing, and births/data/commands/STATE against the embedded broker
 ```
 
 The UI never references protocol types. Everything it shows comes from these Core abstractions:

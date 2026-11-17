@@ -7,12 +7,16 @@
     <Project Path="src/ProtoSim.Protocols.Mqtt/ProtoSim.Protocols.Mqtt.csproj" />
     <Project Path="src/ProtoSim.Protocols.OpcUa/ProtoSim.Protocols.OpcUa.csproj" />
     <Project Path="src/ProtoSim.Protocols.Rest/ProtoSim.Protocols.Rest.csproj" />
+    <Project Path="src/ProtoSim.Protocols.SparkplugB/ProtoSim.Protocols.SparkplugB.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OpcUa.Tests/ProtoSim.OpcUa.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Rest.Tests/">
     <Project Path="tests/Rest.Tests/ProtoSim.Rest.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/SparkplugB.Tests/">
+    <Project Path="tests/SparkplugB.Tests/ProtoSim.SparkplugB.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/ModbusTcp.Tests/">
     <Project Path="tests/ModbusTcp.Tests/ProtoSim.ModbusTcp.Tests.csproj" />

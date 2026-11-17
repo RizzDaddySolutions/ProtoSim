@@ -39,6 +39,7 @@
     <ProjectReference Include="..\ProtoSim.Protocols.Mqtt\ProtoSim.Protocols.Mqtt.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Dnp3\ProtoSim.Protocols.Dnp3.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Rest\ProtoSim.Protocols.Rest.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.SparkplugB\ProtoSim.Protocols.SparkplugB.csproj" />
   </ItemGroup>
 
   <ItemGroup>

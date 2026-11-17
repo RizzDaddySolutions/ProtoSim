@@ -137,6 +137,7 @@
   <a href="#mqtt">MQTT</a>
   <a href="#dnp3">DNP3</a>
   <a href="#rest">REST API</a>
+  <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
   <a href="#projects">Project files</a>
   <a href="#shortcuts">Keyboard shortcuts</a>
@@ -152,7 +153,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT, DNP3 and REST API devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT, Sparkplug B, DNP3 and REST API devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -338,6 +339,29 @@
   <p>On the <strong>Database</strong> tab you can edit the whole database as JSON and apply it, <strong>Recreate</strong> it from the sample data, and <strong>Export</strong> it to a file and <strong>Import</strong> that file on another computer. The project file stores which database a device uses but not its contents, so export the database to move it with a project.</p>
   <h3>Errors and faults</h3>
   <p>Errors are JSON: <code>{"error", "message", "status"}</code> (token errors use the OAuth <code>error</code>/<code>error_description</code> format). Injected error responses map the fault error code to an HTTP status: 1 → 405, 2 → 404, 3 → 400, 6 → 503, anything else → 500. A dropped response closes the connection without answering. CORS headers are added unless <em>Allow CORS</em> is off.</p>
+</section>
+
+<section id="sparkplug">
+  <h2>Sparkplug B</h2>
+  <p>A simulated Sparkplug B (<code>spBv1.0</code>) edge node. With <em>Broker</em> set to Embedded (the default), ProtoSim also runs an MQTT broker on the <em>Embedded broker port</em> (default <code>1883</code>) and the edge node connects to it. Set it to External to publish to another broker, such as Mosquitto, HiveMQ or Ignition's MQTT Distributor.</p>
+  <h3>Tag addresses</h3>
+  <table>
+    <tr><th>Address</th><th>Metric</th></tr>
+    <tr><td><code>Inputs/Temperature</code></td><td>Edge node metric, published in NBIRTH/NDATA</td></tr>
+    <tr><td><code>Pump1:Speed</code></td><td>Metric <code>Speed</code> of device <code>Pump1</code>, published in DBIRTH/DDATA</td></tr>
+  </table>
+  <p>Data types map to Sparkplug types: Bool → Boolean, Int16/32/64, UInt16/32/64, Float32 → Float, Float64 → Double, String. <code>bdSeq</code> and <code>Node Control/...</code> are reserved.</p>
+  <h3>Behaviour</h3>
+  <ul>
+    <li>On connect the edge node registers NDEATH (with <code>bdSeq</code>) as its MQTT will, then publishes NBIRTH and one DBIRTH per device. Each new MQTT session increments <code>bdSeq</code>.</li>
+    <li>Changed values are reported by exception: changes are collected for <em>Publish interval</em> and sent in one NDATA or DDATA per device, with <code>seq</code> counting 0–255.</li>
+    <li>With <em>Use aliases</em> on, births carry names and aliases and data messages carry only aliases.</li>
+    <li>NCMD and DCMD write metric values (by name or alias). <code>Node Control/Rebirth</code> = true republishes all births. Adding or removing tags while running also triggers a rebirth; a device whose last metric is removed gets a DDEATH.</li>
+    <li>With a <em>Primary host ID</em>, births wait until <code>spBv1.0/STATE/&lt;host&gt;</code> (or the older <code>STATE/&lt;host&gt;</code>) reports online, and NDEATH is sent when the host goes offline.</li>
+    <li>Stopping the device publishes NDEATH and disconnects cleanly. <strong>Drop</strong> on the Connections tab closes the session without DISCONNECT, so the broker publishes the will.</li>
+  </ul>
+  <h3>Faults</h3>
+  <p>Response delay and jitter delay data messages, <em>Drop responses</em> skips data messages, and <em>Disconnect after response</em> drops the MQTT session after a data message (the edge node reconnects after <em>Reconnect delay</em>). Error responses don't apply.</p>
 </section>
 
 <section id="projects">

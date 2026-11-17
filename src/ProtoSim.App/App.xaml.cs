@@ -7,6 +7,7 @@ using ProtoSim.Protocols.Mqtt;
 using ProtoSim.Protocols.Dnp3;
 using ProtoSim.Protocols.OpcUa;
 using ProtoSim.Protocols.Rest;
+using ProtoSim.Protocols.SparkplugB;
 
 namespace ProtoSim.App;
 
@@ -23,6 +24,7 @@ public partial class App : Application
         catalog.Register(new MqttPlugin());
         catalog.Register(new Dnp3Plugin());
         catalog.Register(new RestPlugin());
+        catalog.Register(new SparkplugPlugin());
         var errors = catalog.LoadFromDirectory(Path.Combine(AppContext.BaseDirectory, "Plugins"));
 
         var vm = new MainViewModel(catalog, errors);
