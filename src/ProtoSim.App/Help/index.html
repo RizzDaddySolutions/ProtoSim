@@ -136,6 +136,7 @@
   <a href="#opcua">OPC UA</a>
   <a href="#mqtt">MQTT</a>
   <a href="#dnp3">DNP3</a>
+  <a href="#rest">REST API</a>
   <h4>Reference</h4>
   <a href="#projects">Project files</a>
   <a href="#shortcuts">Keyboard shortcuts</a>
@@ -151,7 +152,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT and DNP3 devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT, DNP3 and REST API devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -311,6 +312,32 @@
     <tr><td><code>C:&lt;index&gt;</code></td><td>Counter</td></tr>
   </table>
   <p>Settings include the outstation and master addresses, unsolicited responses, whether writes are allowed, and the maximum number of points.</p>
+</section>
+
+<section id="rest">
+  <h2>REST API</h2>
+  <p>A JSON-over-HTTP API simulator. It listens <strong>only on this computer's loopback interface</strong> (<code>127.0.0.1</code> and <code>::1</code>), so other machines can't reach it. The base URL is built from the <em>Host name</em>, <em>TCP port</em> and <em>Base path</em> settings, default <code>http://localhost:5080/api/v1</code>. Every response is JSON (<code>application/json; charset=utf-8</code>).</p>
+  <h3>Authentication</h3>
+  <p>With <em>Require bearer token</em> on (the default), each request needs <code>Authorization: Bearer &lt;token&gt;</code>. Tokens come from the OAuth 2.0 client credentials endpoint, default <code>http://localhost:5080/oauth/token</code>:</p>
+  <pre>curl -X POST http://localhost:5080/oauth/token -d "grant_type=client_credentials&amp;client_id=protosim-client&amp;client_secret=..."</pre>
+  <p>Credentials can be sent as form fields, as JSON, or as HTTP Basic. The response holds <code>access_token</code> (an HS256-signed JWT), <code>token_type</code> and <code>expires_in</code>. On the <strong>API clients</strong> tab you add clients, each with its own client ID, secret and optional scopes; disable a client or generate a new secret; get a token for testing; and revoke all tokens. Tokens are kept while ProtoSim runs and end when it closes.</p>
+  <h3>Simulated GET endpoints (tags)</h3>
+  <p>Each tag's address is a path relative to the base URL. The tag <code>sensors/temperature</code> answers <code>GET /api/v1/sensors/temperature</code> with <code>{"path", "value", "dataType", "timestamp"}</code>, or just the value when <em>Tag response format</em> is ValueOnly. Tags are simulated like any other protocol. <code>PUT</code>, <code>PATCH</code> or <code>POST</code> to a tag path writes its value (<code>42</code>, <code>true</code>, <code>"text"</code> or <code>{"value": 42}</code>). <code>GET /api/v1/_tags</code> lists all tags and <code>GET /api/v1</code> describes the API.</p>
+  <h3>JSON database</h3>
+  <p>Paths that aren't tags go to a JSON database. Each device creates its database once, filled with sample data, in <code>%LocalAppData%\ProtoSim\RestDatabases</code>, and keeps it across restarts. Every change made through the API is saved straight away. Each top-level property is a resource:</p>
+  <table>
+    <tr><th>Request</th><th>Effect</th></tr>
+    <tr><td><code>GET /users</code></td><td>List the collection. Filter with <code>?role=admin</code>, <code>price_gte=</code>, <code>_lte</code>, <code>_gt</code>, <code>_lt</code>, <code>_ne</code>, <code>_like</code>, search with <code>q=</code>, sort with <code>_sort=name</code> or <code>_sort=-price</code>, page with <code>_page</code>/<code>_limit</code> or <code>_start</code>/<code>_end</code>. The <code>X-Total-Count</code> header holds the count before paging.</td></tr>
+    <tr><td><code>GET /users/1</code></td><td>One item, matched on <code>id</code>.</td></tr>
+    <tr><td><code>POST /users</code></td><td>Create an item (201 with a <code>Location</code> header). Ids are numbered automatically when none is given. Posting to a new name creates the collection.</td></tr>
+    <tr><td><code>PUT /users/1</code></td><td>Replace the item.</td></tr>
+    <tr><td><code>PATCH /users/1</code></td><td>Merge into the item (JSON Merge Patch: <code>null</code> removes a property).</td></tr>
+    <tr><td><code>DELETE /users/1</code></td><td>Delete the item (204).</td></tr>
+    <tr><td><code>GET</code>/<code>PUT</code>/<code>PATCH /settings</code></td><td>Single-object resources.</td></tr>
+  </table>
+  <p>On the <strong>Database</strong> tab you can edit the whole database as JSON and apply it, <strong>Recreate</strong> it from the sample data, and <strong>Export</strong> it to a file and <strong>Import</strong> that file on another computer. The project file stores which database a device uses but not its contents, so export the database to move it with a project.</p>
+  <h3>Errors and faults</h3>
+  <p>Errors are JSON: <code>{"error", "message", "status"}</code> (token errors use the OAuth <code>error</code>/<code>error_description</code> format). Injected error responses map the fault error code to an HTTP status: 1 → 405, 2 → 404, 3 → 400, 6 → 503, anything else → 500. A dropped response closes the connection without answering. CORS headers are added unless <em>Allow CORS</em> is off.</p>
 </section>
 
 <section id="projects">

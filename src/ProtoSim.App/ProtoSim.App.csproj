@@ -38,6 +38,7 @@
     <ProjectReference Include="..\ProtoSim.Protocols.OpcUa\ProtoSim.Protocols.OpcUa.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Mqtt\ProtoSim.Protocols.Mqtt.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Dnp3\ProtoSim.Protocols.Dnp3.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Rest\ProtoSim.Protocols.Rest.csproj" />
   </ItemGroup>
 
   <ItemGroup>

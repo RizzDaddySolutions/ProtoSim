@@ -135,9 +135,8 @@ public sealed class MainViewModel : ObservableObject
         var settingsJson = ProjectSerializer.ToElement(src.Settings);
         var settings = ProjectSerializer.FromElement(settingsJson, src.Plugin.ServerSettingsType)!;
         var fresh = src.Plugin.CreateServerSettings(Devices.Where(d => d.Plugin == src.Plugin).Select(d => d.Settings));
-        // Take the new port (if any) from freshly generated settings to avoid a clash.
-        var portProp = settings.GetType().GetProperty("Port");
-        if (portProp?.PropertyType == typeof(int)) portProp.SetValue(settings, portProp.GetValue(fresh));
+        // The plugin takes e.g. the new port from freshly generated settings to avoid a clash.
+        settings = src.Plugin.PrepareDuplicateSettings(src.Settings, settings, fresh);
 
         var copy = CreateDevice(src.Plugin, UniqueName(src.Name + " copy", Devices.Select(d => d.Name)), settings,
             ProjectSerializer.FromElement(ProjectSerializer.ToElement(src.Faults), typeof(FaultSettings)) as FaultSettings);

@@ -96,6 +96,8 @@ public sealed class DeviceViewModel : ObservableObject
         _selectedTabIndex = Areas.Count > 0 ? 0 : 1;
         Log = new LogViewModel(TrafficLog);
         _endpoint = plugin.DescribeServer(settings);
+        if (DataModel is ICredentialProvider credentials) ApiClients = new ApiClientsViewModel(credentials);
+        if (DataModel is IJsonDatabaseHost database) Database = new DatabaseViewModel(database, () => Name);
 
         StartCommand = new AsyncRelayCommand(StartAsync, () => _server == null);
         StopCommand = new AsyncRelayCommand(StopAsync, () => _server != null);
@@ -120,6 +122,14 @@ public sealed class DeviceViewModel : ObservableObject
 
     /// <summary>False for node-based protocols (e.g. OPC UA), which have no register tables.</summary>
     public bool HasDataAreas => Areas.Count > 0;
+
+    /// <summary>Set for devices that authenticate clients (e.g. REST API); shows the API clients tab.</summary>
+    public ApiClientsViewModel? ApiClients { get; }
+    public bool HasApiClients => ApiClients != null;
+
+    /// <summary>Set for devices backed by a JSON database (e.g. REST API); shows the Database tab.</summary>
+    public DatabaseViewModel? Database { get; }
+    public bool HasDatabase => Database != null;
 
     /// <summary>Opens on the Data tab when there is one, otherwise on Tags.</summary>
     public int SelectedTabIndex { get => _selectedTabIndex; set => SetProperty(ref _selectedTabIndex, value); }
@@ -243,6 +253,8 @@ public sealed class DeviceViewModel : ObservableObject
 
         foreach (var t in Tags) t.Refresh();
         SelectedArea?.Refresh();
+        ApiClients?.Refresh();
+        Database?.Refresh();
         SyncConnections();
     }
 

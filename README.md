@@ -65,6 +65,14 @@ dotnet run --project src/ProtoSim.App -- --demo opc-ua
 
 Build output goes to `artifacts/`. If the repository sits in a very deep folder, it goes to `%TEMP%\ProtoSim\artifacts` instead, to stay under the Windows 260-character path limit.
 
+## REST API
+
+A local-only JSON API simulator (listens on `127.0.0.1`/`::1` only) with a configurable base URL, default `http://localhost:5080/api/v1`.
+
+- **Bearer tokens**: OAuth 2.0 client credentials endpoint (`/oauth/token`) issuing HS256 JWTs. Each client has its own client ID, secret and optional scopes, managed on the **API clients** tab. Authentication can be turned off.
+- **Simulated GET endpoints**: each tag's address is a path (e.g. `sensors/temperature`), simulated like any other protocol; PUT/PATCH/POST to the path writes the value.
+- **JSON database** for everything else: `GET/POST /users`, `GET/PUT/PATCH/DELETE /users/{id}`, with json-server style filtering, sorting and paging. It is created once per device in `%LocalAppData%\ProtoSim\RestDatabases`, persists every change, and can be edited, recreated, exported and imported on the **Database** tab.
+
 ## Architecture
 
 ```
@@ -73,10 +81,13 @@ src/
                                 simulation engine, traffic log, statistics, fault settings, project format
   ProtoSim.Protocols.ModbusTcp  Modbus TCP plugin: data model, request handler, TCP server
   ProtoSim.Protocols.OpcUa      OPC UA plugin: variable model, node manager, server
+  ProtoSim.Protocols.Rest       REST API plugin: loopback HTTP/1.1 server, OAuth 2.0 client credentials,
+                                tag endpoints, JSON document database
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
 tests/
   ModbusTcp.Tests               Codec, addressing, request handler and loopback tests (with a test-only client)
   OpcUa.Tests                   Variable model and loopback tests with a test-only client (browse, read, write, subscribe, security, login)
+  Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
 ```
 
 The UI never references protocol types. Everything it shows comes from these Core abstractions:
