@@ -43,6 +43,7 @@
     <ProjectReference Include="..\ProtoSim.Protocols.Bacnet\ProtoSim.Protocols.Bacnet.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Snmp\ProtoSim.Protocols.Snmp.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.MTConnect\ProtoSim.Protocols.MTConnect.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Script\ProtoSim.Protocols.Script.csproj" />
   </ItemGroup>
 
   <ItemGroup>

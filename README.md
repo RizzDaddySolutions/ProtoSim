@@ -104,6 +104,22 @@ An MTConnect agent (HTTP, port 5000) for a simulated machine tool.
 - XML by default, or JSON (the reference agent's JSON version 2 layout) with `Accept: application/json` or `?format=json`; the device's default format is a setting.
 - Streaming (`interval`) isn't supported; clients poll `current` or `sample`.
 
+## Scripted device
+
+A text request/reply device over TCP, UDP or a serial port for instruments, scales, barcode readers and legacy ASCII protocols. Behaviour comes from rules in the device settings, one per line:
+
+```
+*IDN?                      => ProtoSim,Virtual Instrument,SN0001,1.0
+MEAS:TEMP?                 => {Temperature:F2}
+/SOUR:VOLT (?<v>[-0-9.]+)/ => {Setpoint=$v}OK
+OUTP?                      => {Output:1/0}
+```
+
+- Plain patterns match the whole request; `/regex/` patterns capture groups for `{$1}` / `{$name}`.
+- `{Tag}` / `{Tag:format}` insert tag values, `{Tag=$1}` writes them, `{now:HH:mm:ss}` inserts the time; `\r \n \t \xHH` escapes.
+- Framing by CR, LF, any newline, a custom terminator or a silent gap; a reply terminator, optional echo, unknown-command and error replies.
+- A greeting on connect and a periodic message (e.g. a scale streaming weight) for unsolicited output.
+
 ## Sparkplug B
 
 A Sparkplug B edge node (`spBv1.0/{group}/.../{edge node}`) that can run its own MQTT broker or connect to an external one.
@@ -125,6 +141,7 @@ src/
                                 tag endpoints, JSON document database
   ProtoSim.Protocols.Bacnet     BACnet/IP plugin: object model, priority arrays, COV, on the BACnet NuGet stack
   ProtoSim.Protocols.MTConnect  MTConnect agent plugin: HTTP server, component tree, observation buffer, XPath filters
+  ProtoSim.Protocols.Script     Scripted device plugin: rule engine and templates over TCP, UDP or serial
   ProtoSim.Protocols.Snmp       SNMP agent plugin: MIB view of system group and tag OIDs, v1/v2c requests, traps
   ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
@@ -134,6 +151,7 @@ tests/
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
   Bacnet.Tests                  Address rules and loopback tests with a BACnet client (discovery, reads, commands, COV, DCC, faults)
   MTConnect.Tests               Address rules and HTTP tests for probe, current, sample, XPath, buffer wrap, errors and faults
+  Script.Tests                  Rule parsing, templates, writes, framing, and TCP/UDP request/reply, greeting and periodic output
   Snmp.Tests                    OID/syntax rules, Get/GetNext/GetBulk/Set semantics, communities, faults, UDP and traps
   SparkplugB.Tests              Payload codec, addressing, and births/data/commands/STATE against the embedded broker
 ```

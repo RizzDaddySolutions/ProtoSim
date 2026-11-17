@@ -140,6 +140,7 @@
   <a href="#bacnet">BACnet/IP</a>
   <a href="#snmp">SNMP agent</a>
   <a href="#mtconnect">MTConnect</a>
+  <a href="#scripted">Scripted device</a>
   <a href="#rest">REST API</a>
   <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
@@ -157,7 +158,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP, SNMP, MTConnect and REST API devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP, SNMP, MTConnect, REST API and scripted devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -408,6 +409,31 @@
   <p>Errors come back as MTConnectError documents: <code>NO_DEVICE</code> (404), <code>OUT_OF_RANGE</code>, <code>INVALID_XPATH</code>, <code>INVALID_REQUEST</code> and <code>UNSUPPORTED</code> (400), and <code>INTERNAL_ERROR</code> (500, used for injected errors). Streaming with <code>interval</code> isn't supported; clients poll <code>current</code> or <code>sample</code> instead.</p>
   <h3>JSON</h3>
   <p>Responses are XML unless the client asks for JSON with <code>Accept: application/json</code> or <code>?format=json</code> (<code>?format=xml</code> forces XML). <em>Default format</em> sets what plain requests get. The JSON follows the reference agent's JSON version 2 layout: each document is an object named after its root (<code>MTConnectStreams</code>…) with <code>jsonVersion</code> and <code>schemaVersion</code>; attributes become properties, element text becomes <code>value</code> (a number for samples), containers such as Header, Devices, DataItems and Samples are objects, and repeating elements are arrays grouped by name, for example <code>Streams.DeviceStream[0].ComponentStream[n].Samples.Position[0].value</code>. Errors come back as JSON too.</p>
+</section>
+
+<section id="scripted">
+  <h2>Scripted device</h2>
+  <p>A device that answers text requests with replies you define. Use it for instruments (SCPI-style), scales, barcode readers, test fixtures and other ASCII protocols that have no plugin of their own. Choose the <em>Transport</em>: a TCP server (default port <code>10001</code>), a UDP endpoint, or a serial port.</p>
+  <h3>Rules</h3>
+  <p>The <em>Rules</em> setting holds one rule per line, <code>request =&gt; reply</code>, checked from the top; the first match answers. Lines starting with <code>#</code> are comments.</p>
+  <table>
+    <tr><th>In the request</th><th>Meaning</th></tr>
+    <tr><td><code>MEAS:TEMP?</code></td><td>Plain text: matches the whole request, ignoring surrounding spaces (and case, unless <em>Case-sensitive commands</em> is on)</td></tr>
+    <tr><td><code>/SET (\d+)/</code>, <code>/SP (?&lt;v&gt;[0-9.]+)/</code></td><td>A regular expression that must match the whole request; its groups can be used in the reply</td></tr>
+  </table>
+  <table>
+    <tr><th>In the reply</th><th>Meaning</th></tr>
+    <tr><td><code>{Temperature}</code>, <code>{Temperature:F2}</code>, <code>{Count:00000}</code></td><td>A tag's value, optionally with a .NET number format</td></tr>
+    <tr><td><code>{Running:ON/OFF}</code></td><td>For Bool tags: the word for true / false</td></tr>
+    <tr><td><code>{$1}</code>, <code>{$v}</code></td><td>A group from the /regex/ pattern</td></tr>
+    <tr><td><code>{Setpoint=$1}</code>, <code>{Mode=2}</code></td><td>Writes a tag (inserts nothing). A value that doesn't fit the tag sends the <em>Error reply</em> instead</td></tr>
+    <tr><td><code>{now}</code>, <code>{now:HH:mm:ss}</code></td><td>The current time</td></tr>
+    <tr><td><code>\r \n \t \xHH</code>, <code>{{ }}</code></td><td>Escapes and literal braces</td></tr>
+  </table>
+  <p>An empty reply stays silent. Requests that match no rule get the <em>Unknown command reply</em> (empty to stay silent). Each tag's address is just the variable name the rules use, such as <code>Temperature</code>.</p>
+  <h3>Framing and output</h3>
+  <p><em>Request framing</em> decides where a request ends: any newline (default), CR, LF, CRLF, a <em>Custom terminator</em> such as <code>\x03</code>, or <em>Silence</em> (a pause of <em>Frame gap</em>). Over UDP each datagram is a request, or several if it holds several lines. <em>Reply terminator</em> (default <code>\r\n</code>) is added to every reply, and <em>Echo requests</em> sends each request back first. For unsolicited output, <em>Greeting</em> is sent when a TCP client connects, and <em>Periodic message</em> is sent every <em>Period</em> to all TCP clients, recent UDP senders, or the serial port, for example a scale streaming <code>ST,GS,{Weight:+0000.00}kg</code>.</p>
+  <p>Rule errors stop the device from starting and name the bad line. Injected errors send the <em>Error reply</em> with <code>{code}</code> set to the fault error code.</p>
 </section>
 
 <section id="rest">

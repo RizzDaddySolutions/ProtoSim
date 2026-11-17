@@ -43,6 +43,18 @@ public abstract class TcpSession
 
     public abstract string Describe(byte[] frame, bool isRequest);
 
+    /// <summary>Bytes sent once when the client connects (a banner or prompt), or null.</summary>
+    public virtual byte[]? Greeting => null;
+
+    /// <summary>
+    /// Sends bytes outside the request/response cycle (unsolicited output). Set by the server once the
+    /// connection is up; safe to call from any thread.
+    /// </summary>
+    public Func<byte[], CancellationToken, Task>? Push { get; internal set; }
+
+    /// <summary>Called once when the connection has closed.</summary>
+    public virtual void OnClosed() { }
+
     /// <summary>Reads exactly <paramref name="count"/> bytes. Null if the stream ended before the first byte; throws if it ends mid-frame.</summary>
     protected static async ValueTask<byte[]?> ReadExactAsync(Stream stream, int count, CancellationToken ct, byte[]? prefix = null)
     {
@@ -253,12 +265,27 @@ public abstract class TcpFrameServer : IProtocolServer
         Log.Info(remote, "Client connected");
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(serverToken, conn.Cts.Token);
         var token = linked.Token;
+        using var writeLock = new SemaphoreSlim(1, 1);
+        TcpSession? session = null;
 
         try
         {
             conn.Client.NoDelay = true;
             var stream = conn.Client.GetStream();
-            var session = CreateSession(remote);
+            session = CreateSession(remote);
+            var s = session;
+
+            async Task WriteAsync(byte[] bytes, bool isError, CancellationToken ct)
+            {
+                await writeLock.WaitAsync(ct);
+                try { await stream.WriteAsync(bytes, ct); }
+                finally { writeLock.Release(); }
+                Context.Statistics.OnResponse(bytes.Length, isError);
+                Log.Frame(TrafficDirection.Tx, remote, bytes, () => s.Describe(bytes, false));
+            }
+
+            session.Push = (bytes, ct) => WriteAsync(bytes, false, ct);
+            if (session.Greeting is { Length: > 0 } greeting) await WriteAsync(greeting, false, token);
 
             while (!token.IsCancellationRequested)
             {
@@ -326,12 +353,7 @@ public abstract class TcpFrameServer : IProtocolServer
                     }
                 }
 
-                if (result.Response is { Length: > 0 } response)
-                {
-                    await stream.WriteAsync(response, token);
-                    Context.Statistics.OnResponse(response.Length, result.IsError);
-                    Log.Frame(TrafficDirection.Tx, remote, response, () => session.Describe(response, false));
-                }
+                if (result.Response is { Length: > 0 } response) await WriteAsync(response, result.IsError, token);
 
                 if (result.Close) break;
                 if (faultable && FaultSettings.Roll(faults.DisconnectPercent))
@@ -351,6 +373,11 @@ public abstract class TcpFrameServer : IProtocolServer
         }
         finally
         {
+            if (session != null)
+            {
+                session.Push = null;
+                try { session.OnClosed(); } catch (Exception ex) { Log.Warn(remote, $"Session cleanup: {ex.Message}"); }
+            }
             _connections.TryRemove(conn.Info.Id, out _);
             conn.Close();
             Context.Statistics.OnDisconnected();

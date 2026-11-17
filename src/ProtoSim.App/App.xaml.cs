@@ -9,6 +9,7 @@ using ProtoSim.Protocols.Bacnet;
 using ProtoSim.Protocols.Dnp3;
 using ProtoSim.Protocols.OpcUa;
 using ProtoSim.Protocols.Rest;
+using ProtoSim.Protocols.Script;
 using ProtoSim.Protocols.Snmp;
 using ProtoSim.Protocols.SparkplugB;
 
@@ -31,6 +32,7 @@ public partial class App : Application
         catalog.Register(new BacnetPlugin());
         catalog.Register(new SnmpPlugin());
         catalog.Register(new MtcPlugin());
+        catalog.Register(new ScriptPlugin());
         catalog.Register(new RestPlugin());
         catalog.Register(new SparkplugPlugin());
         var errors = catalog.LoadFromDirectory(Path.Combine(AppContext.BaseDirectory, "Plugins"));
