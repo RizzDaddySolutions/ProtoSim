@@ -220,6 +220,66 @@ public sealed class AgentTests : IAsyncLifetime
         Assert.Equal("INTERNAL_ERROR", (string)error.Descendants(Errors + "Error").Single().Attribute("errorCode")!);
     }
 
+    private async Task<(HttpStatusCode Status, string ContentType, System.Text.Json.Nodes.JsonNode Root)> GetJsonAsync(string url, string? accept = "application/json")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (accept != null) request.Headers.TryAddWithoutValidation("Accept", accept);
+        var response = await _http.SendAsync(request, TestContext.Current.CancellationToken);
+        var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        return (response.StatusCode, response.Content.Headers.ContentType?.MediaType ?? "", System.Text.Json.Nodes.JsonNode.Parse(text)!);
+    }
+
+    [Fact]
+    public async Task CurrentAsJsonFollowsVersion2Layout()
+    {
+        var (status, type, root) = await GetJsonAsync("current");
+        Assert.Equal(HttpStatusCode.OK, status);
+        Assert.Equal("application/json", type);
+        var streams = root["MTConnectStreams"]!;
+        Assert.Equal(2, (int)streams["jsonVersion"]!);
+        Assert.Equal("2.0", (string)streams["schemaVersion"]!);
+        Assert.True((long)streams["Header"]!["nextSequence"]! > 1);
+
+        var components = streams["Streams"]!["DeviceStream"]![0]!["ComponentStream"]!.AsArray();
+        var linear = components.Single(c => (string?)c!["name"] == "X")!;
+        var position = linear["Samples"]!["Position"]![0]!;
+        Assert.Equal(12.5, (double)position["value"]!);
+        Assert.Equal("Xact", (string)position["dataItemId"]!);
+        Assert.Equal(System.Text.Json.JsonValueKind.Number, position["sequence"]!.GetValueKind());
+
+        var controller = components.Single(c => (string?)c!["name"] == "Path")!;
+        Assert.Equal("READY", (string)controller["Events"]!["Execution"]![0]!["value"]!);
+    }
+
+    [Fact]
+    public async Task ProbeAndErrorsAsJson()
+    {
+        var (_, _, probe) = await GetJsonAsync("probe?format=json", accept: null);
+        var device = probe["MTConnectDevices"]!["Devices"]!["Device"]![0]!;
+        Assert.Equal("Mill", (string)device["name"]!);
+        Assert.Contains(device["DataItems"]!["DataItem"]!.AsArray(), d => (string?)d!["id"] == "avail");
+        Assert.Equal("Linear", device["Components"]!["Axes"]![0]!["Components"]!.AsObject().Single().Key);
+
+        var (status, _, error) = await GetJsonAsync("Lathe/current");
+        Assert.Equal(HttpStatusCode.NotFound, status);
+        Assert.Equal("NO_DEVICE", (string)error["MTConnectError"]!["Errors"]!["Error"]![0]!["errorCode"]!);
+    }
+
+    [Fact]
+    public async Task FormatQueryOverridesAcceptAndDefaultSetting()
+    {
+        var response = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, "current?format=xml") { Headers = { { "Accept", "application/json" } } },
+            TestContext.Current.CancellationToken);
+        Assert.Equal("text/xml", response.Content.Headers.ContentType?.MediaType);
+
+        _settings.DefaultFormat = MtcFormat.Json;
+        var plain = await _http.GetAsync("current", TestContext.Current.CancellationToken);
+        Assert.Equal("application/json", plain.Content.Headers.ContentType?.MediaType);
+        var xml = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, "current") { Headers = { { "Accept", "application/xml" } } },
+            TestContext.Current.CancellationToken);
+        Assert.Equal("text/xml", xml.Content.Headers.ContentType?.MediaType);
+    }
+
     [Fact]
     public async Task NewTagsAppearInProbeWhileRunning()
     {

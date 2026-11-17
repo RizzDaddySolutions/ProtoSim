@@ -71,8 +71,40 @@ public sealed class MtcAgent : TcpFrameServer
 
     private static readonly HashSet<string> Requests = new(StringComparer.Ordinal) { "probe", "current", "sample", "assets", "asset" };
 
-    /// <summary>Answers one GET request target such as /current?path=//Axes.</summary>
-    internal MtcResponse Handle(string target)
+    /// <summary>
+    /// Answers one GET request target such as /current?path=//Axes, as XML or JSON.
+    /// <c>format=json|xml</c> in the query wins, then the Accept header, then the device's default format.
+    /// </summary>
+    internal MtcResponse Handle(string target, string? accept = null)
+    {
+        var response = HandleXml(target);
+        return WantsJson(target, accept) ? ToJson(response) : response;
+    }
+
+    internal bool WantsJson(string target, string? accept)
+    {
+        int q = target.IndexOf('?');
+        if (q >= 0 && ParseQuery(target[(q + 1)..]).TryGetValue("format", out var format))
+        {
+            if (format.Equals("json", StringComparison.OrdinalIgnoreCase)) return true;
+            if (format.Equals("xml", StringComparison.OrdinalIgnoreCase)) return false;
+        }
+        if (!string.IsNullOrWhiteSpace(accept))
+        {
+            // The first listed type that we can produce decides.
+            foreach (var part in accept.Split(','))
+            {
+                var type = part.Split(';')[0].Trim().ToLowerInvariant();
+                if (type.EndsWith("json", StringComparison.Ordinal)) return true;
+                if (type.EndsWith("xml", StringComparison.Ordinal)) return false;
+            }
+        }
+        return _settings.DefaultFormat == MtcFormat.Json;
+    }
+
+    internal static MtcResponse ToJson(MtcResponse r) => r with { Body = MtcJson.FromXml(r.Body), ContentType = MtcJson.ContentType };
+
+    private MtcResponse HandleXml(string target)
     {
         string path = target;
         string query = string.Empty;
@@ -476,32 +508,33 @@ public sealed class MtcAgent : TcpFrameServer
             return 0;
         }
 
-        private static (string Method, string Target, bool KeepAlive)? ParseHead(byte[] request)
+        private static (string Method, string Target, bool KeepAlive, string? Accept)? ParseHead(byte[] request)
         {
             var lines = Encoding.ASCII.GetString(request).Split("\r\n");
             var first = lines[0].Split(' ');
             if (first.Length != 3 || !first[2].StartsWith("HTTP/1.", StringComparison.Ordinal)) return null;
             bool http11 = first[2] == "HTTP/1.1";
-            string? connection = lines.Skip(1)
+            string? Header(string name) => lines.Skip(1)
                 .Select(l => (Colon: l.IndexOf(':'), Line: l))
-                .Where(x => x.Colon > 0 && x.Line[..x.Colon].Trim().Equals("Connection", StringComparison.OrdinalIgnoreCase))
+                .Where(x => x.Colon > 0 && x.Line[..x.Colon].Trim().Equals(name, StringComparison.OrdinalIgnoreCase))
                 .Select(x => x.Line[(x.Colon + 1)..].Trim())
                 .FirstOrDefault();
+            string? connection = Header("Connection");
             bool keepAlive = http11
                 ? !string.Equals(connection, "close", StringComparison.OrdinalIgnoreCase)
                 : string.Equals(connection, "keep-alive", StringComparison.OrdinalIgnoreCase);
-            return (first[0], first[1], keepAlive);
+            return (first[0], first[1], keepAlive, Header("Accept"));
         }
 
         public override FrameResult Process(byte[] request)
         {
             var head = ParseHead(request);
             if (head == null) return new FrameResult(Raw(400, "Bad Request", [], "text/plain", false), true, true);
-            var (method, target, keepAlive) = head.Value;
+            var (method, target, keepAlive, accept) = head.Value;
 
             MtcResponse r = method is "GET" or "HEAD"
-                ? agent.Handle(target)
-                : agent.Error(405, "UNSUPPORTED", $"{method} is not supported; MTConnect agents answer GET requests.");
+                ? agent.Handle(target, accept)
+                : Format(agent.Error(405, "UNSUPPORTED", $"{method} is not supported; MTConnect agents answer GET requests."), target, accept);
             var bytes = Raw(r.Status, Reason(r.Status), method == "HEAD" ? [] : r.Body, r.ContentType, keepAlive, r.Body.Length);
             return new FrameResult(bytes, r.Status >= 400, !keepAlive);
         }
@@ -509,9 +542,11 @@ public sealed class MtcAgent : TcpFrameServer
         public override byte[]? BuildFault(byte[] request, int errorCode)
         {
             var head = ParseHead(request);
-            var r = agent.Error(500, "INTERNAL_ERROR", $"Fault injection (error code {errorCode}).");
+            var r = Format(agent.Error(500, "INTERNAL_ERROR", $"Fault injection (error code {errorCode})."), head?.Target ?? "/", head?.Accept);
             return Raw(500, Reason(500), r.Body, r.ContentType, head?.KeepAlive ?? false);
         }
+
+        private MtcResponse Format(MtcResponse r, string target, string? accept) => agent.WantsJson(target, accept) ? ToJson(r) : r;
 
         public override string Describe(byte[] frame, bool isRequest)
         {
@@ -526,6 +561,18 @@ public sealed class MtcAgent : TcpFrameServer
 
         private static string RootSummary(string xml)
         {
+            if (xml.TrimStart().StartsWith('{'))
+            {
+                try
+                {
+                    using var json = System.Text.Json.JsonDocument.Parse(xml);
+                    return json.RootElement.EnumerateObject().FirstOrDefault().Name + " (JSON)";
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    return "JSON";
+                }
+            }
             try
             {
                 var root = XElement.Parse(xml);

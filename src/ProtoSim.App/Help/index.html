@@ -406,6 +406,8 @@
   </table>
   <p>Every request can be prefixed with the device name (<code>/Mill/current</code>) and filtered with <code>path</code>, an XPath over the probe document such as <code>//Axes</code> or <code>//DataItem[@category="CONDITION"]</code>. Each value change adds a numbered observation to a circular buffer of <em>Buffer size</em> entries; unchanged values are skipped unless <em>Record unchanged values</em> is on. A restart gives a new <code>instanceId</code> and starts the sequence again.</p>
   <p>Errors come back as MTConnectError documents: <code>NO_DEVICE</code> (404), <code>OUT_OF_RANGE</code>, <code>INVALID_XPATH</code>, <code>INVALID_REQUEST</code> and <code>UNSUPPORTED</code> (400), and <code>INTERNAL_ERROR</code> (500, used for injected errors). Streaming with <code>interval</code> isn't supported; clients poll <code>current</code> or <code>sample</code> instead.</p>
+  <h3>JSON</h3>
+  <p>Responses are XML unless the client asks for JSON with <code>Accept: application/json</code> or <code>?format=json</code> (<code>?format=xml</code> forces XML). <em>Default format</em> sets what plain requests get. The JSON follows the reference agent's JSON version 2 layout: each document is an object named after its root (<code>MTConnectStreams</code>…) with <code>jsonVersion</code> and <code>schemaVersion</code>; attributes become properties, element text becomes <code>value</code> (a number for samples), containers such as Header, Devices, DataItems and Samples are objects, and repeating elements are arrays grouped by name, for example <code>Streams.DeviceStream[0].ComponentStream[n].Samples.Position[0].value</code>. Errors come back as JSON too.</p>
 </section>
 
 <section id="rest">

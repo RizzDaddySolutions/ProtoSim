@@ -101,6 +101,7 @@ An MTConnect agent (HTTP, port 5000) for a simulated machine tool.
 - Tag addresses are data items in a component tree: `Axes/Linear[X]/Xact:POSITION.ACTUAL`, `Controller/Path/execution:EXECUTION`, `Controller/system:SYSTEM`. The category (sample, event or condition) and default units come from the type, and can be overridden with `:SAMPLE`, `:EVENT` or `:CONDITION`.
 - `probe`, `current` (with `at`), `sample` (with `from` and `count`) and `assets`, with or without the device name in the URL, and `path` filters evaluated as real XPath over the probe document.
 - Every value change becomes a numbered observation in a circular buffer (unchanged values are skipped unless configured). The agent reports `firstSequence`, `lastSequence` and `nextSequence`, and returns MTConnect errors such as `OUT_OF_RANGE`, `INVALID_XPATH` and `NO_DEVICE`.
+- XML by default, or JSON (the reference agent's JSON version 2 layout) with `Accept: application/json` or `?format=json`; the device's default format is a setting.
 - Streaming (`interval`) isn't supported; clients poll `current` or `sample`.
 
 ## Sparkplug B

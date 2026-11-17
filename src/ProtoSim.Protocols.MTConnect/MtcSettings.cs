@@ -3,6 +3,12 @@ using ProtoSim.Core.Protocols;
 
 namespace ProtoSim.Protocols.MTConnect;
 
+public enum MtcFormat
+{
+    Xml,
+    Json,
+}
+
 public sealed class MtcSettings : ITcpServerSettings
 {
     [Display(Name = "Bind address", GroupName = "Network", Order = 1, Description = "IP address to listen on. 0.0.0.0 = all IPv4 interfaces, 127.0.0.1 = local only.")]
@@ -52,4 +58,8 @@ public sealed class MtcSettings : ITcpServerSettings
     [Display(Name = "Record unchanged values", GroupName = "Agent", Order = 23,
         Description = "Off: like a real agent, a new observation is only added when a value changes. On: every simulation update is recorded.")]
     public bool RecordDuplicates { get; set; }
+
+    [Display(Name = "Default format", GroupName = "Agent", Order = 24,
+        Description = "Format when the request doesn't choose one. Clients choose with Accept: application/json or ?format=json / ?format=xml. JSON follows the reference agent's JSON version 2 layout.")]
+    public MtcFormat DefaultFormat { get; set; } = MtcFormat.Xml;
 }
