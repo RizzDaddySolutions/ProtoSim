@@ -6,6 +6,7 @@
     <Project Path="src/ProtoSim.Protocols.Dnp3/ProtoSim.Protocols.Dnp3.csproj" />
     <Project Path="src/ProtoSim.Protocols.ModbusTcp/ProtoSim.Protocols.ModbusTcp.csproj" />
     <Project Path="src/ProtoSim.Protocols.Mqtt/ProtoSim.Protocols.Mqtt.csproj" />
+    <Project Path="src/ProtoSim.Protocols.MTConnect/ProtoSim.Protocols.MTConnect.csproj" />
     <Project Path="src/ProtoSim.Protocols.OpcUa/ProtoSim.Protocols.OpcUa.csproj" />
     <Project Path="src/ProtoSim.Protocols.Rest/ProtoSim.Protocols.Rest.csproj" />
     <Project Path="src/ProtoSim.Protocols.Snmp/ProtoSim.Protocols.Snmp.csproj" />
@@ -19,6 +20,9 @@
   </Folder>
   <Folder Name="/tests/Bacnet.Tests/">
     <Project Path="tests/Bacnet.Tests/ProtoSim.Bacnet.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/MTConnect.Tests/">
+    <Project Path="tests/MTConnect.Tests/ProtoSim.MTConnect.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Snmp.Tests/">
     <Project Path="tests/Snmp.Tests/ProtoSim.Snmp.Tests.csproj" />

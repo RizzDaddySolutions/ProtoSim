@@ -94,6 +94,15 @@ An SNMPv1/v2c agent (UDP 161) for simulating UPSs, PDUs, switches and other moni
 - Get, GetNext, GetBulk and atomic Set with v1 and v2c error semantics; read and write community strings.
 - v2c traps: coldStart on start and, optionally, a trap carrying the values of each Set.
 
+## MTConnect
+
+An MTConnect agent (HTTP, port 5000) for a simulated machine tool.
+
+- Tag addresses are data items in a component tree: `Axes/Linear[X]/Xact:POSITION.ACTUAL`, `Controller/Path/execution:EXECUTION`, `Controller/system:SYSTEM`. The category (sample, event or condition) and default units come from the type, and can be overridden with `:SAMPLE`, `:EVENT` or `:CONDITION`.
+- `probe`, `current` (with `at`), `sample` (with `from` and `count`) and `assets`, with or without the device name in the URL, and `path` filters evaluated as real XPath over the probe document.
+- Every value change becomes a numbered observation in a circular buffer (unchanged values are skipped unless configured). The agent reports `firstSequence`, `lastSequence` and `nextSequence`, and returns MTConnect errors such as `OUT_OF_RANGE`, `INVALID_XPATH` and `NO_DEVICE`.
+- Streaming (`interval`) isn't supported; clients poll `current` or `sample`.
+
 ## Sparkplug B
 
 A Sparkplug B edge node (`spBv1.0/{group}/.../{edge node}`) that can run its own MQTT broker or connect to an external one.
@@ -114,6 +123,7 @@ src/
   ProtoSim.Protocols.Rest       REST API plugin: loopback HTTP/1.1 server, OAuth 2.0 client credentials,
                                 tag endpoints, JSON document database
   ProtoSim.Protocols.Bacnet     BACnet/IP plugin: object model, priority arrays, COV, on the BACnet NuGet stack
+  ProtoSim.Protocols.MTConnect  MTConnect agent plugin: HTTP server, component tree, observation buffer, XPath filters
   ProtoSim.Protocols.Snmp       SNMP agent plugin: MIB view of system group and tag OIDs, v1/v2c requests, traps
   ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
@@ -122,6 +132,7 @@ tests/
   OpcUa.Tests                   Variable model and loopback tests with a test-only client (browse, read, write, subscribe, security, login)
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
   Bacnet.Tests                  Address rules and loopback tests with a BACnet client (discovery, reads, commands, COV, DCC, faults)
+  MTConnect.Tests               Address rules and HTTP tests for probe, current, sample, XPath, buffer wrap, errors and faults
   Snmp.Tests                    OID/syntax rules, Get/GetNext/GetBulk/Set semantics, communities, faults, UDP and traps
   SparkplugB.Tests              Payload codec, addressing, and births/data/commands/STATE against the embedded broker
 ```
@@ -140,4 +151,4 @@ The UI never references protocol types. Everything it shows comes from these Cor
 2. Implement `IProtocolPlugin`, plus `IDeviceDataModel` and `IProtocolServer`. `RegisterCodec`, `TrafficLog`, `ServerStatistics` and `FaultSettings` can be reused.
 3. Either drop the built DLL into a `Plugins` folder next to `ProtoSim.exe` (it is discovered at startup), or register the plugin in `App.xaml.cs` as is done for the built-in plugins.
 
-Natural next protocols: MTConnect and IEC 61850.
+Natural next protocols: MTConnect streaming and assets, and IEC 61850.

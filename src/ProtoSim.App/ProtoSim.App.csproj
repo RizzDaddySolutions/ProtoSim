@@ -42,6 +42,7 @@
     <ProjectReference Include="..\ProtoSim.Protocols.SparkplugB\ProtoSim.Protocols.SparkplugB.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Bacnet\ProtoSim.Protocols.Bacnet.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Snmp\ProtoSim.Protocols.Snmp.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.MTConnect\ProtoSim.Protocols.MTConnect.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -139,6 +139,7 @@
   <a href="#dnp3">DNP3</a>
   <a href="#bacnet">BACnet/IP</a>
   <a href="#snmp">SNMP agent</a>
+  <a href="#mtconnect">MTConnect</a>
   <a href="#rest">REST API</a>
   <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
@@ -156,7 +157,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP, SNMP and REST API devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP, SNMP, MTConnect and REST API devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -379,6 +380,32 @@
   <h3>Traps</h3>
   <p>List <em>Trap receivers</em> (<code>host</code> or <code>host:port</code>, default port 162) to send SNMPv2c traps: coldStart when the agent starts and, with <em>Trap on Set</em>, a trap carrying the new values after each successful Set. That trap's snmpTrapOID is the sysObjectID followed by <code>.0.1</code>.</p>
   <p>Injected error responses carry the fault error code as the SNMP error status (for example 5, genErr). The Connections tab lists managers heard from in the last 10 minutes.</p>
+</section>
+
+<section id="mtconnect">
+  <h2>MTConnect</h2>
+  <p>An MTConnect agent for a simulated machine tool, serving XML over HTTP on port <code>5000</code>. With the default device name <em>Mill</em>, try <code>http://localhost:5000/probe</code> and <code>http://localhost:5000/Mill/current</code>.</p>
+  <h3>Tag addresses</h3>
+  <p>Each tag is one data item: a component path, the data item id and its type, separated by <code>:</code>.</p>
+  <table>
+    <tr><th>Address</th><th>Meaning</th></tr>
+    <tr><td><code>Axes/Linear[X]/Xact:POSITION.ACTUAL</code></td><td>Sample <code>Xact</code>, type POSITION, subtype ACTUAL, in the Linear axis named X under Axes. Units default to MILLIMETER.</td></tr>
+    <tr><td><code>Controller/Path/execution:EXECUTION</code></td><td>Event (String: ACTIVE, READY, STOPPED…)</td></tr>
+    <tr><td><code>Controller/system:SYSTEM</code></td><td>Condition (String NORMAL / WARNING / FAULT, Bool true = FAULT, or 0/1/2)</td></tr>
+    <tr><td><code>partcount:PART_COUNT</code></td><td>A data item on the device itself</td></tr>
+    <tr><td><code>Systems/flag:MY_FLAG:EVENT</code></td><td>Any type, with the category given explicitly</td></tr>
+  </table>
+  <p>Components are MTConnect element types (Axes, Controller, Path, Linear, Rotary, Systems, Electric, Coolant, Door…), optionally with a <code>[name]</code>. Common types know their category and units: samples such as POSITION, TEMPERATURE, ROTARY_VELOCITY and LOAD need numeric tags; events such as EXECUTION, CONTROLLER_MODE, PROGRAM and PART_COUNT take any type; conditions such as SYSTEM and HARDWARE map to Normal/Warning/Fault. Bool events become words where MTConnect expects them: EMERGENCY_STOP is ARMED/TRIGGERED, DOOR_STATE is OPEN/CLOSED, and other Bool events are ON/OFF. Data item ids must be unique; <code>avail</code> is the built-in AVAILABILITY event, which reads AVAILABLE while the agent runs.</p>
+  <h3>Requests</h3>
+  <table>
+    <tr><th>Request</th><th>Returns</th></tr>
+    <tr><td><code>/probe</code> or <code>/Mill</code></td><td>MTConnectDevices: the device, its components and data items</td></tr>
+    <tr><td><code>/current</code>, <code>/current?at=123</code></td><td>MTConnectStreams with the latest value of each data item, or the values at sequence 123</td></tr>
+    <tr><td><code>/sample?from=100&amp;count=50</code></td><td>Observations in sequence order from 100; <code>nextSequence</code> in the header says where to continue</td></tr>
+    <tr><td><code>/assets</code></td><td>An empty MTConnectAssets document</td></tr>
+  </table>
+  <p>Every request can be prefixed with the device name (<code>/Mill/current</code>) and filtered with <code>path</code>, an XPath over the probe document such as <code>//Axes</code> or <code>//DataItem[@category="CONDITION"]</code>. Each value change adds a numbered observation to a circular buffer of <em>Buffer size</em> entries; unchanged values are skipped unless <em>Record unchanged values</em> is on. A restart gives a new <code>instanceId</code> and starts the sequence again.</p>
+  <p>Errors come back as MTConnectError documents: <code>NO_DEVICE</code> (404), <code>OUT_OF_RANGE</code>, <code>INVALID_XPATH</code>, <code>INVALID_REQUEST</code> and <code>UNSUPPORTED</code> (400), and <code>INTERNAL_ERROR</code> (500, used for injected errors). Streaming with <code>interval</code> isn't supported; clients poll <code>current</code> or <code>sample</code> instead.</p>
 </section>
 
 <section id="rest">
