@@ -8,7 +8,7 @@ public sealed class ModbusDataModel : IDeviceDataModel
     /// <summary>Lock guarding all four areas, so multi-register operations are atomic.</summary>
     internal readonly object Sync = new();
 
-    public ModbusDataModel(ModbusServerSettings settings)
+    public ModbusDataModel(ModbusDeviceSettings settings)
     {
         Coils = new ModbusDataArea(this, ModbusAreaKind.Coils, () => settings.CoilCount);
         DiscreteInputs = new ModbusDataArea(this, ModbusAreaKind.DiscreteInputs, () => settings.DiscreteInputCount);

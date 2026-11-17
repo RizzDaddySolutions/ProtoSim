@@ -38,6 +38,10 @@ ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with 
 - Requests are checked against the spec's quantity limits and return the correct exception codes. Other settings: which unit IDs to answer (`*`, `1,2,10-20`), gateway exceptions 0x0A/0x0B for other unit IDs, unit 0 as broadcast, read-only mode, the size of each memory area, and the device identification strings.
 - Tag addresses: `HR:0`, `IR:0`, `CO:0`, `DI:0` (0-based offsets), `40001` / `400001` (Modicon, 1-based), and `HR:10.3` (one bit of a register). Multi-register values can use any word order (ABCD, CDAB, BADC, DCBA).
 
+### Modbus RTU
+
+**Modbus RTU (serial)** runs a slave on a COM port (default 19200 8E1, unit 1, frames end after 3.5 character times), and **Modbus RTU over TCP** carries the same RTU frames (unit + PDU + CRC-16, no MBAP header) over TCP, like a serial device server. Both share the Modbus TCP request handler, memory tables and tag addresses. Bad-CRC frames are ignored, other unit IDs get no reply by default, and unit 0 is a silent broadcast. Use a virtual COM port pair such as com0com to test the serial slave without hardware.
+
 ## OPC UA
 
 Built on the official OPC Foundation .NET Standard stack (1.5.378).
@@ -73,6 +77,14 @@ A local-only JSON API simulator (listens on `127.0.0.1`/`::1` only) with a confi
 - **Simulated GET endpoints**: each tag's address is a path (e.g. `sensors/temperature`), simulated like any other protocol; PUT/PATCH/POST to the path writes the value.
 - **JSON database** for everything else: `GET/POST /users`, `GET/PUT/PATCH/DELETE /users/{id}`, with json-server style filtering, sorting and paging. It is created once per device in `%LocalAppData%\ProtoSim\RestDatabases`, persists every change, and can be edited, recreated, exported and imported on the **Database** tab.
 
+## BACnet/IP
+
+A BACnet/IP device (UDP 47808) built on the MIT-licensed [BACnet](https://github.com/ela-compil/BACnet) stack.
+
+- Tag addresses are objects: `AI:1`, `AO:1`, `AV:3/Zone Setpoint`, `BI`/`BO`/`BV` (Bool), `MSI`/`MSO`/`MSV` (1..N), `CSV:1` (String).
+- Who-Is/I-Am, Who-Has/I-Have, ReadProperty(Multiple) including ALL, WriteProperty(Multiple) with a 16-level priority array and relinquish default, Out_Of_Service on inputs.
+- SubscribeCOV / SubscribeCOVProperty with COV increment, DeviceCommunicationControl, ReinitializeDevice and TimeSynchronization.
+
 ## Sparkplug B
 
 A Sparkplug B edge node (`spBv1.0/{group}/.../{edge node}`) that can run its own MQTT broker or connect to an external one.
@@ -88,16 +100,18 @@ A Sparkplug B edge node (`spBv1.0/{group}/.../{edge node}`) that can run its own
 src/
   ProtoSim.Core                 Protocol-agnostic: plugin contracts, data model, register codec,
                                 simulation engine, traffic log, statistics, fault settings, project format
-  ProtoSim.Protocols.ModbusTcp  Modbus TCP plugin: data model, request handler, TCP server
+  ProtoSim.Protocols.ModbusTcp  Modbus TCP, RTU (serial) and RTU-over-TCP plugins: data model, request handler, servers
   ProtoSim.Protocols.OpcUa      OPC UA plugin: variable model, node manager, server
   ProtoSim.Protocols.Rest       REST API plugin: loopback HTTP/1.1 server, OAuth 2.0 client credentials,
                                 tag endpoints, JSON document database
+  ProtoSim.Protocols.Bacnet     BACnet/IP plugin: object model, priority arrays, COV, on the BACnet NuGet stack
   ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
 tests/
-  ModbusTcp.Tests               Codec, addressing, request handler and loopback tests (with a test-only client)
+  ModbusTcp.Tests               Codec, addressing, request handler, RTU framing/CRC and loopback tests (with a test-only client)
   OpcUa.Tests                   Variable model and loopback tests with a test-only client (browse, read, write, subscribe, security, login)
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
+  Bacnet.Tests                  Address rules and loopback tests with a BACnet client (discovery, reads, commands, COV, DCC, faults)
   SparkplugB.Tests              Payload codec, addressing, and births/data/commands/STATE against the embedded broker
 ```
 
@@ -115,4 +129,4 @@ The UI never references protocol types. Everything it shows comes from these Cor
 2. Implement `IProtocolPlugin`, plus `IDeviceDataModel` and `IProtocolServer`. `RegisterCodec`, `TrafficLog`, `ServerStatistics` and `FaultSettings` can be reused.
 3. Either drop the built DLL into a `Plugins` folder next to `ProtoSim.exe` (it is discovered at startup), or register the plugin in `App.xaml.cs` as is done for the built-in plugins.
 
-Natural next protocols: Modbus RTU-over-TCP / serial (`ModbusRequestHandler` is transport-independent and can be reused), DNP3, IEC 60870-5-104, Siemens S7 and EtherNet/IP.
+Natural next protocols: IEC 60870-5-104, SNMP and MTConnect.

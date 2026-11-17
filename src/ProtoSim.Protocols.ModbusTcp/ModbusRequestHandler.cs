@@ -7,7 +7,7 @@ namespace ProtoSim.Protocols.ModbusTcp;
 /// Executes a request PDU against a data model and returns the response PDU.
 /// Transport-independent, so it can serve Modbus TCP, RTU-over-TCP or serial transports.
 /// </summary>
-public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusServerSettings settings)
+public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSettings settings)
 {
     public byte[] Process(ReadOnlySpan<byte> pdu)
     {

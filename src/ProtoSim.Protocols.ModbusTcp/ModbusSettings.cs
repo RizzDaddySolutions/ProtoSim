@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ProtoSim.Core.Data;
+using ProtoSim.Core.Protocols;
 
 namespace ProtoSim.Protocols.ModbusTcp;
 
@@ -13,23 +14,9 @@ public enum UnmatchedUnitBehavior
     GatewayPathUnavailable,
 }
 
-public sealed class ModbusServerSettings
+/// <summary>Settings shared by every Modbus transport: unit addressing, behaviour, memory sizes and identification.</summary>
+public abstract class ModbusDeviceSettings
 {
-    [Display(Name = "Bind address", GroupName = "Network", Order = 1, Description = "IP address to listen on. 0.0.0.0 = all IPv4 interfaces, :: = all interfaces (dual stack), 127.0.0.1 = local only.")]
-    public string BindAddress { get; set; } = "0.0.0.0";
-
-    [Display(Name = "TCP port", GroupName = "Network", Order = 2, Description = "Standard Modbus TCP port is 502.")]
-    [Range(0, 65535)]
-    public int Port { get; set; } = 502;
-
-    [Display(Name = "Max connections", GroupName = "Network", Order = 3, Description = "Further connection attempts are refused.")]
-    [Range(1, 1000)]
-    public int MaxConnections { get; set; } = 16;
-
-    [Display(Name = "Idle timeout (s)", GroupName = "Network", Order = 4, Description = "Close connections that send nothing for this long. 0 = never.")]
-    [Range(0, 86_400)]
-    public int IdleTimeoutSeconds { get; set; }
-
     [Display(Name = "Unit IDs", GroupName = "Unit", Order = 10, Description = "Unit identifiers this device answers: * for all, or a list such as 1,2,10-20.")]
     public string UnitIds { get; set; } = "*";
 
@@ -78,4 +65,23 @@ public sealed class ModbusServerSettings
 
     [Display(Name = "User application name", GroupName = "Device identification (FC 43/14)", Order = 46)]
     public string UserApplicationName { get; set; } = "Simulation";
+}
+
+/// <summary>Modbus TCP (MBAP) server settings.</summary>
+public class ModbusServerSettings : ModbusDeviceSettings, ITcpServerSettings
+{
+    [Display(Name = "Bind address", GroupName = "Network", Order = 1, Description = "IP address to listen on. 0.0.0.0 = all IPv4 interfaces, :: = all interfaces (dual stack), 127.0.0.1 = local only.")]
+    public string BindAddress { get; set; } = "0.0.0.0";
+
+    [Display(Name = "TCP port", GroupName = "Network", Order = 2, Description = "Standard Modbus TCP port is 502.")]
+    [Range(0, 65535)]
+    public int Port { get; set; } = 502;
+
+    [Display(Name = "Max connections", GroupName = "Network", Order = 3, Description = "Further connection attempts are refused.")]
+    [Range(1, 1000)]
+    public int MaxConnections { get; set; } = 16;
+
+    [Display(Name = "Idle timeout (s)", GroupName = "Network", Order = 4, Description = "Close connections that send nothing for this long. 0 = never.")]
+    [Range(0, 86_400)]
+    public int IdleTimeoutSeconds { get; set; }
 }

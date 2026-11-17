@@ -133,9 +133,11 @@
   <a href="#faults">Fault injection</a>
   <h4>Protocols</h4>
   <a href="#modbus">Modbus TCP</a>
+  <a href="#modbus-rtu">Modbus RTU</a>
   <a href="#opcua">OPC UA</a>
   <a href="#mqtt">MQTT</a>
   <a href="#dnp3">DNP3</a>
+  <a href="#bacnet">BACnet/IP</a>
   <a href="#rest">REST API</a>
   <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
@@ -153,7 +155,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT, Sparkplug B, DNP3 and REST API devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP and REST API devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -289,6 +291,16 @@
   <p>Unit IDs to answer (<code>*</code>, <code>1,2,10-20</code>), gateway exceptions for other unit IDs, unit 0 as broadcast, read-only mode, area sizes and device identification strings.</p>
 </section>
 
+<section id="modbus-rtu">
+  <h2>Modbus RTU <span class="badge">serial · over TCP</span></h2>
+  <p>Two more Modbus devices use the same function codes, memory tables, tag addresses, word orders and settings as Modbus TCP, but RTU framing: unit address, PDU and CRC-16, with no MBAP header.</p>
+  <ul>
+    <li><strong>Modbus RTU (serial)</strong> is a slave on a COM port. Its defaults are 19200 baud, 8 data bits, even parity and 1 stop bit, unit 1. A pause of 3.5 character times ends a frame; <em>Frame gap</em> can set it by hand. <em>Turnaround delay</em> waits before replying, for RS-485 masters. Several devices can share one port name as long as only one runs at a time. To test without hardware, create a virtual COM port pair (for example with com0com) and connect the master to the other end.</li>
+    <li><strong>Modbus RTU over TCP</strong> accepts TCP connections that carry raw RTU frames, like a serial device server, default port <code>502</code>. Known function codes are framed by their length; for others, a pause of <em>Frame gap</em> ends the frame.</li>
+  </ul>
+  <p>As on a real RTU line, frames with a bad CRC are ignored, requests for other unit IDs get no reply (unless a gateway exception is chosen), and unit 0 is a broadcast that is processed but never answered. Injected errors are Modbus exceptions with a valid CRC. The serial device lists its port on the Connections tab; there is no connection to drop.</p>
+</section>
+
 <section id="opcua">
   <h2>OPC UA</h2>
   <p>An OPC UA server (<code>opc.tcp</code>), default port <code>4840</code>.</p>
@@ -313,6 +325,30 @@
     <tr><td><code>C:&lt;index&gt;</code></td><td>Counter</td></tr>
   </table>
   <p>Settings include the outstation and master addresses, unsolicited responses, whether writes are allowed, and the maximum number of points.</p>
+</section>
+
+<section id="bacnet">
+  <h2>BACnet/IP</h2>
+  <p>A BACnet/IP device on UDP port <code>47808</code> (0xBAC0), device instance 1001 by default. Leave <em>Local IP address</em> empty to choose the network interface automatically. On a PC with several interfaces (VPN, Hyper-V, WSL…) the start error lists them, so enter the one your BACnet network uses. Use <code>127.0.0.1</code> to test with a client on the same PC.</p>
+  <h3>Tag addresses</h3>
+  <table>
+    <tr><th>Address</th><th>Object</th><th>Data type</th></tr>
+    <tr><td><code>AI:1</code> <code>AO:1</code> <code>AV:1</code></td><td>Analog input, output, value (Present_Value is REAL)</td><td>Any numeric type</td></tr>
+    <tr><td><code>BI:1</code> <code>BO:1</code> <code>BV:1</code></td><td>Binary input, output, value (inactive/active)</td><td>Bool</td></tr>
+    <tr><td><code>MSI:1</code> <code>MSO:1</code> <code>MSV:1</code></td><td>Multi-state input, output, value (1 to <em>Multi-state states</em>)</td><td>Integer</td></tr>
+    <tr><td><code>CSV:1</code></td><td>CharacterString Value</td><td>String</td></tr>
+  </table>
+  <p>Add <code>/name</code> to set the Object_Name, for example <code>AV:3/Zone Setpoint</code>. Otherwise objects are named like <em>Analog Value 3</em>.</p>
+  <h3>Services</h3>
+  <ul>
+    <li><strong>Who-Is / I-Am</strong> and <strong>Who-Has / I-Have</strong>. I-Am is broadcast and, with <em>Unicast I-Am replies</em> on, also sent straight back to the requester.</li>
+    <li><strong>ReadProperty</strong> and <strong>ReadPropertyMultiple</strong> (including ALL, REQUIRED and OPTIONAL) for the device object (Object_List, vendor and model information, protocol services and object types supported, local date and time…) and every object.</li>
+    <li><strong>WriteProperty</strong> and <strong>WritePropertyMultiple</strong>. Outputs and values are commandable: writes go into the 16-level Priority_Array, the highest priority wins, writing NULL relinquishes that level, and the Relinquish_Default applies when every level is empty. Inputs are read-only until Out_Of_Service is set to true.</li>
+    <li><strong>SubscribeCOV</strong> and <strong>SubscribeCOVProperty</strong>, confirmed or unconfirmed, with lifetimes. Analog objects notify when the value moves by at least <em>COV increment</em>.</li>
+    <li><strong>DeviceCommunicationControl</strong> (disable silences everything except DCC and ReinitializeDevice), <strong>ReinitializeDevice</strong> (a cold start clears priority arrays) and <strong>TimeSynchronization</strong>. Set a <em>Password</em> to require one.</li>
+  </ul>
+  <p>Errors use the standard BACnet classes and codes, such as unknown-object, unknown-property, write-access-denied, value-out-of-range and invalid-data-type. Injected errors are sent as error class DEVICE with the fault error code as the BACnet error code (for example 25, operational-problem). UDP has no connections, so the Connections tab lists clients heard from in the last 10 minutes. <strong>Drop</strong> forgets a client and cancels its COV subscriptions.</p>
+  <p>Simulated tags keep writing their values, so a simulated output overrides what a client commanded. Turn off simulation for points that clients should control.</p>
 </section>
 
 <section id="rest">
