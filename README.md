@@ -85,6 +85,15 @@ A BACnet/IP device (UDP 47808) built on the MIT-licensed [BACnet](https://github
 - Who-Is/I-Am, Who-Has/I-Have, ReadProperty(Multiple) including ALL, WriteProperty(Multiple) with a 16-level priority array and relinquish default, Out_Of_Service on inputs.
 - SubscribeCOV / SubscribeCOVProperty with COV increment, DeviceCommunicationControl, ReinitializeDevice and TimeSynchronization.
 
+## SNMP agent
+
+An SNMPv1/v2c agent (UDP 161) for simulating UPSs, PDUs, switches and other monitored equipment. Messages are encoded with the MIT-licensed [#SNMP](https://github.com/lextudio/sharpsnmplib) library.
+
+- Tag addresses are scalar OIDs, e.g. `1.3.6.1.4.1.99999.1.1.0`, with an optional `:counter32`, `:gauge32`, `:timeticks`, `:counter64`, `:ipaddress`, `:truthvalue` or `:string` syntax.
+- Built-in system group (sysDescr, sysObjectID, sysUpTime, sysContact, sysName, sysLocation, sysServices).
+- Get, GetNext, GetBulk and atomic Set with v1 and v2c error semantics; read and write community strings.
+- v2c traps: coldStart on start and, optionally, a trap carrying the values of each Set.
+
 ## Sparkplug B
 
 A Sparkplug B edge node (`spBv1.0/{group}/.../{edge node}`) that can run its own MQTT broker or connect to an external one.
@@ -105,6 +114,7 @@ src/
   ProtoSim.Protocols.Rest       REST API plugin: loopback HTTP/1.1 server, OAuth 2.0 client credentials,
                                 tag endpoints, JSON document database
   ProtoSim.Protocols.Bacnet     BACnet/IP plugin: object model, priority arrays, COV, on the BACnet NuGet stack
+  ProtoSim.Protocols.Snmp       SNMP agent plugin: MIB view of system group and tag OIDs, v1/v2c requests, traps
   ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
 tests/
@@ -112,6 +122,7 @@ tests/
   OpcUa.Tests                   Variable model and loopback tests with a test-only client (browse, read, write, subscribe, security, login)
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
   Bacnet.Tests                  Address rules and loopback tests with a BACnet client (discovery, reads, commands, COV, DCC, faults)
+  Snmp.Tests                    OID/syntax rules, Get/GetNext/GetBulk/Set semantics, communities, faults, UDP and traps
   SparkplugB.Tests              Payload codec, addressing, and births/data/commands/STATE against the embedded broker
 ```
 
@@ -129,4 +140,4 @@ The UI never references protocol types. Everything it shows comes from these Cor
 2. Implement `IProtocolPlugin`, plus `IDeviceDataModel` and `IProtocolServer`. `RegisterCodec`, `TrafficLog`, `ServerStatistics` and `FaultSettings` can be reused.
 3. Either drop the built DLL into a `Plugins` folder next to `ProtoSim.exe` (it is discovered at startup), or register the plugin in `App.xaml.cs` as is done for the built-in plugins.
 
-Natural next protocols: IEC 60870-5-104, SNMP and MTConnect.
+Natural next protocols: MTConnect and IEC 61850.

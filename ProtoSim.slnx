@@ -8,6 +8,7 @@
     <Project Path="src/ProtoSim.Protocols.Mqtt/ProtoSim.Protocols.Mqtt.csproj" />
     <Project Path="src/ProtoSim.Protocols.OpcUa/ProtoSim.Protocols.OpcUa.csproj" />
     <Project Path="src/ProtoSim.Protocols.Rest/ProtoSim.Protocols.Rest.csproj" />
+    <Project Path="src/ProtoSim.Protocols.Snmp/ProtoSim.Protocols.Snmp.csproj" />
     <Project Path="src/ProtoSim.Protocols.SparkplugB/ProtoSim.Protocols.SparkplugB.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -18,6 +19,9 @@
   </Folder>
   <Folder Name="/tests/Bacnet.Tests/">
     <Project Path="tests/Bacnet.Tests/ProtoSim.Bacnet.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Snmp.Tests/">
+    <Project Path="tests/Snmp.Tests/ProtoSim.Snmp.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/SparkplugB.Tests/">
     <Project Path="tests/SparkplugB.Tests/ProtoSim.SparkplugB.Tests.csproj" />

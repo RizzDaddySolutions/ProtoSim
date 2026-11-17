@@ -138,6 +138,7 @@
   <a href="#mqtt">MQTT</a>
   <a href="#dnp3">DNP3</a>
   <a href="#bacnet">BACnet/IP</a>
+  <a href="#snmp">SNMP agent</a>
   <a href="#rest">REST API</a>
   <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
@@ -155,7 +156,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP and REST API devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP, SNMP and REST API devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -349,6 +350,35 @@
   </ul>
   <p>Errors use the standard BACnet classes and codes, such as unknown-object, unknown-property, write-access-denied, value-out-of-range and invalid-data-type. Injected errors are sent as error class DEVICE with the fault error code as the BACnet error code (for example 25, operational-problem). UDP has no connections, so the Connections tab lists clients heard from in the last 10 minutes. <strong>Drop</strong> forgets a client and cancels its COV subscriptions.</p>
   <p>Simulated tags keep writing their values, so a simulated output overrides what a client commanded. Turn off simulation for points that clients should control.</p>
+</section>
+
+<section id="snmp">
+  <h2>SNMP agent</h2>
+  <p>An SNMPv1/v2c agent on UDP port <code>161</code>, for simulating UPSs, PDUs, switches and other monitored equipment. If the Windows SNMP service is installed it may already use 161; choose another port such as <code>1161</code> and point the manager at it. SNMPv3 requests are ignored.</p>
+  <h3>Tag addresses</h3>
+  <p>Each tag is one scalar object, addressed by its numeric OID, usually ending in <code>.0</code>, for example <code>1.3.6.1.4.1.99999.1.1.0</code>. Add <code>:syntax</code> to choose the SNMP type:</p>
+  <table>
+    <tr><th>Suffix</th><th>Type</th><th>Default for</th></tr>
+    <tr><td><code>:integer</code></td><td>INTEGER</td><td>Int16, UInt16, Int32</td></tr>
+    <tr><td><code>:gauge32</code> / <code>:unsigned32</code></td><td>Gauge32</td><td>UInt32</td></tr>
+    <tr><td><code>:counter32</code></td><td>Counter32</td><td></td></tr>
+    <tr><td><code>:counter64</code></td><td>Counter64</td><td>Int64, UInt64</td></tr>
+    <tr><td><code>:timeticks</code></td><td>TimeTicks (hundredths of a second)</td><td></td></tr>
+    <tr><td><code>:truthvalue</code></td><td>TruthValue (1 = true, 2 = false)</td><td>Bool</td></tr>
+    <tr><td><code>:ipaddress</code></td><td>IpAddress</td><td>String tags holding an IPv4 address</td></tr>
+    <tr><td><code>:string</code></td><td>OCTET STRING</td><td>String, Float32, Float64 (SNMP has no floating-point type)</td></tr>
+  </table>
+  <p>The system group (<code>1.3.6.1.2.1.1</code>: sysDescr, sysObjectID, sysUpTime, sysContact, sysName, sysLocation, sysServices) is built in and set in the server settings.</p>
+  <h3>Requests</h3>
+  <ul>
+    <li><strong>Get</strong>: missing objects return noSuchObject or noSuchInstance in v2c, and a noSuchName error in v1.</li>
+    <li><strong>GetNext</strong> and <strong>GetBulk</strong> (v2c) walk all objects in numeric OID order, ending with endOfMibView. <em>Max GetBulk varbinds</em> caps the size of one response.</li>
+    <li><strong>Set</strong> needs the <em>Write community</em>. It is atomic: every variable is checked (exists, writable, right type, valid value) before any is changed. The system group is read-only.</li>
+    <li>Requests with an unknown community, or for a disabled version, get no reply, as with a real agent.</li>
+  </ul>
+  <h3>Traps</h3>
+  <p>List <em>Trap receivers</em> (<code>host</code> or <code>host:port</code>, default port 162) to send SNMPv2c traps: coldStart when the agent starts and, with <em>Trap on Set</em>, a trap carrying the new values after each successful Set. That trap's snmpTrapOID is the sysObjectID followed by <code>.0.1</code>.</p>
+  <p>Injected error responses carry the fault error code as the SNMP error status (for example 5, genErr). The Connections tab lists managers heard from in the last 10 minutes.</p>
 </section>
 
 <section id="rest">
