@@ -40,6 +40,10 @@
     <ProjectReference Include="..\ProtoSim.Protocols.Dnp3\ProtoSim.Protocols.Dnp3.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.DirectoryServices" Version="11.0.0" />
+  </ItemGroup>
+
   <Target Name="RemovePublishSymbols" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
     <ItemGroup>
       <PublishedSymbols Include="$(PublishDir)**\*.pdb" />
