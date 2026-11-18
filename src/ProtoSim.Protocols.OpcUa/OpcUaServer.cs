@@ -192,11 +192,26 @@ public sealed class OpcUaServer(OpcUaServerSettings settings, OpcUaDataModel mod
     {
         var server = _server;
         if (server == null) return;
-        NodeId? id;
-        lock (_sessions) id = _sessions.FirstOrDefault(kv => kv.Value.Id == connectionId).Key;
-        if (id == null) return;
+
+        NodeId sessionId = default;
+        var found = false;
+        lock (_sessions)
+        {
+            foreach (var (id, info) in _sessions)
+            {
+                if (info.Id != connectionId) continue;
+                sessionId = id;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return;
+
+        var session = server.CurrentInstance.SessionManager.GetSession(sessionId);
+        if (session == null) return;
+
         context.Log.Warn("", "Session closed by user");
-        if (id is { } sessionId) _ = server.CurrentInstance.SessionManager.GetSession(sessionId).CloseAsync(CancellationToken.None);
+        _ = session.CloseAsync(CancellationToken.None);
     }
 
     public async ValueTask DisposeAsync()

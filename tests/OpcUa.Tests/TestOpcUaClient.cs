@@ -92,9 +92,13 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         session.OperationTimeout = settings.OperationTimeoutMs;
         _session = session;
 
+        using var policies = new SecurityPolicies();
+        var securityPolicyUri = endpointDescription.SecurityPolicyUri;
         var sec = endpointDescription.SecurityMode == MessageSecurityMode.None
             ? "None"
-            : $"{endpointDescription.SecurityMode} {new SecurityPolicies().GetDisplayName(endpointDescription.SecurityPolicyUri)}";
+            : $"{endpointDescription.SecurityMode} {(securityPolicyUri is { Length: > 0 }
+                ? policies.GetDisplayName(securityPolicyUri) ?? securityPolicyUri
+                : "Unknown")}";
         Log.Info(Remote, $"Session created · security {sec} · {(string.IsNullOrEmpty(settings.UserName) ? "anonymous" : $"user {settings.UserName}")}");
         return session;
     }
@@ -174,7 +178,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
 
     private static string FormatValue(DataValue dv)
     {
-        var v = dv.Value;
+        var v = dv.WrappedValue.AsBoxedObject();
         return v switch
         {
             null => "(null)",
@@ -200,8 +204,11 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         var toRead = ids.Select(id => new ReadValueId { NodeId = id, AttributeId = Attributes.Value }).ToArray();
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Tx, Remote, $"Read {ids.Count} node(s)"));
         var response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, toRead, ct);
-        var results = response.Results.ToArray();
-        ClientBase.ValidateResponse<ReadValueId, DataValue>((IReadOnlyList<DataValue>)results, (IReadOnlyList<ReadValueId>)toRead);
+        var results = response.Results.ToArray()
+            ?? throw new InvalidOperationException("Read response did not contain results.");
+        ClientBase.ValidateResponse<ReadValueId, DataValue>(
+            (IReadOnlyList<DataValue>)results,
+            (IReadOnlyList<ReadValueId>)toRead);
         int good = results.Count(v => StatusCode.IsGood(v.StatusCode));
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Rx, Remote, $"Read → {good}/{ids.Count} Good"));
         return results;
@@ -230,19 +237,37 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
                 BuiltInType.Byte => Convert.ToByte(value),
                 _ => value,
             };
-            writes.Add(new WriteValue { NodeId = ids[i], AttributeId = Attributes.Value, Value = new DataValue(new Variant(value)) });
+            Variant variant = builtIn switch
+            {
+                BuiltInType.Boolean => Variant.From((bool)value),
+                BuiltInType.SByte => Variant.From((sbyte)value),
+                BuiltInType.Byte => Variant.From((byte)value),
+                BuiltInType.Int16 => Variant.From((short)value),
+                BuiltInType.UInt16 => Variant.From((ushort)value),
+                BuiltInType.Int32 => Variant.From((int)value),
+                BuiltInType.UInt32 => Variant.From((uint)value),
+                BuiltInType.Int64 => Variant.From((long)value),
+                BuiltInType.UInt64 => Variant.From((ulong)value),
+                BuiltInType.Float => Variant.From((float)value),
+                BuiltInType.Double => Variant.From((double)value),
+                BuiltInType.String => Variant.From((string)value),
+                _ => throw new InvalidOperationException($"Unsupported built-in type: {builtIn}"),
+            };
+            writes.Add(new WriteValue { NodeId = ids[i], AttributeId = Attributes.Value, Value = new DataValue(variant) });
         }
 
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Tx, Remote, $"Write {writes.Count} node(s)"));
         var response = await session.WriteAsync(null, writes.ToArray(), ct);
-        var writeResults = response.Results.ToArray();
-        ClientBase.ValidateResponse<WriteValue, StatusCode>((IReadOnlyList<StatusCode>)writeResults, (IReadOnlyList<WriteValue>)writes.ToArray());
+        var writeResults = response.Results.ToArray()
+            ?? throw new InvalidOperationException("Write response did not contain results.");
+        ClientBase.ValidateResponse<WriteValue, StatusCode>(
+            (IReadOnlyList<StatusCode>)writeResults, (IReadOnlyList<WriteValue>)writes.ToArray());
         Log.Add(new TrafficEntry(DateTime.Now, TrafficDirection.Rx, Remote,
             $"Write → {string.Join(", ", writeResults.Select(s => DescribeStatus(s)))}"));
 
         var bad = writeResults.FirstOrDefault(s => StatusCode.IsBad(s));
         var rows = ids.Select((id, i) => new ClientResultRow(id.ToString(), DescribeStatus(writeResults[i]),
-            ValueConverter.Format(writes[i].Value.Value))).ToList();
+            ValueConverter.Format(writes[i].Value.WrappedValue.AsBoxedObject()))).ToList();
         if (StatusCode.IsBad(bad)) throw new ServiceResultException(bad.Code, $"Write rejected: {DescribeStatus(bad)}");
         return rows;
     }
@@ -262,7 +287,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         return found.Select(f =>
         {
             string indent = new string(' ', f.Depth * 2);
-            string name = f.Ref.DisplayName.Text;
+            string name = f.Ref.DisplayName.Text ?? f.Id.ToString();
             if (f.Ref.NodeClass == NodeClass.Variable && valueById.TryGetValue(f.Id, out var dv))
                 return new ClientResultRow(indent + name, f.Id.ToString(), FormatValue(dv));
             return new ClientResultRow(indent + name + "/", f.Id.ToString(), $"({f.Ref.NodeClass})");
@@ -299,10 +324,11 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         foreach (var reference in references)
         {
             var id = ExpandedNodeId.ToNodeId(reference.NodeId, session.NamespaceUris);
-            if (id == null) continue;
+            if (id.IsNull) continue;
             if (id == ObjectIds.Server) continue; // the standard Server object is huge and not interesting here
             if (node == ObjectIds.ObjectsFolder && id.NamespaceIndex == 0) continue; // skip standard folders (Aliases, Locations…)
-            string childPath = path.Length == 0 ? reference.DisplayName.Text : $"{path}/{reference.DisplayName.Text}";
+            string name = reference.DisplayName.Text ?? id.ToString();
+            string childPath = path.Length == 0 ? name : $"{path}/{name}";
             found.Add((reference, id, childPath, depth));
             if (reference.NodeClass == NodeClass.Object)
                 await BrowseRecursiveAsync(session, id, childPath, depth + 1, maxDepth, found, ct);
@@ -323,7 +349,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
             }
             _subscriptionValues.Clear();
 
-            var subscription = new Subscription(session.DefaultSubscription)
+            var subscription = new Subscription(OpcUaConfiguration.Telemetry)
             {
                 DisplayName = "ProtoSim",
                 PublishingEnabled = true,

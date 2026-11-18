@@ -5,4 +5,10 @@
     <RootNamespace>ProtoSim.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="LogicBlocks.cs" />
+    <Compile Remove="LogicEngine.cs" />
+    <Compile Remove="LogicModel.cs" />
+  </ItemGroup>
+
 </Project>
