@@ -55,14 +55,17 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         _model.ValueChanged += OnValueChanged;
     }
 
+    /// <summary>Stops listening to the data model, which outlives the server. Safe to call more than once.</summary>
+    public void Detach()
+    {
+        _model.VariableAdded -= OnVariableAdded;
+        _model.VariableRemoved -= OnVariableRemoved;
+        _model.ValueChanged -= OnValueChanged;
+    }
+
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _model.VariableAdded -= OnVariableAdded;
-            _model.VariableRemoved -= OnVariableRemoved;
-            _model.ValueChanged -= OnValueChanged;
-        }
+        if (disposing) Detach();
         base.Dispose(disposing);
     }
 

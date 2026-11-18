@@ -7,14 +7,32 @@ using ProtoSim.Core.Protocols;
 namespace ProtoSim.Protocols.OpcUa;
 
 /// <summary>OPC Foundation StandardServer wired to ProtoSim's data model, log, statistics and fault injection.</summary>
-internal sealed class SimulationServer(OpcUaDataModel model, OpcUaServerSettings settings, ServerContext context) : StandardServer(OpcUaConfiguration.Telemetry)
+internal sealed class SimulationServer : StandardServer
 {
+    private readonly OpcUaServerSettings settings;
+    private readonly ServerContext context;
+
+    public SimulationServer(OpcUaDataModel model, OpcUaServerSettings settings, ServerContext context) : base(OpcUaConfiguration.Telemetry)
+    {
+        this.settings = settings;
+        this.context = context;
+        // SDK 2.0.2+ requires application node managers to be registered as factories before the server starts.
+        AddNodeManager(new NodeManagerFactory(this, model, settings));
+    }
+
     public SimulationNodeManager? NodeManager { get; private set; }
 
-    protected override MasterNodeManager CreateMasterNodeManager(IServerInternal server, ApplicationConfiguration configuration)
+    /// <summary>Creates the simulation node manager when the server starts.</summary>
+    private sealed class NodeManagerFactory(SimulationServer owner, OpcUaDataModel model, OpcUaServerSettings settings) : INodeManagerFactory
     {
-        NodeManager = new SimulationNodeManager(server, configuration, model, settings);
-        return new MasterNodeManager(server, configuration, null, NodeManager);
+        public ArrayOf<string> NamespacesUris => new[] { settings.NamespaceUri };
+
+        public INodeManager Create(IServerInternal server, ApplicationConfiguration configuration)
+        {
+            var manager = new SimulationNodeManager(server, configuration, model, settings);
+            owner.NodeManager = manager;
+            return manager;
+        }
     }
 
     protected override ServerProperties LoadServerProperties() => new()

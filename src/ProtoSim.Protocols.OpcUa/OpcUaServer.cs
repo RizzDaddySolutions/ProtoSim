@@ -154,7 +154,8 @@ public sealed class OpcUaServer(OpcUaServerSettings settings, OpcUaDataModel mod
         var server = _server;
         _application = null;
         _server = null;
-        server?.NodeManager?.Dispose();
+        // The SDK created the node manager from our factory and disposes it during shutdown; just unhook the data model.
+        server?.NodeManager?.Detach();
         try { if (app != null) await app.StopAsync(); }
         catch (Exception ex) { context.Log.Warn("", $"Stop: {ex.Message}"); }
         server?.Dispose();
