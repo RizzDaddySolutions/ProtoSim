@@ -10,6 +10,9 @@
                 <ResourceDictionary Source="Themes/AppStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <SolidColorBrush x:Key="ApplicationWindowBackgroundBrush" Color="#F3F3F3" />
+            <SolidColorBrush x:Key="ApplicationPanelBackgroundBrush" Color="#FFFFFF" />
+
             <!-- Styles based on Fluent control styles must live here (not in a merged dictionary) so BasedOn can resolve them. -->
             <!-- Highlights rows whose value just changed. -->
             <Style x:Key="GridRow" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">

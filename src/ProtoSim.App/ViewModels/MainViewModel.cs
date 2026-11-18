@@ -52,6 +52,8 @@ public sealed class MainViewModel : ObservableObject
         ToggleLogicDockCommand = new RelayCommand(ToggleLogicDock);
         Logic.ToggleDockCommand = ToggleLogicDockCommand;
         Logic.IsUndocked = UiLayout.Current.LogicUndocked;
+        _simulationEnabled = UiLayout.Current.SimulationEnabled;
+        Engine.IsEnabled = _simulationEnabled;
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
     }
@@ -81,6 +83,9 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RemoveSelectedCommand { get; }
     public ICommand DuplicateSelectedCommand { get; }
     public ICommand SetThemeCommand { get; }
+    public bool IsSystemTheme => Application.Current.ThemeMode == ThemeMode.System;
+    public bool IsLightTheme => Application.Current.ThemeMode == ThemeMode.Light;
+    public bool IsDarkTheme => Application.Current.ThemeMode == ThemeMode.Dark;
     public ICommand AboutCommand { get; }
     public ICommand HelpCommand { get; }
     public ICommand ExitCommand { get; }
@@ -103,7 +108,13 @@ public sealed class MainViewModel : ObservableObject
     public bool SimulationEnabled
     {
         get => _simulationEnabled;
-        set { if (SetProperty(ref _simulationEnabled, value)) Engine.IsEnabled = value; }
+        set
+        {
+            if (!SetProperty(ref _simulationEnabled, value)) return;
+            Engine.IsEnabled = value;
+            UiLayout.Current.SimulationEnabled = value;
+            UiLayout.Save();
+        }
     }
 
     public string Title => $"{(_filePath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_filePath))} – ProtoSim";
@@ -209,6 +220,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_shutDown) return;
         _shutDown = true;
+        _shuttingDown = true;
         _timer.Stop();
         Views.LogicView.SaveOpenLayouts();
         UiLayout.Current.LogicWindowOpen = _logicWindow != null;
@@ -222,6 +234,7 @@ public sealed class MainViewModel : ObservableObject
     // ---- Logic designer window ----
 
     private Views.LogicWindow? _logicWindow;
+    private bool _shuttingDown;
 
     /// <summary>Shows the designer where it lives: in the main window, or in its own window when undocked.</summary>
     private void ShowLogic()
@@ -269,8 +282,17 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
         var window = new Views.LogicWindow(this);
-        window.Closed += (_, _) => { if (ReferenceEquals(_logicWindow, window)) _logicWindow = null; };
+        window.Closed += (_, _) =>
+        {
+            if (!ReferenceEquals(_logicWindow, window)) return;
+            _logicWindow = null;
+            if (_shuttingDown) return;
+            UiLayout.Current.LogicWindowOpen = false;
+            UiLayout.Save();
+        };
         _logicWindow = window;
+        UiLayout.Current.LogicWindowOpen = true;
+        UiLayout.Save();
         window.Show();
     }
 
@@ -429,7 +451,7 @@ public sealed class MainViewModel : ObservableObject
 
     // ---- Misc ----
 
-    private static void SetTheme(string? theme)
+    private void SetTheme(string? theme)
     {
         Application.Current.ThemeMode = theme switch
         {
@@ -437,6 +459,16 @@ public sealed class MainViewModel : ObservableObject
             "Dark" => ThemeMode.Dark,
             _ => ThemeMode.System,
         };
+        OnPropertyChanged(nameof(IsSystemTheme));
+        OnPropertyChanged(nameof(IsLightTheme));
+        OnPropertyChanged(nameof(IsDarkTheme));
+        UiLayout.Current.Theme = theme switch
+        {
+            "Light" => "Light",
+            "Dark" => "Dark",
+            _ => "System",
+        };
+        UiLayout.Save();
         App.RaiseThemeChanged();
     }
 

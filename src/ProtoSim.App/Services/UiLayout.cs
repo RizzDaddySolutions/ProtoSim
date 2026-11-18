@@ -46,6 +46,14 @@ public sealed class UiLayout
 
     private static UiLayout? _current;
 
+    /// <summary>Selected theme mode: System, Light, or Dark.</summary>
+    public string Theme { get; set; } = "System";
+
+    /// <summary>Whether tag simulation is enabled.</summary>
+    public bool SimulationEnabled { get; set; }
+
+    public WindowPlacement? MainWindow { get; set; }
+
     /// <summary>AvalonDock layout XML of the logic designer's panels.</summary>
     public string? LogicPanels { get; set; }
 

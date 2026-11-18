@@ -9,10 +9,24 @@
         <SolidColorBrush x:Key="SelectBrush" Color="#3B82F6" />
         <SolidColorBrush x:Key="ErrorBrush" Color="#D83B3B" />
 
+        <Style x:Key="LogicToolbarButton" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="LogicToolbarComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+
         <Style x:Key="PortDot" TargetType="Ellipse">
             <Setter Property="Width" Value="11" />
             <Setter Property="Height" Value="11" />
-            <Setter Property="Fill" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="Fill" Value="{DynamicResource LogicBlockBackground}" />
             <Setter Property="Stroke" Value="{StaticResource WireBrush}" />
             <Setter Property="StrokeThickness" Value="2" />
             <Setter Property="Cursor" Value="Cross" />
@@ -31,7 +45,7 @@
         <Style x:Key="PortValue" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
             <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LogicBlockForeground}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -53,48 +67,66 @@
     </UserControl.Resources>
 
     <DockPanel>
-        <!-- Toolbar -->
-        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <TextBlock Text="Logic" Style="{StaticResource PageTitle}" VerticalAlignment="Center" Margin="0,0,16,4" />
-            <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" DisplayMemberPath="Name" MinWidth="170" MinHeight="32" Margin="0,0,4,4" />
-            <Button Command="{Binding AddProgramCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Add a program">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                    <TextBlock Text="Program" />
-                </StackPanel>
-            </Button>
-            <Button Command="{Binding RemoveProgramCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Delete this program">
-                <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
-            </Button>
-            <Button Command="{Binding RunCommand}" Style="{StaticResource ToolbarButton}" Margin="16,0,4,4"
-                    ToolTip="Run every enabled program. Tags written by Tag out blocks stop simulating while logic runs.">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Foreground="#2EA043" Margin="0,0,6,0" />
-                    <TextBlock Text="Run" />
-                </StackPanel>
-            </Button>
-            <Button Command="{Binding StopCommand}" Style="{StaticResource ToolbarButton}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE71A;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                    <TextBlock Text="Stop" />
-                </StackPanel>
-            </Button>
-            <CheckBox Content="Run when the project opens" IsChecked="{Binding AutoRun}" VerticalAlignment="Center" Margin="8,0,12,4" />
-            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,16,4" />
-            <Button Command="{Binding ToggleDockCommand}" Style="{StaticResource ToolbarButton}"
-                    ToolTip="Move the designer between the main window and a window of its own">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding DockIcon}" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                    <TextBlock Text="{Binding DockLabel}" />
-                </StackPanel>
-            </Button>
-            <Button Click="OnResetLayout" Style="{StaticResource ToolbarButton}" ToolTip="Put every panel back where it started">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                    <TextBlock Text="Reset panels" />
-                </StackPanel>
-            </Button>
-        </WrapPanel>
+        <Menu DockPanel.Dock="Top" Padding="4,2">
+            <MenuItem Header="_Options">
+                <MenuItem x:Name="EditSelectionMenuItem" Header="Edit _selection" IsCheckable="True"
+                          Checked="OnSelectionEditorToggled" Unchecked="OnSelectionEditorToggled" />
+                <MenuItem Header="Run when the project _opens" IsCheckable="True" IsChecked="{Binding AutoRun}" />
+                <Separator />
+                <MenuItem Header="Restore _panels" Click="OnResetLayout" />
+                <MenuItem Header="_Undock designer" IsCheckable="True" IsChecked="{Binding IsUndocked, Mode=OneWay}"
+                          Command="{Binding ToggleDockCommand}" ToolTip="Move the designer to its own window" />
+            </MenuItem>
+            <MenuItem x:Name="PanelsMenu" Header="_Panels" SubmenuOpened="OnPanelsMenuOpened" />
+        </Menu>
+
+        <Grid DockPanel.Dock="Top" Margin="12,8,12,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" DisplayMemberPath="Name"
+                          MinWidth="170" Style="{StaticResource LogicToolbarComboBox}" />
+                <Button Command="{Binding AddProgramCommand}" Style="{StaticResource LogicToolbarButton}" ToolTip="Add a program">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                        <TextBlock Text="Program" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding RemoveProgramCommand}" Style="{StaticResource LogicToolbarButton}" ToolTip="Delete this program">
+                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
+                </Button>
+                <Button Command="{Binding RunCommand}" Style="{StaticResource LogicToolbarButton}"
+                        ToolTip="Run every enabled program. Tags written by Tag out blocks stop simulating while logic runs.">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Foreground="#2EA043" Margin="0,0,6,0" />
+                        <TextBlock Text="Run" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding StopCommand}" Style="{StaticResource LogicToolbarButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE71A;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                        <TextBlock Text="Stop" />
+                    </StackPanel>
+                </Button>
+                <Grid Width="260" Height="32" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextAlignment="Left" FontWeight="SemiBold"
+                               Margin="0,3,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#D83B3B" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                        <Setter Property="Foreground" Value="#2EA043" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </StackPanel>
+        </Grid>
 
         <!-- Panels: drag a panel's title or tab to dock it left, top, right or bottom, or out to float it. -->
         <ad:DockingManager x:Name="Dock" AllowMixedOrientation="True">
@@ -103,7 +135,7 @@
                     <ad:LayoutAnchorablePaneGroup Orientation="Vertical" DockWidth="250">
                         <ad:LayoutAnchorablePane />
                         <ad:LayoutAnchorablePane>
-                            <ad:LayoutAnchorable ContentId="projectTags" Title="Project tags" CanClose="False" CanHide="False">
+                            <ad:LayoutAnchorable x:Name="ProjectTagsPanel" ContentId="projectTags" Title="Project tags" CanClose="True" CanHide="True">
                                 <DockPanel Margin="8">
                                     <TextBox DockPanel.Dock="Top" Text="{Binding TagFilter, UpdateSourceTrigger=PropertyChanged}" MinHeight="30" Margin="0,0,0,4" ToolTip="Filter tags" />
                                     <TextBlock DockPanel.Dock="Top" Text="Drop = Tag in · Ctrl+drop = Tag out" Style="{StaticResource Caption}" Margin="2,0,0,4" />
@@ -191,8 +223,15 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:BlockViewModel}">
                                         <Border Width="{Binding BlockWidth}" Height="{Binding Height}" CornerRadius="6" BorderThickness="1.5"
-                                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" ToolTip="{Binding Error}"
-                                                ToolTipService.IsEnabled="{Binding HasError}">
+                                                Background="{DynamicResource LogicBlockBackground}"
+                                                ToolTip="{Binding Error}" ToolTipService.IsEnabled="{Binding HasError}"
+                                                ContextMenuOpening="OnBlockContextMenuOpening">
+                                            <Border.ContextMenu>
+                                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                    <MenuItem Header="_Edit properties" Click="OnEditBlock" />
+                                                    <MenuItem Header="_Delete" Click="OnDeleteBlock" />
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
                                             <Border.Style>
                                                 <Style TargetType="Border">
                                                     <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
@@ -214,7 +253,7 @@
                                                     <RowDefinition Height="44" />
                                                     <RowDefinition Height="*" />
                                                 </Grid.RowDefinitions>
-                                                <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}" CornerRadius="5,5,0,0" Padding="8,4,8,4"
+                                                <Border Background="{DynamicResource LogicBlockBackground}" CornerRadius="5,5,0,0" Padding="8,4,8,4"
                                                         Cursor="SizeAll" MouseLeftButtonDown="OnBlockDown">
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
@@ -222,11 +261,13 @@
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Caption}" FontSize="10.5" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource LogicBlockForeground}" />
+                                                            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Caption}" FontSize="10.5" TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource LogicBlockForeground}" />
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="{Binding LiveText}" FontFamily="{StaticResource MonoFont}" FontWeight="SemiBold"
-                                                                   VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                                   VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource LogicBlockForeground}" />
                                                     </Grid>
                                                 </Border>
                                                 <ItemsControl Grid.Row="1" ItemsSource="{Binding Inputs}" HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -236,7 +277,8 @@
                                                                 <Ellipse Style="{StaticResource PortDot}" HorizontalAlignment="Left" Margin="-6.5,0,0,0" Tag="port"
                                                                          MouseLeftButtonDown="OnPortDown" />
                                                                 <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
-                                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource LogicBlockForeground}" />
                                                                     <TextBlock Text="{Binding ValueText}" Style="{StaticResource PortValue}" Margin="5,0,0,0" />
                                                                 </StackPanel>
                                                             </Grid>
@@ -249,7 +291,8 @@
                                                             <Grid Height="22" Width="86" ToolTip="{Binding ToolTip}">
                                                                 <StackPanel Orientation="Horizontal" Margin="0,0,10,0" HorizontalAlignment="Right" VerticalAlignment="Center" IsHitTestVisible="False">
                                                                     <TextBlock Text="{Binding ValueText}" Style="{StaticResource PortValue}" Margin="0,0,5,0" />
-                                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource LogicBlockForeground}" />
                                                                 </StackPanel>
                                                                 <Ellipse Style="{StaticResource PortDot}" HorizontalAlignment="Right" Margin="0,0,-6.5,0" Tag="port"
                                                                          MouseLeftButtonDown="OnPortDown" />
@@ -291,10 +334,14 @@
                 </Grid>
                         </ad:LayoutDocument>
                     </ad:LayoutDocumentPane>
+                </ad:LayoutPanel>
+            </ad:LayoutRoot>
+        </ad:DockingManager>
 
-                    <ad:LayoutAnchorablePane DockWidth="300">
-                        <ad:LayoutAnchorable ContentId="properties" Title="Properties" CanClose="False" CanHide="False">
-                            <Border Padding="14">
+        <Popup x:Name="SelectionEditor" PlacementTarget="{Binding ElementName=Dock}" Placement="Center"
+               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Closed="OnSelectionEditorClosed">
+            <Border Padding="14" Width="360" MaxHeight="650" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
                         <!-- Program -->
@@ -392,11 +439,7 @@
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
-                            </Border>
-                        </ad:LayoutAnchorable>
-                    </ad:LayoutAnchorablePane>
-                </ad:LayoutPanel>
-            </ad:LayoutRoot>
-        </ad:DockingManager>
+            </Border>
+        </Popup>
     </DockPanel>
 </UserControl>

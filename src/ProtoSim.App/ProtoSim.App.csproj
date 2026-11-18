@@ -47,8 +47,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dirkster.AvalonDock" Version="4.72.1" />
-    <PackageReference Include="Dirkster.AvalonDock.Themes.VS2013" Version="4.72.1" />
+    <PackageReference Include="Dirkster.AvalonDock" Version="5.0.2" />
+    <PackageReference Include="Dirkster.AvalonDock.Themes.VS2013" Version="5.0.2" />
+    <PackageReference Include="Dirkster.AvalonDock.Serializer.Xml" Version="5.0.2" />
     <PackageReference Include="System.DirectoryServices" Version="11.0.0" />
   </ItemGroup>
 

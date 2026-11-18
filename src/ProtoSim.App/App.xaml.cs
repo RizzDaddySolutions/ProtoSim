@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
+using ProtoSim.App.Services;
 using ProtoSim.App.ViewModels;
 using ProtoSim.Core.Protocols;
 using ProtoSim.Protocols.ModbusTcp;
@@ -41,11 +43,38 @@ public partial class App : Application
     }
 
     public static void RaiseThemeChanged() =>
-        Current?.Dispatcher.BeginInvoke(() => ThemeChanged?.Invoke(), DispatcherPriority.Background);
+        Current?.Dispatcher.BeginInvoke(() =>
+        {
+            UpdateWindowBackground();
+            ThemeChanged?.Invoke();
+        }, DispatcherPriority.Background);
+
+    private static void UpdateWindowBackground()
+    {
+        bool dark = IsDarkTheme;
+        Current!.Resources["ApplicationWindowBackgroundBrush"] = CreateBrush(
+            dark ? Color.FromRgb(32, 32, 32) : Color.FromRgb(243, 243, 243));
+        Current.Resources["ApplicationPanelBackgroundBrush"] = CreateBrush(
+            dark ? Color.FromRgb(69, 69, 69) : Colors.White);
+    }
+
+    private static SolidColorBrush CreateBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        Application.Current.ThemeMode = UiLayout.Current.Theme switch
+        {
+            "Light" => ThemeMode.Light,
+            "Dark" => ThemeMode.Dark,
+            _ => ThemeMode.System,
+        };
+        UpdateWindowBackground();
         DispatcherUnhandledException += OnUnhandledException;
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += (_, args) =>
         {
@@ -69,6 +98,7 @@ public partial class App : Application
 
         var vm = new MainViewModel(catalog, errors);
         var window = new MainWindow { DataContext = vm };
+        UiLayout.Current.MainWindow?.ApplyTo(window);
         MainWindow = window;
         window.Show();
         vm.RestoreUi();

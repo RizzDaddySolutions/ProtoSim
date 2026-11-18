@@ -1,13 +1,13 @@
 using System.IO;
-using System.Xml.Serialization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using AvalonDock.Layout;
-using AvalonDock.Layout.Serialization;
+using AvalonDock.Serializer.Xml;
 using AvalonDock.Themes;
 using ProtoSim.App.Services;
 using ProtoSim.App.ViewModels;
@@ -17,15 +17,17 @@ namespace ProtoSim.App.Views;
 
 /// <summary>
 /// Function block designer: palette drag/drop, moving blocks, drawing wires, selection and zoom.
-/// Every panel (each block group, project tags, properties) can be docked to any side or floated;
-/// the arrangement is saved per user in <see cref="UiLayout"/>.
+/// Palette and project-tag panels can be docked or floated; their arrangement is saved per user in <see cref="UiLayout"/>.
 /// </summary>
 public partial class LogicView : UserControl
 {
     private const string PalettePrefix = "palette.";
     private static readonly List<WeakReference<LogicView>> Instances = [];
+    private readonly Dictionary<string, (string Title, object Content)> _panels = [];
+    private readonly HashSet<LayoutAnchorable> _trackedPanels = [];
     private string? _defaultLayout;
     private bool _layoutReady;
+    private bool _palettePanelsCreated;
 
     private Point _paletteDown;
     private BlockViewModel? _dragBlock;
@@ -35,6 +37,8 @@ public partial class LogicView : UserControl
     public LogicView()
     {
         InitializeComponent();
+        SelectionEditor.DataContext = DataContext;
+        DataContextChanged += OnViewDataContextChanged;
         lock (Instances) Instances.Add(new WeakReference<LogicView>(this));
         Loaded += OnLoaded;
         Unloaded += (_, _) =>
@@ -63,16 +67,31 @@ public partial class LogicView : UserControl
         if (_layoutReady) return;
         _layoutReady = true;
         CreatePalettePanels();
+        RegisterPanels();
         ShareDataContext();
         _defaultLayout = Serialize();
         if (UiLayout.Current.LogicPanels is { Length: > 0 } saved) Restore(saved);
+        TrackPanelCloseEvents();
         QueueContextRefresh();
     }
 
     /// <summary>One panel per block category, tabbed in two panes above the project tags by default.</summary>
+    private void OnViewDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        SelectionEditor.DataContext = e.NewValue;
+        if (!_layoutReady || _palettePanelsCreated || Vm == null) return;
+        CreatePalettePanels();
+        RegisterPanels();
+        TrackPanelCloseEvents();
+        ShareDataContext();
+        QueueContextRefresh();
+        _defaultLayout = Serialize();
+        SaveLayout();
+    }
+
     private void CreatePalettePanels()
     {
-        if (Vm == null) return;
+        if (Vm == null || _palettePanelsCreated) return;
         var first = Dock.Layout.Descendents().OfType<LayoutAnchorablePane>().First();
         var second = new LayoutAnchorablePane { DockHeight = first.DockHeight };
         ((LayoutAnchorablePaneGroup)first.Parent).InsertChildAt(1, second);
@@ -82,22 +101,97 @@ public partial class LogicView : UserControl
         {
             var group = Vm.Palette[i];
             var list = new ItemsControl { ItemsSource = group.Items, ItemTemplate = template, Margin = new Thickness(6) };
-            (i < half ? first : second).Children.Add(new LayoutAnchorable
+            var content = new ScrollViewer
             {
-                ContentId = PalettePrefix + group.Name,
+                Content = list,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            };
+            var id = PalettePrefix + group.Name;
+            var panel = new LayoutAnchorable
+            {
+                ContentId = id,
                 Title = group.Name,
-                CanClose = false,
-                CanHide = false,
-                Content = new ScrollViewer
-                {
-                    Content = list,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                },
-            });
+                CanClose = true,
+                CanHide = true,
+                Content = content,
+            };
+            (i < half ? first : second).Children.Add(panel);
+            _panels[id] = (group.Name, content);
         }
         if (first.ChildrenCount > 0) first.SelectedContentIndex = 0;
         if (second.ChildrenCount > 0) second.SelectedContentIndex = 0;
+        _palettePanelsCreated = true;
+    }
+
+    private void RegisterPanels()
+    {
+        _panels[ProjectTagsPanel.ContentId!] = (ProjectTagsPanel.Title, ProjectTagsPanel.Content);
+        foreach (var panel in Dock.Layout.Descendents().OfType<LayoutAnchorable>())
+            if (panel.ContentId is { } id && panel.Content != null)
+                _panels[id] = (panel.Title ?? id, panel.Content);
+
+        PanelsMenu.Items.Clear();
+        foreach (var (id, panel) in _panels.OrderBy(p => p.Value.Title))
+        {
+            var item = new MenuItem
+            {
+                Header = panel.Title,
+                Tag = id,
+                IsCheckable = true,
+                IsChecked = Dock.Layout.Descendents().OfType<LayoutAnchorable>()
+                    .Any(anchorable => anchorable.ContentId == id && anchorable.IsVisible),
+            };
+            item.Click += (_, _) => TogglePanel(id);
+            PanelsMenu.Items.Add(item);
+        }
+    }
+
+    private void TrackPanelCloseEvents()
+    {
+        foreach (var panel in Dock.Layout.Descendents().OfType<LayoutAnchorable>())
+            if (_trackedPanels.Add(panel)) panel.Closed += (_, _) => SaveLayout();
+    }
+
+    private void OnPanelsMenuOpened(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in PanelsMenu.Items.OfType<MenuItem>())
+        {
+            var id = (string)item.Tag;
+            item.IsChecked = Dock.Layout.Descendents().OfType<LayoutAnchorable>()
+                .Any(anchorable => anchorable.ContentId == id && anchorable.IsVisible);
+        }
+    }
+
+    private void TogglePanel(string id)
+    {
+        if (!_panels.TryGetValue(id, out var panel)) return;
+        var anchorable = Dock.Layout.Descendents().OfType<LayoutAnchorable>()
+            .FirstOrDefault(candidate => candidate.ContentId == id);
+        if (anchorable == null)
+        {
+            anchorable = new LayoutAnchorable
+            {
+                ContentId = id,
+                Title = panel.Title,
+                CanClose = true,
+                CanHide = true,
+                Content = panel.Content,
+            };
+            anchorable.AddToLayout(Dock, AnchorableShowStrategy.Left);
+            TrackPanelCloseEvents();
+            ShareDataContext();
+            QueueContextRefresh();
+        }
+        else if (anchorable.IsVisible)
+        {
+            anchorable.Hide();
+        }
+        else
+        {
+            anchorable.Show();
+        }
+        SaveLayout();
     }
 
     /// <summary>Panel contents are hosted by AvalonDock (possibly in floating windows), so they get the view model explicitly.</summary>
@@ -142,9 +236,11 @@ public partial class LogicView : UserControl
 
     private void Restore(string xml)
     {
-        // Panels are matched by ContentId; the existing ones keep their content.
-        var panels = Dock.Layout.Descendents().OfType<LayoutContent>()
-            .Where(c => c.ContentId != null).ToDictionary(c => c.ContentId!, c => c.Content);
+        // Keep content references for closed panels so reset can recreate them from the saved layout.
+        var panels = _panels.ToDictionary(p => p.Key, p => p.Value.Content, StringComparer.Ordinal);
+        foreach (var content in Dock.Layout.Descendents().OfType<LayoutContent>())
+            if (content.ContentId is { } id && content.Content != null) panels[id] = content.Content;
+
         var serializer = new XmlLayoutSerializer(Dock);
         serializer.LayoutSerializationCallback += (_, args) =>
         {
@@ -161,29 +257,9 @@ public partial class LogicView : UserControl
             if (_defaultLayout != null && !ReferenceEquals(xml, _defaultLayout)) Restore(_defaultLayout);
             return;
         }
-        AddMissingPanels(panels);
+        TrackPanelCloseEvents();
         ShareDataContext();
         QueueContextRefresh();
-    }
-
-    /// <summary>Panels added in a newer version (not in the saved layout) go back to their default pane.</summary>
-    private void AddMissingPanels(Dictionary<string, object> panels)
-    {
-        var present = Dock.Layout.Descendents().OfType<LayoutContent>().Select(c => c.ContentId).ToHashSet();
-        foreach (var (id, content) in panels)
-        {
-            if (present.Contains(id)) continue;
-            if (id == "canvas")
-            {
-                var docs = Dock.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
-                if (docs == null) { Restore(_defaultLayout!); return; }
-                docs.Children.Add(new LayoutDocument { ContentId = id, Title = "Canvas", CanClose = false, CanFloat = false, Content = content });
-                continue;
-            }
-            var title = id.StartsWith(PalettePrefix) ? id[PalettePrefix.Length..] : id == "properties" ? "Properties" : "Project tags";
-            var anchorable = new LayoutAnchorable { ContentId = id, Title = title, CanClose = false, CanHide = false, Content = content };
-            anchorable.AddToLayout(Dock, AnchorableShowStrategy.Left);
-        }
     }
 
     private void SaveLayout()
@@ -204,16 +280,61 @@ public partial class LogicView : UserControl
     {
         if (_defaultLayout == null) return;
         Restore(_defaultLayout);
+        TrackPanelCloseEvents();
         SaveLayout();
     }
+
+    private void OnSelectionEditorToggled(object sender, RoutedEventArgs e)
+    {
+        SelectionEditor.DataContext = Vm;
+        SelectionEditor.IsOpen = EditSelectionMenuItem.IsChecked;
+    }
+
+    private void OnSelectionEditorClosed(object? sender, EventArgs e) => EditSelectionMenuItem.IsChecked = false;
 
     private void ApplyTheme()
     {
         Theme theme = App.IsDarkTheme ? new Vs2013DarkTheme() : new Vs2013LightTheme();
         if (Dock.Theme?.GetType() != theme.GetType()) Dock.Theme = theme;
+
+        Color background = App.IsDarkTheme ? Color.FromRgb(69, 69, 69) : Color.FromRgb(232, 238, 246);
+        Color foreground = App.IsDarkTheme ? Color.FromRgb(245, 245, 245) : Color.FromRgb(32, 32, 32);
+        Resources["LogicBlockBackground"] = CreateBrush(background);
+        Resources["LogicBlockForeground"] = CreateBrush(foreground);
+    }
+
+    private static SolidColorBrush CreateBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private void OnDeleteSelection(object sender, RoutedEventArgs e) => Vm?.SelectedProgram?.DeleteSelection();
+
+    private void OnBlockContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: BlockViewModel block } || Vm is not { } vm) return;
+        vm.SelectedProgram = block.Program;
+        block.Program.Selected = block;
+    }
+
+    private void OnEditBlock(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: BlockViewModel block } || Vm is not { } vm) return;
+        vm.SelectedProgram = block.Program;
+        block.Program.Selected = block;
+        SelectionEditor.DataContext = vm;
+        EditSelectionMenuItem.IsChecked = true;
+        SelectionEditor.IsOpen = true;
+    }
+
+    private void OnDeleteBlock(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: BlockViewModel block }) return;
+        block.Program.Selected = block;
+        block.Program.DeleteSelection();
+    }
 
     private LogicViewModel? Vm => DataContext as LogicViewModel;
 

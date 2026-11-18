@@ -4,6 +4,18 @@ ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with 
 
 ![Simulated OPC UA device](docs/screenshots/opcua-device.png)
 
+Simulation controls are available from the top-level **Simulation** menu:
+
+![Enable simulated values in the Simulation menu](docs/screenshots/simulation-menu.png)
+
+The logic designer now has a compact top bar, a menu for layout and run options, and individually hideable palette panels. Its screenshots show the updated designer and menus:
+
+![Logic designer with program controls and color-coded status on the right](docs/screenshots/logic-designer.png)
+
+![Logic designer options menu, including auto-run, panel restore, and undocking](docs/screenshots/logic-options.png)
+
+![Logic designer Panels menu for hiding and showing individual panels](docs/screenshots/logic-panels.png)
+
 ## Features
 
 **Simulated devices (servers)**
@@ -14,7 +26,7 @@ ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with 
 - **Connections and statistics**: connected clients or sessions (with a button to drop each one), requests/s, errors and unanswered requests.
 - **Fault injection** (applies while running): response delay and jitter, timeouts, error responses, and random disconnects.
 - **Record and replay**: record every tag's value changes to a CSV (`offset_s,tag,value`) and play them back at 0.25–60× speed, optionally looping. Timestamped CSVs (e.g. historian exports) replay too. Replayed tags pause their simulation.
-- **Logic designer**: drag-and-drop function block programs that read and write tags on *any* device in the project, so separate simulators behave like one real system (a Modbus level sensor driving an OPC UA pump command, a BACnet setpoint feeding a PID loop...). About 40 blocks: tag in/out, constants, clock, AND/OR/XOR/NOT, SR/RS latches, edge detection, comparisons and hysteresis, math, scale/limit/select, TON/TOF/TP timers, CTU/CTD counters, PID, first-order lag, integrator (tank), rate limiter, noise and dead time. Programs run on a scan cycle with live values on the canvas, feedback loops allowed, edits applied while running, and are saved with the project. Open it from the **Logic** menu; every palette and panel docks to any side or floats, and the whole designer can be undocked into its own window. The arrangement is remembered between runs.
+- **Logic designer**: drag-and-drop function block programs that read and write tags on *any* device in the project, so separate simulators behave like one real system (a Modbus level sensor driving an OPC UA pump command, a BACnet setpoint feeding a PID loop...). About 40 blocks: tag in/out, constants, clock, AND/OR/XOR/NOT, SR/RS latches, edge detection, comparisons and hysteresis, math, scale/limit/select, TON/TOF/TP timers, CTU/CTD counters, PID, first-order lag, integrator (tank), rate limiter, noise and dead time. Programs run on a scan cycle with live values on the canvas, feedback loops allowed, edits applied while running, and are saved with the project. Open it from the **Logic** menu; palette and project-tag panels can be closed or hidden individually and restored from **Panels**, with the layout remembered between runs. The **Options** menu controls auto-run, restores the default panel layout, and docks or undocks the designer. Right-click a block to edit its properties or delete it; program and block settings are available from the selection editor. The color-coded run status is right-aligned beside the program selector, with program controls at the upper right.
 - **Scenario scripts**: a timed script per device, saved with the project, e.g. `0 ramp Tank level from 20 to 80 over 30s`, `30s set Pump running = false`, `+5s fault error 50 code 4`, `60s device stop`, with `repeat` to loop. Fault settings changed by a scenario are restored when it ends.
 
 **Projects**
