@@ -254,7 +254,8 @@
 
 <section id="logic">
   <h2>Logic designer</h2>
-  <p>Click <strong>Logic designer</strong> under <em>LOGIC</em> in the left panel to build function block programs that tie devices together, so several simulators behave like one plant. For example, a tank level on a Modbus device can start a pump whose run feedback is an OPC UA tag, while a BACnet setpoint feeds a PID loop.</p>
+  <p>Choose <strong>Logic &gt; Logic designer</strong> (Ctrl+L) to build function block programs that tie devices together, so several simulators behave like one plant. For example, a tank level on a Modbus device can start a pump whose run feedback is an OPC UA tag, while a BACnet setpoint feeds a PID loop.</p>
+  <p><strong>Arranging the designer.</strong> Each block group (Tags, Logic, Compare, Math, Timers, Process), <em>Project tags</em> and <em>Properties</em> is a panel. Drag a panel's title bar or tab onto the docking guides to dock it to the left, top, right or bottom, drop it elsewhere to float it in its own window, or use the pin to auto-hide it. <strong>Reset panels</strong> restores the default arrangement. <strong>Logic &gt; Undock designer</strong> (Ctrl+Shift+L, or the <strong>Undock</strong> button) moves the whole designer into a window of its own, for example on a second monitor; <strong>Dock in main window</strong> brings it back. The panel arrangement, docked/undocked state and window position are remembered per user (in <code>%LocalAppData%\ProtoSim\ui-layout.json</code>), not in the project file.</p>
   <h3>Building a program</h3>
   <ul>
     <li><strong>Add blocks</strong> by dragging them from the palette onto the canvas. Under <em>Project tags</em>, every tag of every device is listed as <code>Device/Tag</code>: drop one to get a <em>Tag in</em> block, or hold <kbd>Ctrl</kbd> while dropping to get a <em>Tag out</em> block.</li>

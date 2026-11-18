@@ -13,6 +13,8 @@
         <KeyBinding Key="F5" Command="{Binding StartAllCommand}" />
         <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopAllCommand}" />
         <KeyBinding Key="F1" Command="{Binding HelpCommand}" />
+        <KeyBinding Key="L" Modifiers="Control" Command="{Binding ShowLogicCommand}" />
+        <KeyBinding Key="L" Modifiers="Control+Shift" Command="{Binding ToggleLogicDockCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
@@ -48,6 +50,16 @@
                 <Separator />
                 <MenuItem Header="_Start all devices" Command="{Binding StartAllCommand}" InputGestureText="F5" />
                 <MenuItem Header="S_top all devices" Command="{Binding StopAllCommand}" InputGestureText="Shift+F5" />
+            </MenuItem>
+            <MenuItem Header="_Logic">
+                <MenuItem Header="Logic _designer" Command="{Binding ShowLogicCommand}" InputGestureText="Ctrl+L"
+                          ToolTip="Function block programs that combine tags from different devices" />
+                <MenuItem Header="_Undock designer" IsCheckable="True" IsChecked="{Binding Logic.IsUndocked, Mode=OneWay}"
+                          Command="{Binding ToggleLogicDockCommand}" InputGestureText="Ctrl+Shift+L"
+                          ToolTip="Open the designer in a window of its own instead of inside the main window" />
+                <Separator />
+                <MenuItem Header="_Run logic" Command="{Binding Logic.RunCommand}" />
+                <MenuItem Header="S_top logic" Command="{Binding Logic.StopCommand}" />
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="Theme: _system" Command="{Binding SetThemeCommand}" CommandParameter="System" />
@@ -90,38 +102,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-
-                <!-- Logic -->
-                <StackPanel Grid.Row="2" Margin="0,12,0,0">
-                    <TextBlock Text="LOGIC" Style="{StaticResource SectionHeader}" Margin="4,0,0,6" />
-                    <Button Command="{Binding ShowLogicCommand}" HorizontalContentAlignment="Stretch" Padding="10,8"
-                            ToolTip="Function block programs that combine tags from different devices">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsLogicSelected}" Value="True">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                                        <Setter Property="BorderThickness" Value="2" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="&#xE9D5;" Style="{StaticResource Icon}" FontSize="18" Margin="0,0,10,0" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Logic designer" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding LogicSummary}" Style="{StaticResource Caption}" />
-                            </StackPanel>
-                        </Grid>
-                    </Button>
-                </StackPanel>
 
                 <DockPanel Margin="4,0,0,6">
                     <Menu DockPanel.Dock="Right" Background="Transparent">
@@ -159,7 +140,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0">
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
                     <Button Command="{Binding StartAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Start all devices (F5)">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,6,0" />

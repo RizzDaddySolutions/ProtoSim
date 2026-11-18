@@ -1,7 +1,8 @@
 <UserControl x:Class="ProtoSim.App.Views.LogicView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:ProtoSim.App.ViewModels">
+             xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
+             xmlns:ad="https://github.com/Dirkster99/AvalonDock">
     <UserControl.Resources>
         <SolidColorBrush x:Key="WireBrush" Color="#8C8C8C" />
         <SolidColorBrush x:Key="WireOnBrush" Color="#2EA043" />
@@ -51,14 +52,9 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
+    <DockPanel>
         <!-- Toolbar -->
-        <WrapPanel Margin="0,0,0,10">
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <TextBlock Text="Logic" Style="{StaticResource PageTitle}" VerticalAlignment="Center" Margin="0,0,16,4" />
             <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" DisplayMemberPath="Name" MinWidth="170" MinHeight="32" Margin="0,0,4,4" />
             <Button Command="{Binding AddProgramCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Add a program">
@@ -84,49 +80,43 @@
                 </StackPanel>
             </Button>
             <CheckBox Content="Run when the project opens" IsChecked="{Binding AutoRun}" VerticalAlignment="Center" Margin="8,0,12,4" />
-            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,16,4" />
+            <Button Command="{Binding ToggleDockCommand}" Style="{StaticResource ToolbarButton}"
+                    ToolTip="Move the designer between the main window and a window of its own">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding DockIcon}" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                    <TextBlock Text="{Binding DockLabel}" />
+                </StackPanel>
+            </Button>
+            <Button Click="OnResetLayout" Style="{StaticResource ToolbarButton}" ToolTip="Put every panel back where it started">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                    <TextBlock Text="Reset panels" />
+                </StackPanel>
+            </Button>
         </WrapPanel>
 
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" MinWidth="160" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="300" MinWidth="220" />
-            </Grid.ColumnDefinitions>
+        <!-- Panels: drag a panel's title or tab to dock it left, top, right or bottom, or out to float it. -->
+        <ad:DockingManager x:Name="Dock" AllowMixedOrientation="True">
+            <ad:LayoutRoot>
+                <ad:LayoutPanel Orientation="Horizontal">
+                    <ad:LayoutAnchorablePaneGroup Orientation="Vertical" DockWidth="250">
+                        <ad:LayoutAnchorablePane />
+                        <ad:LayoutAnchorablePane>
+                            <ad:LayoutAnchorable ContentId="projectTags" Title="Project tags" CanClose="False" CanHide="False">
+                                <DockPanel Margin="8">
+                                    <TextBox DockPanel.Dock="Top" Text="{Binding TagFilter, UpdateSourceTrigger=PropertyChanged}" MinHeight="30" Margin="0,0,0,4" ToolTip="Filter tags" />
+                                    <TextBlock DockPanel.Dock="Top" Text="Drop = Tag in · Ctrl+drop = Tag out" Style="{StaticResource Caption}" Margin="2,0,0,4" />
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding TagItems}" ItemTemplate="{StaticResource PaletteItemTemplate}" />
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </ad:LayoutAnchorable>
+                        </ad:LayoutAnchorablePane>
+                    </ad:LayoutAnchorablePaneGroup>
 
-            <!-- Palette -->
-            <Border Style="{StaticResource Card}" Padding="8">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Drag blocks onto the canvas" Style="{StaticResource Caption}" Margin="4,0,0,6" />
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel>
-                            <ItemsControl ItemsSource="{Binding Palette}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:PaletteGroupViewModel}">
-                                        <Expander Header="{Binding Name}" IsExpanded="True" Margin="0,0,0,4">
-                                            <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource PaletteItemTemplate}" Margin="6,2,0,0" />
-                                        </Expander>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Expander Header="Project tags" IsExpanded="True" Margin="0,4,0,0">
-                                <StackPanel Margin="6,2,0,0">
-                                    <TextBox Text="{Binding TagFilter, UpdateSourceTrigger=PropertyChanged}" MinHeight="30" Margin="0,0,0,4" ToolTip="Filter tags" />
-                                    <TextBlock Text="Drop = Tag in · Ctrl+drop = Tag out" Style="{StaticResource Caption}" Margin="2,0,0,4" />
-                                    <ItemsControl ItemsSource="{Binding TagItems}" ItemTemplate="{StaticResource PaletteItemTemplate}" />
-                                </StackPanel>
-                            </Expander>
-                        </StackPanel>
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
-
-            <GridSplitter Grid.Column="1" Width="6" Background="Transparent" HorizontalAlignment="Center" ResizeBehavior="PreviousAndNext" />
-
-            <!-- Canvas -->
-            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
+                    <ad:LayoutDocumentPane>
+                        <ad:LayoutDocument ContentId="canvas" Title="Canvas" CanClose="False" CanFloat="False">
                 <Grid>
                     <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                                   PreviewMouseWheel="OnCanvasWheel">
@@ -293,18 +283,18 @@
                             </Style>
                         </Border.Style>
                         <TextBlock TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   Text="Drag blocks or project tags from the left onto the canvas, then drag from an output (right side) to an input (left side) to wire them. Tags from any device can be combined in one program." />
+                                   Text="Drag blocks or project tags from the panels onto the canvas, then drag from an output (right side) to an input (left side) to wire them. Tags from any device can be combined in one program." />
                     </Border>
 
                     <TextBlock HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,20" Style="{StaticResource Caption}"
                                Text="Ctrl + wheel to zoom · Delete removes the selection" IsHitTestVisible="False" />
                 </Grid>
-            </Border>
+                        </ad:LayoutDocument>
+                    </ad:LayoutDocumentPane>
 
-            <GridSplitter Grid.Column="3" Width="6" Background="Transparent" HorizontalAlignment="Center" ResizeBehavior="PreviousAndNext" />
-
-            <!-- Properties -->
-            <Border Grid.Column="4" Style="{StaticResource Card}" Padding="14">
+                    <ad:LayoutAnchorablePane DockWidth="300">
+                        <ad:LayoutAnchorable ContentId="properties" Title="Properties" CanClose="False" CanHide="False">
+                            <Border Padding="14">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
                         <!-- Program -->
@@ -329,7 +319,7 @@
 
                         <!-- Selected block -->
                         <ContentControl Content="{Binding SelectedProgram.SelectedBlock}" Focusable="False"
-                                        Visibility="{Binding SelectedProgram.SelectedBlock, Converter={StaticResource HasValueToVisibility}}">
+                                        Visibility="{Binding SelectedProgram.SelectedBlock, Converter={StaticResource HasValueToVisibility}, FallbackValue=Collapsed}">
                             <ContentControl.ContentTemplate>
                                 <DataTemplate DataType="{x:Type vm:BlockViewModel}">
                                     <StackPanel>
@@ -362,7 +352,7 @@
                                         </ItemsControl>
                                         <TextBlock Text="{Binding Error}" Foreground="#D83B3B" TextWrapping="Wrap" Margin="0,4,0,0"
                                                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
-                                        <Button Content="Delete block" Command="{Binding DataContext.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        <Button Content="Delete block" Click="OnDeleteSelection"
                                                 HorizontalAlignment="Left" Margin="0,10,0,0" Padding="12,6" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -371,13 +361,13 @@
 
                         <!-- Selected wire -->
                         <ContentControl Content="{Binding SelectedProgram.SelectedWire}" Focusable="False"
-                                        Visibility="{Binding SelectedProgram.SelectedWire, Converter={StaticResource HasValueToVisibility}}">
+                                        Visibility="{Binding SelectedProgram.SelectedWire, Converter={StaticResource HasValueToVisibility}, FallbackValue=Collapsed}">
                             <ContentControl.ContentTemplate>
                                 <DataTemplate DataType="{x:Type vm:WireViewModel}">
                                     <StackPanel>
                                         <TextBlock Text="WIRE" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
                                         <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
-                                        <Button Content="Delete wire" Command="{Binding DataContext.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        <Button Content="Delete wire" Click="OnDeleteSelection"
                                                 HorizontalAlignment="Left" Margin="0,10,0,0" Padding="12,6" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -402,7 +392,11 @@
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
-            </Border>
-        </Grid>
-    </Grid>
+                            </Border>
+                        </ad:LayoutAnchorable>
+                    </ad:LayoutAnchorablePane>
+                </ad:LayoutPanel>
+            </ad:LayoutRoot>
+        </ad:DockingManager>
+    </DockPanel>
 </UserControl>

@@ -105,6 +105,26 @@ public sealed class LogicViewModel : ObservableObject
     public ICommand StopCommand { get; }
     public ICommand DeleteSelectionCommand { get; }
 
+    private bool _isUndocked;
+
+    /// <summary>Moves the designer between the main window and its own window (set by the main window).</summary>
+    public ICommand? ToggleDockCommand { get; set; }
+
+    /// <summary>True when the designer lives in its own window.</summary>
+    public bool IsUndocked
+    {
+        get => _isUndocked;
+        set
+        {
+            if (!SetProperty(ref _isUndocked, value)) return;
+            OnPropertyChanged(nameof(DockLabel));
+            OnPropertyChanged(nameof(DockIcon));
+        }
+    }
+
+    public string DockLabel => IsUndocked ? "Dock in main window" : "Undock";
+    public string DockIcon => IsUndocked ? "" : "";
+
     public ProgramViewModel? SelectedProgram
     {
         get => _selectedProgram;

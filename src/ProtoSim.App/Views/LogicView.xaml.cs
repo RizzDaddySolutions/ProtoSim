@@ -1,15 +1,31 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
+using AvalonDock.Layout;
+using AvalonDock.Layout.Serialization;
+using AvalonDock.Themes;
+using ProtoSim.App.Services;
 using ProtoSim.App.ViewModels;
 using ProtoSim.Core.Logic;
 
 namespace ProtoSim.App.Views;
 
-/// <summary>Function block designer: palette drag/drop, moving blocks, drawing wires, selection and zoom.</summary>
+/// <summary>
+/// Function block designer: palette drag/drop, moving blocks, drawing wires, selection and zoom.
+/// Every panel (each block group, project tags, properties) can be docked to any side or floated;
+/// the arrangement is saved per user in <see cref="UiLayout"/>.
+/// </summary>
 public partial class LogicView : UserControl
 {
+    private const string PalettePrefix = "palette.";
+    private static readonly List<WeakReference<LogicView>> Instances = [];
+    private string? _defaultLayout;
+    private bool _layoutReady;
+
     private Point _paletteDown;
     private BlockViewModel? _dragBlock;
     private Vector _dragOffset;
@@ -18,7 +34,185 @@ public partial class LogicView : UserControl
     public LogicView()
     {
         InitializeComponent();
+        lock (Instances) Instances.Add(new WeakReference<LogicView>(this));
+        Loaded += OnLoaded;
+        Unloaded += (_, _) =>
+        {
+            App.ThemeChanged -= ApplyTheme;
+            SaveLayout();
+        };
+        ShareDataContext();
     }
+
+    /// <summary>Saves the panel layout of every open designer (called at shutdown, when Unloaded may not run).</summary>
+    public static void SaveOpenLayouts()
+    {
+        lock (Instances)
+            foreach (var r in Instances)
+                if (r.TryGetTarget(out var view) && view.IsLoaded) view.SaveLayout();
+    }
+
+    // ---- Panels ----
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        App.ThemeChanged -= ApplyTheme;
+        App.ThemeChanged += ApplyTheme;
+        ApplyTheme();
+        if (_layoutReady) return;
+        _layoutReady = true;
+        CreatePalettePanels();
+        ShareDataContext();
+        _defaultLayout = Serialize();
+        if (UiLayout.Current.LogicPanels is { Length: > 0 } saved) Restore(saved);
+        QueueContextRefresh();
+    }
+
+    /// <summary>One panel per block category, tabbed in two panes above the project tags by default.</summary>
+    private void CreatePalettePanels()
+    {
+        if (Vm == null) return;
+        var first = Dock.Layout.Descendents().OfType<LayoutAnchorablePane>().First();
+        var second = new LayoutAnchorablePane { DockHeight = first.DockHeight };
+        ((LayoutAnchorablePaneGroup)first.Parent).InsertChildAt(1, second);
+        var template = (DataTemplate)FindResource("PaletteItemTemplate");
+        int half = (Vm.Palette.Count + 1) / 2;
+        for (int i = 0; i < Vm.Palette.Count; i++)
+        {
+            var group = Vm.Palette[i];
+            var list = new ItemsControl { ItemsSource = group.Items, ItemTemplate = template, Margin = new Thickness(6) };
+            (i < half ? first : second).Children.Add(new LayoutAnchorable
+            {
+                ContentId = PalettePrefix + group.Name,
+                Title = group.Name,
+                CanClose = false,
+                CanHide = false,
+                Content = new ScrollViewer
+                {
+                    Content = list,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                },
+            });
+        }
+        if (first.ChildrenCount > 0) first.SelectedContentIndex = 0;
+        if (second.ChildrenCount > 0) second.SelectedContentIndex = 0;
+    }
+
+    /// <summary>Panel contents are hosted by AvalonDock (possibly in floating windows), so they get the view model explicitly.</summary>
+    private void ShareDataContext()
+    {
+        foreach (var content in Dock.Layout.Descendents().OfType<LayoutContent>())
+            if (content.Content is FrameworkElement element && BindingOperations.GetBinding(element, DataContextProperty) == null)
+                element.SetBinding(DataContextProperty, new Binding(nameof(DataContext)) { Source = this });
+    }
+
+    private bool _refreshQueued;
+
+    /// <summary>
+    /// AvalonDock hosts panel contents with a logical parent (the DockingManager) that differs from their visual parent.
+    /// WPF can then leave a stale inherited DataContext on elements deep inside a panel after the view model arrives or
+    /// a panel moves; re-evaluating it once things settle keeps every binding live.
+    /// </summary>
+    private void QueueContextRefresh()
+    {
+        if (_refreshQueued) return;
+        _refreshQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            _refreshQueued = false;
+            foreach (var content in Dock.Layout.Descendents().OfType<LayoutContent>())
+                if (content.Content is DependencyObject root) RefreshContext(root);
+        });
+    }
+
+    private static void RefreshContext(DependencyObject d)
+    {
+        if (d is FrameworkElement or FrameworkContentElement) d.InvalidateProperty(DataContextProperty);
+        foreach (var child in LogicalTreeHelper.GetChildren(d).OfType<DependencyObject>()) RefreshContext(child);
+    }
+
+    private string Serialize()
+    {
+        using var writer = new StringWriter();
+        new XmlLayoutSerializer(Dock).Serialize(writer);
+        return writer.ToString();
+    }
+
+    private void Restore(string xml)
+    {
+        // Panels are matched by ContentId; the existing ones keep their content.
+        var panels = Dock.Layout.Descendents().OfType<LayoutContent>()
+            .Where(c => c.ContentId != null).ToDictionary(c => c.ContentId!, c => c.Content);
+        var serializer = new XmlLayoutSerializer(Dock);
+        serializer.LayoutSerializationCallback += (_, args) =>
+        {
+            if (args.Model.ContentId is { } id && panels.TryGetValue(id, out var content)) args.Content = content;
+            else args.Cancel = true; // a panel that no longer exists
+        };
+        try
+        {
+            using var reader = new StringReader(xml);
+            serializer.Deserialize(reader);
+        }
+        catch (Exception)
+        {
+            if (_defaultLayout != null && !ReferenceEquals(xml, _defaultLayout)) Restore(_defaultLayout);
+            return;
+        }
+        AddMissingPanels(panels);
+        ShareDataContext();
+        QueueContextRefresh();
+    }
+
+    /// <summary>Panels added in a newer version (not in the saved layout) go back to their default pane.</summary>
+    private void AddMissingPanels(Dictionary<string, object> panels)
+    {
+        var present = Dock.Layout.Descendents().OfType<LayoutContent>().Select(c => c.ContentId).ToHashSet();
+        foreach (var (id, content) in panels)
+        {
+            if (present.Contains(id)) continue;
+            if (id == "canvas")
+            {
+                var docs = Dock.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+                if (docs == null) { Restore(_defaultLayout!); return; }
+                docs.Children.Add(new LayoutDocument { ContentId = id, Title = "Canvas", CanClose = false, CanFloat = false, Content = content });
+                continue;
+            }
+            var title = id.StartsWith(PalettePrefix) ? id[PalettePrefix.Length..] : id == "properties" ? "Properties" : "Project tags";
+            var anchorable = new LayoutAnchorable { ContentId = id, Title = title, CanClose = false, CanHide = false, Content = content };
+            anchorable.AddToLayout(Dock, AnchorableShowStrategy.Left);
+        }
+    }
+
+    private void SaveLayout()
+    {
+        if (!_layoutReady) return;
+        try
+        {
+            UiLayout.Current.LogicPanels = Serialize();
+            UiLayout.Save();
+        }
+        catch (Exception)
+        {
+            // keep the previous layout
+        }
+    }
+
+    private void OnResetLayout(object sender, RoutedEventArgs e)
+    {
+        if (_defaultLayout == null) return;
+        Restore(_defaultLayout);
+        SaveLayout();
+    }
+
+    private void ApplyTheme()
+    {
+        Theme theme = App.IsDarkTheme ? new Vs2013DarkTheme() : new Vs2013LightTheme();
+        if (Dock.Theme?.GetType() != theme.GetType()) Dock.Theme = theme;
+    }
+
+    private void OnDeleteSelection(object sender, RoutedEventArgs e) => Vm?.SelectedProgram?.DeleteSelection();
 
     private LogicViewModel? Vm => DataContext as LogicViewModel;
 

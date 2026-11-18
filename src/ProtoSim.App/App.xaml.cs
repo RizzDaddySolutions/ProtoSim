@@ -17,10 +17,40 @@ namespace ProtoSim.App;
 
 public partial class App : Application
 {
+    /// <summary>Raised after the light/dark theme changes (menu or Windows setting).</summary>
+    public static event Action? ThemeChanged;
+
+    /// <summary>True when the app currently renders dark, following Windows when the theme is "system".</summary>
+    public static bool IsDarkTheme
+    {
+        get
+        {
+            var mode = Current?.ThemeMode ?? ThemeMode.System;
+            if (mode == ThemeMode.Dark) return true;
+            if (mode == ThemeMode.Light) return false;
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                return key?.GetValue("AppsUseLightTheme") is int light && light == 0;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+
+    public static void RaiseThemeChanged() =>
+        Current?.Dispatcher.BeginInvoke(() => ThemeChanged?.Invoke(), DispatcherPriority.Background);
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnUnhandledException;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += (_, args) =>
+        {
+            if (args.Category == Microsoft.Win32.UserPreferenceCategory.General) RaiseThemeChanged();
+        };
 
         var catalog = new PluginCatalog();
         catalog.Register(new ModbusTcpPlugin());
@@ -41,6 +71,7 @@ public partial class App : Application
         var window = new MainWindow { DataContext = vm };
         MainWindow = window;
         window.Show();
+        vm.RestoreUi();
 
         // A file path opens a project (e.g. from a file association).
         if (e.Args.Length > 0 && File.Exists(e.Args[0]))

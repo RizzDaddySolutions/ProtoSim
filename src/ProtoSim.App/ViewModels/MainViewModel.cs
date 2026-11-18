@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using ProtoSim.App.Mvvm;
+using ProtoSim.App.Services;
 using ProtoSim.Core;
 using ProtoSim.Core.Project;
 using ProtoSim.Core.Protocols;
@@ -47,12 +48,10 @@ public sealed class MainViewModel : ObservableObject
         AboutCommand = new RelayCommand(ShowAbout);
         HelpCommand = new RelayCommand(ShowHelp);
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
-        ShowLogicCommand = new RelayCommand(() =>
-        {
-            _selectedDevice = null;
-            OnPropertyChanged(nameof(SelectedDevice));
-            Selected = Logic;
-        });
+        ShowLogicCommand = new RelayCommand(ShowLogic);
+        ToggleLogicDockCommand = new RelayCommand(ToggleLogicDock);
+        Logic.ToggleDockCommand = ToggleLogicDockCommand;
+        Logic.IsUndocked = UiLayout.Current.LogicUndocked;
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
     }
@@ -64,6 +63,7 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Function block programs across devices (the Logic page).</summary>
     public LogicViewModel Logic { get; } = new(new ProjectTagDirectory());
     public ICommand ShowLogicCommand { get; }
+    public ICommand ToggleLogicDockCommand { get; }
 
     public string LogicSummary =>
         $"{Logic.Programs.Count} program{(Logic.Programs.Count == 1 ? "" : "s")} · {(Logic.IsRunning ? "running" : "stopped")}";
@@ -113,7 +113,7 @@ public sealed class MainViewModel : ObservableObject
     private void Tick()
     {
         foreach (var d in Devices) d.Refresh(ReferenceEquals(d, _selected));
-        Logic.Refresh(Devices, ReferenceEquals(Logic, _selected));
+        Logic.Refresh(Devices, IsLogicSelected || _logicWindow != null);
         OnPropertyChanged(nameof(LogicSummary));
 
         int running = Devices.Count(d => d.IsRunning);
@@ -203,12 +203,88 @@ public sealed class MainViewModel : ObservableObject
         foreach (var d in Devices.Where(d => d.IsRunning).ToList()) await d.StopAsync();
     }
 
+    private bool _shutDown;
+
     public async Task ShutdownAsync()
     {
+        if (_shutDown) return;
+        _shutDown = true;
         _timer.Stop();
+        Views.LogicView.SaveOpenLayouts();
+        UiLayout.Current.LogicWindowOpen = _logicWindow != null;
+        CloseLogicWindow();
+        UiLayout.Save();
         await Logic.ShutdownAsync();
         await StopAllAsync();
         Engine.Dispose();
+    }
+
+    // ---- Logic designer window ----
+
+    private Views.LogicWindow? _logicWindow;
+
+    /// <summary>Shows the designer where it lives: in the main window, or in its own window when undocked.</summary>
+    private void ShowLogic()
+    {
+        if (Logic.IsUndocked)
+        {
+            OpenLogicWindow();
+            return;
+        }
+        _selectedDevice = null;
+        OnPropertyChanged(nameof(SelectedDevice));
+        Selected = Logic;
+    }
+
+    private void ToggleLogicDock()
+    {
+        Views.LogicView.SaveOpenLayouts(); // the designer is recreated in its new host with the same panel layout
+        bool undock = !Logic.IsUndocked;
+        Logic.IsUndocked = undock;
+        UiLayout.Current.LogicUndocked = undock;
+        if (undock)
+        {
+            if (IsLogicSelected)
+            {
+                if (Devices.Count > 0) SelectedDevice = Devices[0];
+                else Selected = null;
+            }
+            OpenLogicWindow();
+        }
+        else
+        {
+            CloseLogicWindow();
+            ShowLogic();
+            Application.Current.MainWindow?.Activate();
+        }
+        UiLayout.Save();
+    }
+
+    private void OpenLogicWindow()
+    {
+        if (_logicWindow != null)
+        {
+            if (_logicWindow.WindowState == WindowState.Minimized) _logicWindow.WindowState = WindowState.Normal;
+            _logicWindow.Activate();
+            return;
+        }
+        var window = new Views.LogicWindow(this);
+        window.Closed += (_, _) => { if (ReferenceEquals(_logicWindow, window)) _logicWindow = null; };
+        _logicWindow = window;
+        window.Show();
+    }
+
+    private void CloseLogicWindow()
+    {
+        var window = _logicWindow;
+        _logicWindow = null;
+        window?.Close();
+    }
+
+    /// <summary>Reopens the undocked designer if it was open when the app last closed.</summary>
+    public void RestoreUi()
+    {
+        if (UiLayout.Current.LogicUndocked && UiLayout.Current.LogicWindowOpen) OpenLogicWindow();
     }
 
     // ---- Project files ----
@@ -361,6 +437,7 @@ public sealed class MainViewModel : ObservableObject
             "Dark" => ThemeMode.Dark,
             _ => ThemeMode.System,
         };
+        App.RaiseThemeChanged();
     }
 
     private void ShowAbout()
