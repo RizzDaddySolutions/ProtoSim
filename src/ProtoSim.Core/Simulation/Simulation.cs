@@ -116,13 +116,25 @@ public sealed class SimTag : ObservableObject
 
     internal double LastSimTime = double.NegativeInfinity;
 
-    private volatile bool _isReplaying;
+    private int _holds;
 
-    /// <summary>True while a replay (or scenario) drives this tag; its simulation pauses meanwhile.</summary>
-    public bool IsReplaying
+    /// <summary>
+    /// True while something else drives this tag (a replay, a scenario or a logic program); its simulation pauses meanwhile.
+    /// Several drivers can hold a tag at once; it is released when the last one lets go.
+    /// </summary>
+    public bool IsReplaying => Volatile.Read(ref _holds) > 0;
+
+    /// <summary>Takes a hold on the tag (pauses its simulation). Pair every call with <see cref="Release"/>.</summary>
+    public void Hold()
     {
-        get => _isReplaying;
-        set { if (_isReplaying != value) { _isReplaying = value; OnPropertyChanged(); } }
+        if (Interlocked.Increment(ref _holds) == 1) OnPropertyChanged(nameof(IsReplaying));
+    }
+
+    public void Release()
+    {
+        int n = Interlocked.Decrement(ref _holds);
+        if (n < 0) Interlocked.Exchange(ref _holds, 0);
+        if (n == 0) OnPropertyChanged(nameof(IsReplaying));
     }
 }
 

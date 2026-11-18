@@ -12,6 +12,12 @@ public sealed class ProjectDocument
     public int Version { get; set; } = 1;
     public List<DeviceDocument> Devices { get; set; } = [];
     // Older files may also contain a "clients" list; it is ignored when loading.
+
+    /// <summary>Function block programs that wire tags across devices.</summary>
+    public List<Logic.LogicProgram> Logic { get; set; } = [];
+
+    /// <summary>Start the logic engine when the project opens.</summary>
+    public bool LogicAutoRun { get; set; }
 }
 
 public sealed class DeviceDocument

@@ -127,6 +127,7 @@
   <a href="#tags">Tags &amp; simulation</a>
   <a href="#simulation-kinds">Simulation kinds</a>
   <a href="#csv">Import &amp; export CSV</a>
+  <a href="#logic">Logic designer</a>
   <a href="#record-replay">Record &amp; replay</a>
   <a href="#scenarios">Scenario scripts</a>
   <a href="#traffic">Traffic</a>
@@ -249,6 +250,31 @@
   <h3>Columns</h3>
   <p><code>Name, Address, DataType, WordOrder, Simulate, Simulation, Min, Max, PeriodSeconds, Step, IntervalMs, Description</code></p>
   <p>Only <code>Name</code> and <code>Address</code> are required; column order doesn't matter and names are case-insensitive. Numbers use a dot as the decimal separator. Missing values get defaults (UInt16, ABCD, simulation off, Sine, 0–100, 10 s, step 1, 500 ms).</p>
+</section>
+
+<section id="logic">
+  <h2>Logic designer</h2>
+  <p>Click <strong>Logic designer</strong> under <em>LOGIC</em> in the left panel to build function block programs that tie devices together, so several simulators behave like one plant. For example, a tank level on a Modbus device can start a pump whose run feedback is an OPC UA tag, while a BACnet setpoint feeds a PID loop.</p>
+  <h3>Building a program</h3>
+  <ul>
+    <li><strong>Add blocks</strong> by dragging them from the palette onto the canvas. Under <em>Project tags</em>, every tag of every device is listed as <code>Device/Tag</code>: drop one to get a <em>Tag in</em> block, or hold <kbd>Ctrl</kbd> while dropping to get a <em>Tag out</em> block.</li>
+    <li><strong>Wire</strong> by dragging from an output (right edge) to an input (left edge), or the other way round. An input takes one wire; a new wire replaces the old one.</li>
+    <li><strong>Move</strong> a block by dragging its header (it snaps to the grid). Click a block or wire to select it and edit its parameters on the right; <kbd>Delete</kbd> removes the selection. <kbd>Ctrl</kbd> + mouse wheel zooms.</li>
+    <li>Unwired inputs use a default (AND inputs count as true, OR inputs as false) or, where the block has one, the parameter of the same name, such as the compare blocks' <em>B</em> and the timers' <em>PT</em>.</li>
+  </ul>
+  <h3>Blocks</h3>
+  <table>
+    <tr><th>Group</th><th>Blocks</th></tr>
+    <tr><td>Tags</td><td>Tag in, Tag out (writes only when the value changes; EN gates it), Constant, Clock (pulse train)</td></tr>
+    <tr><td>Logic</td><td>AND, OR (4 inputs), XOR, NOT, SR latch (set dominant), RS latch (reset dominant), rising and falling edge</td></tr>
+    <tr><td>Compare</td><td>&gt;, ≥, &lt;, ≤, =, ≠, Hysteresis (on/off with a dead band, for alarms or "start the pump below 20 %, stop above 80 %")</td></tr>
+    <tr><td>Math</td><td>Add (4 inputs), Subtract, Multiply, Divide, Min, Max, Absolute, Limit, Scale (e.g. 4–20 mA to 0–100 %), Select</td></tr>
+    <tr><td>Timers</td><td>TON on delay, TOF off delay, TP pulse (IEC 61131-3 behaviour, ET in ms), CTU count up, CTD count down</td></tr>
+    <tr><td>Process</td><td>PID (Kp, Ti, Td, output limits, direct/reverse, anti-windup), first-order lag (temperatures, filters), integrator / tank (wire inflow − outflow to Rate), rate limiter (valve or motor travel), noise, dead time</td></tr>
+  </table>
+  <h3>Running</h3>
+  <p><strong>Run</strong> starts every enabled program, each on its own <em>Scan</em> interval (100 ms by default). Blocks are evaluated in data-flow order. Loops are allowed: a block fed by its own output sees the previous scan's value, so a pump that drains a tank whose level controls the pump just works. While running, every port shows its value, wires carrying true turn green, values appear in the block headers, and blocks with a problem (unknown tag, bad parameter) are outlined in red with the reason in a tooltip. Edits apply straight away, and timers, counters and latches keep their state. Tags written by <em>Tag out</em> blocks stop simulating while the logic runs and resume when it stops. Bool signals are 1 and 0, and numbers flow as decimals and are converted to each tag's data type when written.</p>
+  <p>Programs are saved with the project, and <em>Run when the project opens</em> starts them automatically. Tag references use device and tag names, so renaming a device or tag means updating the blocks that use it.</p>
 </section>
 
 <section id="record-replay">

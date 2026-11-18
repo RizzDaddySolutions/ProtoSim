@@ -296,7 +296,7 @@ public sealed class ScenarioRunner : IDisposable
     {
         lock (_held)
         {
-            foreach (var t in _held) t.IsReplaying = false;
+            foreach (var t in _held) t.Release();
             _held.Clear();
         }
         if (_savedFaults is { } f)
@@ -360,7 +360,7 @@ public sealed class ScenarioRunner : IDisposable
     {
         lock (_held)
         {
-            if (_held.Add(tag)) tag.IsReplaying = true;
+            if (_held.Add(tag)) tag.Hold();
         }
     }
 
@@ -368,7 +368,7 @@ public sealed class ScenarioRunner : IDisposable
     {
         lock (_held)
         {
-            if (_held.Remove(tag)) tag.IsReplaying = false;
+            if (_held.Remove(tag)) tag.Release();
         }
     }
 

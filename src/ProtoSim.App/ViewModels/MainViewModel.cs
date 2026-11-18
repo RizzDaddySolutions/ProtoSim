@@ -47,6 +47,12 @@ public sealed class MainViewModel : ObservableObject
         AboutCommand = new RelayCommand(ShowAbout);
         HelpCommand = new RelayCommand(ShowHelp);
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
+        ShowLogicCommand = new RelayCommand(() =>
+        {
+            _selectedDevice = null;
+            OnPropertyChanged(nameof(SelectedDevice));
+            Selected = Logic;
+        });
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
     }
@@ -54,6 +60,15 @@ public sealed class MainViewModel : ObservableObject
     public PluginCatalog Catalog { get; }
     public IReadOnlyList<string> PluginErrors { get; }
     public SimulationEngine Engine { get; } = new();
+
+    /// <summary>Function block programs across devices (the Logic page).</summary>
+    public LogicViewModel Logic { get; } = new(new ProjectTagDirectory());
+    public ICommand ShowLogicCommand { get; }
+
+    public string LogicSummary =>
+        $"{Logic.Programs.Count} program{(Logic.Programs.Count == 1 ? "" : "s")} · {(Logic.IsRunning ? "running" : "stopped")}";
+
+    public bool IsLogicSelected => ReferenceEquals(_selected, Logic);
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
     public IReadOnlyList<PluginActionViewModel> AddDeviceActions { get; }
 
@@ -69,7 +84,11 @@ public sealed class MainViewModel : ObservableObject
     public ICommand AboutCommand { get; }
     public ICommand HelpCommand { get; }
     public ICommand ExitCommand { get; }
-    public object? Selected { get => _selected; private set => SetProperty(ref _selected, value); }
+    public object? Selected
+    {
+        get => _selected;
+        private set { if (SetProperty(ref _selected, value)) OnPropertyChanged(nameof(IsLogicSelected)); }
+    }
 
     public DeviceViewModel? SelectedDevice
     {
@@ -94,6 +113,8 @@ public sealed class MainViewModel : ObservableObject
     private void Tick()
     {
         foreach (var d in Devices) d.Refresh(ReferenceEquals(d, _selected));
+        Logic.Refresh(Devices, ReferenceEquals(Logic, _selected));
+        OnPropertyChanged(nameof(LogicSummary));
 
         int running = Devices.Count(d => d.IsRunning);
         long connections = Devices.Sum(d => d.Stats.ActiveConnections);
@@ -185,6 +206,7 @@ public sealed class MainViewModel : ObservableObject
     public async Task ShutdownAsync()
     {
         _timer.Stop();
+        await Logic.ShutdownAsync();
         await StopAllAsync();
         Engine.Dispose();
     }
@@ -193,7 +215,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task NewProjectAsync()
     {
-        if (Devices.Count > 0 && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
+        if ((Devices.Count > 0 || Logic.Programs.Count > 0) && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
         await ClearAsync();
         _filePath = null;
         OnPropertyChanged(nameof(Title));
@@ -201,6 +223,8 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ClearAsync()
     {
+        await Logic.StopAsync();
+        Logic.Clear();
         foreach (var d in Devices.ToList())
         {
             await d.StopRecordAndReplayAsync();
@@ -261,11 +285,18 @@ public sealed class MainViewModel : ObservableObject
                 foreach (var (tvm, value) in restoreValues) tvm.ValueText = value;
             }
 
+            Logic.Load(doc.Logic, doc.LogicAutoRun);
+
             _filePath = path;
             OnPropertyChanged(nameof(Title));
             if (Devices.Count > 0) SelectedDevice = Devices[0];
 
             foreach (var d in Devices.Where(d => d.AutoStart)) await d.StartAsync();
+            if (Logic.AutoRun && Logic.Programs.Count > 0)
+            {
+                Logic.Refresh(Devices, false);
+                Logic.Run();
+            }
 
             if (missing.Count > 0)
                 Views.MessageDialog.Show($"These protocols are not installed and were skipped: {string.Join(", ", missing.Distinct())}",
@@ -312,6 +343,8 @@ public sealed class MainViewModel : ObservableObject
             }
             doc.Devices.Add(dd);
         }
+        doc.Logic = Logic.ToModels();
+        doc.LogicAutoRun = Logic.AutoRun;
         await ProjectSerializer.SaveAsync(doc, path);
         _filePath = path;
         OnPropertyChanged(nameof(Title));

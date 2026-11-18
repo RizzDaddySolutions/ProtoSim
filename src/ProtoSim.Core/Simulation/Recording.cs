@@ -256,7 +256,7 @@ public sealed class TagReplayer : IDisposable
         {
             if (_resolve(name) is { } tag)
             {
-                tag.IsReplaying = true;
+                tag.Hold();
                 _held.Add(tag);
             }
         }
@@ -275,7 +275,7 @@ public sealed class TagReplayer : IDisposable
 
     private void Release()
     {
-        foreach (var t in _held) t.IsReplaying = false;
+        foreach (var t in _held) t.Release();
         _held.Clear();
     }
 
