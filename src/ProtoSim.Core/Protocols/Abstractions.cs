@@ -39,6 +39,18 @@ public interface IProtocolPlugin
     /// <summary>True when multi-word values can use a configurable word order (e.g. Modbus registers).
     /// The tag grid hides the Order column for protocols that don't.</summary>
     bool SupportsWordOrder => false;
+
+    /// <summary>
+    /// Prepares settings for a copy of a device. <paramref name="copy"/> is a deep copy of
+    /// <paramref name="source"/>; <paramref name="fresh"/> came from <see cref="CreateServerSettings"/>.
+    /// The default takes the port from <paramref name="fresh"/> so the copy doesn't clash.
+    /// </summary>
+    object PrepareDuplicateSettings(object source, object copy, object fresh)
+    {
+        var portProp = copy.GetType().GetProperty("Port");
+        if (portProp?.PropertyType == typeof(int) && portProp.CanWrite) portProp.SetValue(copy, portProp.GetValue(fresh));
+        return copy;
+    }
 }
 
 public enum ServerState

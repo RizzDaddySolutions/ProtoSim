@@ -115,6 +115,27 @@ public sealed class SimTag : ObservableObject
     public ITagBinding? Binding { get => _binding; set { _binding = value; OnPropertyChanged(); } }
 
     internal double LastSimTime = double.NegativeInfinity;
+
+    private int _holds;
+
+    /// <summary>
+    /// True while something else drives this tag (a replay, a scenario or a logic program); its simulation pauses meanwhile.
+    /// Several drivers can hold a tag at once; it is released when the last one lets go.
+    /// </summary>
+    public bool IsReplaying => Volatile.Read(ref _holds) > 0;
+
+    /// <summary>Takes a hold on the tag (pauses its simulation). Pair every call with <see cref="Release"/>.</summary>
+    public void Hold()
+    {
+        if (Interlocked.Increment(ref _holds) == 1) OnPropertyChanged(nameof(IsReplaying));
+    }
+
+    public void Release()
+    {
+        int n = Interlocked.Decrement(ref _holds);
+        if (n < 0) Interlocked.Exchange(ref _holds, 0);
+        if (n == 0) OnPropertyChanged(nameof(IsReplaying));
+    }
 }
 
 /// <summary>Background engine that drives simulated tags at their configured intervals.</summary>
@@ -173,7 +194,7 @@ public sealed class SimulationEngine : IDisposable
     {
         var sim = tag.Simulation;
         var binding = tag.Binding;
-        if (!sim.Enabled || sim.Kind == SimulationKind.None || binding == null) return;
+        if (!sim.Enabled || sim.Kind == SimulationKind.None || binding == null || tag.IsReplaying) return;
 
         double interval = Math.Max(sim.IntervalMs, 10) / 1000.0;
         if (t - tag.LastSimTime < interval) return;

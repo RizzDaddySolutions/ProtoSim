@@ -127,15 +127,25 @@
   <a href="#tags">Tags &amp; simulation</a>
   <a href="#simulation-kinds">Simulation kinds</a>
   <a href="#csv">Import &amp; export CSV</a>
+  <a href="#logic">Logic designer</a>
+  <a href="#record-replay">Record &amp; replay</a>
+  <a href="#scenarios">Scenario scripts</a>
   <a href="#traffic">Traffic</a>
   <a href="#connections">Connections</a>
   <a href="#settings">Settings</a>
   <a href="#faults">Fault injection</a>
   <h4>Protocols</h4>
   <a href="#modbus">Modbus TCP</a>
+  <a href="#modbus-rtu">Modbus RTU</a>
   <a href="#opcua">OPC UA</a>
   <a href="#mqtt">MQTT</a>
   <a href="#dnp3">DNP3</a>
+  <a href="#bacnet">BACnet/IP</a>
+  <a href="#snmp">SNMP agent</a>
+  <a href="#mtconnect">MTConnect</a>
+  <a href="#scripted">Scripted device</a>
+  <a href="#rest">REST API</a>
+  <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
   <a href="#projects">Project files</a>
   <a href="#shortcuts">Keyboard shortcuts</a>
@@ -151,7 +161,7 @@
   <h2>Overview</h2>
   <p>ProtoSim runs one or more <strong>simulated devices</strong> (servers, slaves, outstations or brokers) on your PC. Each device speaks one protocol, listens on its own port and exposes <strong>tags</strong>: named, typed values mapped onto protocol addresses. Tags can hold fixed values or be driven by a <strong>simulation</strong> such as a sine wave or a counter.</p>
   <div class="grid2">
-    <div><h3>Mix protocols</h3><p>Modbus TCP, OPC UA, MQTT and DNP3 devices can run side by side in one project.</p></div>
+    <div><h3>Mix protocols</h3><p>Modbus TCP and RTU, OPC UA, MQTT, Sparkplug B, DNP3, BACnet/IP, SNMP, MTConnect, REST API and scripted devices can run side by side in one project.</p></div>
     <div><h3>See the traffic</h3><p>Every request and response is logged with a decoded summary, plus statistics and connected clients.</p></div>
     <div><h3>Break things on purpose</h3><p>Fault injection adds delays, timeouts, error replies and dropped connections.</p></div>
   </div>
@@ -242,6 +252,59 @@
   <p>Only <code>Name</code> and <code>Address</code> are required; column order doesn't matter and names are case-insensitive. Numbers use a dot as the decimal separator. Missing values get defaults (UInt16, ABCD, simulation off, Sine, 0–100, 10 s, step 1, 500 ms).</p>
 </section>
 
+<section id="logic">
+  <h2>Logic designer</h2>
+  <p>Choose <strong>Logic &gt; Logic designer</strong> (Ctrl+L) to build function block programs that tie devices together, so several simulators behave like one plant. For example, a tank level on a Modbus device can start a pump whose run feedback is an OPC UA tag, while a BACnet setpoint feeds a PID loop.</p>
+  <p><strong>Arranging the designer.</strong> Each block group (Tags, Logic, Compare, Math, Timers, Process), <em>Project tags</em> and <em>Properties</em> is a panel. Drag a panel's title bar or tab onto the docking guides to dock it to the left, top, right or bottom, drop it elsewhere to float it in its own window, or use the pin to auto-hide it. <strong>Reset panels</strong> restores the default arrangement. <strong>Logic &gt; Undock designer</strong> (Ctrl+Shift+L, or the <strong>Undock</strong> button) moves the whole designer into a window of its own, for example on a second monitor; <strong>Dock in main window</strong> brings it back. The panel arrangement, docked/undocked state and window position are remembered per user (in <code>%LocalAppData%\ProtoSim\ui-layout.json</code>), not in the project file.</p>
+  <h3>Building a program</h3>
+  <ul>
+    <li><strong>Add blocks</strong> by dragging them from the palette onto the canvas. Under <em>Project tags</em>, every tag of every device is listed as <code>Device/Tag</code>: drop one to get a <em>Tag in</em> block, or hold <kbd>Ctrl</kbd> while dropping to get a <em>Tag out</em> block.</li>
+    <li><strong>Wire</strong> by dragging from an output (right edge) to an input (left edge), or the other way round. An input takes one wire; a new wire replaces the old one.</li>
+    <li><strong>Move</strong> a block by dragging its header (it snaps to the grid). Click a block or wire to select it and edit its parameters on the right; <kbd>Delete</kbd> removes the selection. <kbd>Ctrl</kbd> + mouse wheel zooms.</li>
+    <li>Unwired inputs use a default (AND inputs count as true, OR inputs as false) or, where the block has one, the parameter of the same name, such as the compare blocks' <em>B</em> and the timers' <em>PT</em>.</li>
+  </ul>
+  <h3>Blocks</h3>
+  <table>
+    <tr><th>Group</th><th>Blocks</th></tr>
+    <tr><td>Tags</td><td>Tag in, Tag out (writes only when the value changes; EN gates it), Constant, Clock (pulse train)</td></tr>
+    <tr><td>Logic</td><td>AND, OR (4 inputs), XOR, NOT, SR latch (set dominant), RS latch (reset dominant), rising and falling edge</td></tr>
+    <tr><td>Compare</td><td>&gt;, ≥, &lt;, ≤, =, ≠, Hysteresis (on/off with a dead band, for alarms or "start the pump below 20 %, stop above 80 %")</td></tr>
+    <tr><td>Math</td><td>Add (4 inputs), Subtract, Multiply, Divide, Min, Max, Absolute, Limit, Scale (e.g. 4–20 mA to 0–100 %), Select</td></tr>
+    <tr><td>Timers</td><td>TON on delay, TOF off delay, TP pulse (IEC 61131-3 behaviour, ET in ms), CTU count up, CTD count down</td></tr>
+    <tr><td>Process</td><td>PID (Kp, Ti, Td, output limits, direct/reverse, anti-windup), first-order lag (temperatures, filters), integrator / tank (wire inflow − outflow to Rate), rate limiter (valve or motor travel), noise, dead time</td></tr>
+  </table>
+  <h3>Running</h3>
+  <p><strong>Run</strong> starts every enabled program, each on its own <em>Scan</em> interval (100 ms by default). Blocks are evaluated in data-flow order. Loops are allowed: a block fed by its own output sees the previous scan's value, so a pump that drains a tank whose level controls the pump just works. While running, every port shows its value, wires carrying true turn green, values appear in the block headers, and blocks with a problem (unknown tag, bad parameter) are outlined in red with the reason in a tooltip. Edits apply straight away, and timers, counters and latches keep their state. Tags written by <em>Tag out</em> blocks stop simulating while the logic runs and resume when it stops. Bool signals are 1 and 0, and numbers flow as decimals and are converted to each tag's data type when written.</p>
+  <p>Programs are saved with the project, and <em>Run when the project opens</em> starts them automatically. Tag references use device and tag names, so renaming a device or tag means updating the blocks that use it.</p>
+</section>
+
+<section id="record-replay">
+  <h2>Record &amp; replay</h2>
+  <p>On the <strong>Tags &amp; simulation</strong> tab, <strong>Record</strong> samples every tag (every 100 ms by default) and keeps each change, whether it came from simulation, a client's write or your edit. <strong>Stop &amp; save…</strong> writes the recording to a CSV file:</p>
+  <pre># ProtoSim recording, started 2026-11-17T09:00:00.0000000Z
+offset_s,tag,value
+0,Tank level,42.5
+0.25,Tank level,43.1
+3.5,Pump running,true</pre>
+  <p><strong>Replay…</strong> plays such a file back into the tags at the chosen speed (0.25× to 60×), optionally looping. Recorded names are matched to tags by name, then by address, and you're told about any that don't exist. While replaying, those tags' simulation pauses; it resumes when the replay ends or is stopped. The first column can also hold timestamps instead of offsets (<code>2026-03-01T08:00:30Z,Flow,12.5</code>), so data exported from a historian or a real device can be replayed as-is.</p>
+</section>
+
+<section id="scenarios">
+  <h2>Scenario scripts</h2>
+  <p>The <strong>Scenario</strong> tab holds a timed script for the device, saved with the project. Each line is <code>&lt;time&gt; &lt;action&gt;</code>; <code>#</code> starts a comment. Times are seconds or durations such as <code>500ms</code>, <code>30s</code>, <code>1m30s</code> or <code>2h</code>, and a leading <code>+</code> makes a time relative to the previous step.</p>
+  <table>
+    <tr><th>Action</th><th>Effect</th></tr>
+    <tr><td><code>set Pump running = true</code></td><td>Writes a tag (names with spaces are fine)</td></tr>
+    <tr><td><code>ramp Tank level from 20 to 80 over 30s</code></td><td>Moves a numeric tag linearly; without <code>from</code> it starts at the current value</td></tr>
+    <tr><td><code>simulate Tank level on</code> / <code>off</code></td><td>Hands a tag back to its simulation, or holds it at its value</td></tr>
+    <tr><td><code>fault error 50 code 4</code>, <code>fault drop 20</code>, <code>fault delay 200 jitter 50</code>, <code>fault disconnect 10</code>, <code>fault clear</code></td><td>Changes the device's fault injection</td></tr>
+    <tr><td><code>device stop</code> / <code>device start</code></td><td>Takes the simulated device offline and back</td></tr>
+    <tr><td><code>log Pump trips</code></td><td>Writes a line to the Traffic log</td></tr>
+    <tr><td><code>repeat</code> (last line)</td><td>Starts again from the beginning</td></tr>
+  </table>
+  <p><strong>Run scenario</strong> checks the script first and points at any bad line or unknown tag. While it runs, the tags it sets or ramps pause their simulation, every step is logged on the Traffic tab, and the status shows the time, speed and current step. When it ends or you stop it, held tags go back to their simulation and fault settings return to what they were before the run. <strong>Insert example</strong> replaces the script with an annotated example.</p>
+</section>
+
 <section id="traffic">
   <h2>Traffic</h2>
   <p>A live log of received (Rx) and sent (Tx) messages with decoded summaries; Modbus also shows the raw bytes in hex. Use <strong>Capture</strong> to stop or resume recording (saves CPU under heavy load), <strong>Frames</strong> and <strong>Events</strong> to choose what is shown, <strong>Auto-scroll</strong> to follow new entries, and <strong>Clear</strong> to empty the log. <strong>Filter</strong> matches the summary, remote address or hex bytes. The log can be exported to <code>.log</code> or <code>.csv</code>.</p>
@@ -287,6 +350,16 @@
   <p>Unit IDs to answer (<code>*</code>, <code>1,2,10-20</code>), gateway exceptions for other unit IDs, unit 0 as broadcast, read-only mode, area sizes and device identification strings.</p>
 </section>
 
+<section id="modbus-rtu">
+  <h2>Modbus RTU <span class="badge">serial · over TCP</span></h2>
+  <p>Two more Modbus devices use the same function codes, memory tables, tag addresses, word orders and settings as Modbus TCP, but RTU framing: unit address, PDU and CRC-16, with no MBAP header.</p>
+  <ul>
+    <li><strong>Modbus RTU (serial)</strong> is a slave on a COM port. Its defaults are 19200 baud, 8 data bits, even parity and 1 stop bit, unit 1. A pause of 3.5 character times ends a frame; <em>Frame gap</em> can set it by hand. <em>Turnaround delay</em> waits before replying, for RS-485 masters. Several devices can share one port name as long as only one runs at a time. To test without hardware, create a virtual COM port pair (for example with com0com) and connect the master to the other end.</li>
+    <li><strong>Modbus RTU over TCP</strong> accepts TCP connections that carry raw RTU frames, like a serial device server, default port <code>502</code>. Known function codes are framed by their length; for others, a pause of <em>Frame gap</em> ends the frame.</li>
+  </ul>
+  <p>As on a real RTU line, frames with a bad CRC are ignored, requests for other unit IDs get no reply (unless a gateway exception is chosen), and unit 0 is a broadcast that is processed but never answered. Injected errors are Modbus exceptions with a valid CRC. The serial device lists its port on the Connections tab; there is no connection to drop.</p>
+</section>
+
 <section id="opcua">
   <h2>OPC UA</h2>
   <p>An OPC UA server (<code>opc.tcp</code>), default port <code>4840</code>.</p>
@@ -311,6 +384,161 @@
     <tr><td><code>C:&lt;index&gt;</code></td><td>Counter</td></tr>
   </table>
   <p>Settings include the outstation and master addresses, unsolicited responses, whether writes are allowed, and the maximum number of points.</p>
+</section>
+
+<section id="bacnet">
+  <h2>BACnet/IP</h2>
+  <p>A BACnet/IP device on UDP port <code>47808</code> (0xBAC0), device instance 1001 by default. Leave <em>Local IP address</em> empty to choose the network interface automatically. On a PC with several interfaces (VPN, Hyper-V, WSL…) the start error lists them, so enter the one your BACnet network uses. Use <code>127.0.0.1</code> to test with a client on the same PC.</p>
+  <h3>Tag addresses</h3>
+  <table>
+    <tr><th>Address</th><th>Object</th><th>Data type</th></tr>
+    <tr><td><code>AI:1</code> <code>AO:1</code> <code>AV:1</code></td><td>Analog input, output, value (Present_Value is REAL)</td><td>Any numeric type</td></tr>
+    <tr><td><code>BI:1</code> <code>BO:1</code> <code>BV:1</code></td><td>Binary input, output, value (inactive/active)</td><td>Bool</td></tr>
+    <tr><td><code>MSI:1</code> <code>MSO:1</code> <code>MSV:1</code></td><td>Multi-state input, output, value (1 to <em>Multi-state states</em>)</td><td>Integer</td></tr>
+    <tr><td><code>CSV:1</code></td><td>CharacterString Value</td><td>String</td></tr>
+  </table>
+  <p>Add <code>/name</code> to set the Object_Name, for example <code>AV:3/Zone Setpoint</code>. Otherwise objects are named like <em>Analog Value 3</em>.</p>
+  <h3>Services</h3>
+  <ul>
+    <li><strong>Who-Is / I-Am</strong> and <strong>Who-Has / I-Have</strong>. I-Am is broadcast and, with <em>Unicast I-Am replies</em> on, also sent straight back to the requester.</li>
+    <li><strong>ReadProperty</strong> and <strong>ReadPropertyMultiple</strong> (including ALL, REQUIRED and OPTIONAL) for the device object (Object_List, vendor and model information, protocol services and object types supported, local date and time…) and every object.</li>
+    <li><strong>WriteProperty</strong> and <strong>WritePropertyMultiple</strong>. Outputs and values are commandable: writes go into the 16-level Priority_Array, the highest priority wins, writing NULL relinquishes that level, and the Relinquish_Default applies when every level is empty. Inputs are read-only until Out_Of_Service is set to true.</li>
+    <li><strong>SubscribeCOV</strong> and <strong>SubscribeCOVProperty</strong>, confirmed or unconfirmed, with lifetimes. Analog objects notify when the value moves by at least <em>COV increment</em>.</li>
+    <li><strong>DeviceCommunicationControl</strong> (disable silences everything except DCC and ReinitializeDevice), <strong>ReinitializeDevice</strong> (a cold start clears priority arrays) and <strong>TimeSynchronization</strong>. Set a <em>Password</em> to require one.</li>
+  </ul>
+  <p>Errors use the standard BACnet classes and codes, such as unknown-object, unknown-property, write-access-denied, value-out-of-range and invalid-data-type. Injected errors are sent as error class DEVICE with the fault error code as the BACnet error code (for example 25, operational-problem). UDP has no connections, so the Connections tab lists clients heard from in the last 10 minutes. <strong>Drop</strong> forgets a client and cancels its COV subscriptions.</p>
+  <p>Simulated tags keep writing their values, so a simulated output overrides what a client commanded. Turn off simulation for points that clients should control.</p>
+</section>
+
+<section id="snmp">
+  <h2>SNMP agent</h2>
+  <p>An SNMPv1/v2c agent on UDP port <code>161</code>, for simulating UPSs, PDUs, switches and other monitored equipment. If the Windows SNMP service is installed it may already use 161; choose another port such as <code>1161</code> and point the manager at it. SNMPv3 requests are ignored.</p>
+  <h3>Tag addresses</h3>
+  <p>Each tag is one scalar object, addressed by its numeric OID, usually ending in <code>.0</code>, for example <code>1.3.6.1.4.1.99999.1.1.0</code>. Add <code>:syntax</code> to choose the SNMP type:</p>
+  <table>
+    <tr><th>Suffix</th><th>Type</th><th>Default for</th></tr>
+    <tr><td><code>:integer</code></td><td>INTEGER</td><td>Int16, UInt16, Int32</td></tr>
+    <tr><td><code>:gauge32</code> / <code>:unsigned32</code></td><td>Gauge32</td><td>UInt32</td></tr>
+    <tr><td><code>:counter32</code></td><td>Counter32</td><td></td></tr>
+    <tr><td><code>:counter64</code></td><td>Counter64</td><td>Int64, UInt64</td></tr>
+    <tr><td><code>:timeticks</code></td><td>TimeTicks (hundredths of a second)</td><td></td></tr>
+    <tr><td><code>:truthvalue</code></td><td>TruthValue (1 = true, 2 = false)</td><td>Bool</td></tr>
+    <tr><td><code>:ipaddress</code></td><td>IpAddress</td><td>String tags holding an IPv4 address</td></tr>
+    <tr><td><code>:string</code></td><td>OCTET STRING</td><td>String, Float32, Float64 (SNMP has no floating-point type)</td></tr>
+  </table>
+  <p>The system group (<code>1.3.6.1.2.1.1</code>: sysDescr, sysObjectID, sysUpTime, sysContact, sysName, sysLocation, sysServices) is built in and set in the server settings.</p>
+  <h3>Requests</h3>
+  <ul>
+    <li><strong>Get</strong>: missing objects return noSuchObject or noSuchInstance in v2c, and a noSuchName error in v1.</li>
+    <li><strong>GetNext</strong> and <strong>GetBulk</strong> (v2c) walk all objects in numeric OID order, ending with endOfMibView. <em>Max GetBulk varbinds</em> caps the size of one response.</li>
+    <li><strong>Set</strong> needs the <em>Write community</em>. It is atomic: every variable is checked (exists, writable, right type, valid value) before any is changed. The system group is read-only.</li>
+    <li>Requests with an unknown community, or for a disabled version, get no reply, as with a real agent.</li>
+  </ul>
+  <h3>Traps</h3>
+  <p>List <em>Trap receivers</em> (<code>host</code> or <code>host:port</code>, default port 162) to send SNMPv2c traps: coldStart when the agent starts and, with <em>Trap on Set</em>, a trap carrying the new values after each successful Set. That trap's snmpTrapOID is the sysObjectID followed by <code>.0.1</code>.</p>
+  <p>Injected error responses carry the fault error code as the SNMP error status (for example 5, genErr). The Connections tab lists managers heard from in the last 10 minutes.</p>
+</section>
+
+<section id="mtconnect">
+  <h2>MTConnect</h2>
+  <p>An MTConnect agent for a simulated machine tool, serving XML over HTTP on port <code>5000</code>. With the default device name <em>Mill</em>, try <code>http://localhost:5000/probe</code> and <code>http://localhost:5000/Mill/current</code>.</p>
+  <h3>Tag addresses</h3>
+  <p>Each tag is one data item: a component path, the data item id and its type, separated by <code>:</code>.</p>
+  <table>
+    <tr><th>Address</th><th>Meaning</th></tr>
+    <tr><td><code>Axes/Linear[X]/Xact:POSITION.ACTUAL</code></td><td>Sample <code>Xact</code>, type POSITION, subtype ACTUAL, in the Linear axis named X under Axes. Units default to MILLIMETER.</td></tr>
+    <tr><td><code>Controller/Path/execution:EXECUTION</code></td><td>Event (String: ACTIVE, READY, STOPPED…)</td></tr>
+    <tr><td><code>Controller/system:SYSTEM</code></td><td>Condition (String NORMAL / WARNING / FAULT, Bool true = FAULT, or 0/1/2)</td></tr>
+    <tr><td><code>partcount:PART_COUNT</code></td><td>A data item on the device itself</td></tr>
+    <tr><td><code>Systems/flag:MY_FLAG:EVENT</code></td><td>Any type, with the category given explicitly</td></tr>
+  </table>
+  <p>Components are MTConnect element types (Axes, Controller, Path, Linear, Rotary, Systems, Electric, Coolant, Door…), optionally with a <code>[name]</code>. Common types know their category and units: samples such as POSITION, TEMPERATURE, ROTARY_VELOCITY and LOAD need numeric tags; events such as EXECUTION, CONTROLLER_MODE, PROGRAM and PART_COUNT take any type; conditions such as SYSTEM and HARDWARE map to Normal/Warning/Fault. Bool events become words where MTConnect expects them: EMERGENCY_STOP is ARMED/TRIGGERED, DOOR_STATE is OPEN/CLOSED, and other Bool events are ON/OFF. Data item ids must be unique; <code>avail</code> is the built-in AVAILABILITY event, which reads AVAILABLE while the agent runs.</p>
+  <h3>Requests</h3>
+  <table>
+    <tr><th>Request</th><th>Returns</th></tr>
+    <tr><td><code>/probe</code> or <code>/Mill</code></td><td>MTConnectDevices: the device, its components and data items</td></tr>
+    <tr><td><code>/current</code>, <code>/current?at=123</code></td><td>MTConnectStreams with the latest value of each data item, or the values at sequence 123</td></tr>
+    <tr><td><code>/sample?from=100&amp;count=50</code></td><td>Observations in sequence order from 100; <code>nextSequence</code> in the header says where to continue</td></tr>
+    <tr><td><code>/assets</code></td><td>An empty MTConnectAssets document</td></tr>
+  </table>
+  <p>Every request can be prefixed with the device name (<code>/Mill/current</code>) and filtered with <code>path</code>, an XPath over the probe document such as <code>//Axes</code> or <code>//DataItem[@category="CONDITION"]</code>. Each value change adds a numbered observation to a circular buffer of <em>Buffer size</em> entries; unchanged values are skipped unless <em>Record unchanged values</em> is on. A restart gives a new <code>instanceId</code> and starts the sequence again.</p>
+  <p>Errors come back as MTConnectError documents: <code>NO_DEVICE</code> (404), <code>OUT_OF_RANGE</code>, <code>INVALID_XPATH</code>, <code>INVALID_REQUEST</code> and <code>UNSUPPORTED</code> (400), and <code>INTERNAL_ERROR</code> (500, used for injected errors). Streaming with <code>interval</code> isn't supported; clients poll <code>current</code> or <code>sample</code> instead.</p>
+  <h3>JSON</h3>
+  <p>Responses are XML unless the client asks for JSON with <code>Accept: application/json</code> or <code>?format=json</code> (<code>?format=xml</code> forces XML). <em>Default format</em> sets what plain requests get. The JSON follows the reference agent's JSON version 2 layout: each document is an object named after its root (<code>MTConnectStreams</code>…) with <code>jsonVersion</code> and <code>schemaVersion</code>; attributes become properties, element text becomes <code>value</code> (a number for samples), containers such as Header, Devices, DataItems and Samples are objects, and repeating elements are arrays grouped by name, for example <code>Streams.DeviceStream[0].ComponentStream[n].Samples.Position[0].value</code>. Errors come back as JSON too.</p>
+</section>
+
+<section id="scripted">
+  <h2>Scripted device</h2>
+  <p>A device that answers text requests with replies you define. Use it for instruments (SCPI-style), scales, barcode readers, test fixtures and other ASCII protocols that have no plugin of their own. Choose the <em>Transport</em>: a TCP server (default port <code>10001</code>), a UDP endpoint, or a serial port.</p>
+  <h3>Rules</h3>
+  <p>The <em>Rules</em> setting holds one rule per line, <code>request =&gt; reply</code>, checked from the top; the first match answers. Lines starting with <code>#</code> are comments.</p>
+  <table>
+    <tr><th>In the request</th><th>Meaning</th></tr>
+    <tr><td><code>MEAS:TEMP?</code></td><td>Plain text: matches the whole request, ignoring surrounding spaces (and case, unless <em>Case-sensitive commands</em> is on)</td></tr>
+    <tr><td><code>/SET (\d+)/</code>, <code>/SP (?&lt;v&gt;[0-9.]+)/</code></td><td>A regular expression that must match the whole request; its groups can be used in the reply</td></tr>
+  </table>
+  <table>
+    <tr><th>In the reply</th><th>Meaning</th></tr>
+    <tr><td><code>{Temperature}</code>, <code>{Temperature:F2}</code>, <code>{Count:00000}</code></td><td>A tag's value, optionally with a .NET number format</td></tr>
+    <tr><td><code>{Running:ON/OFF}</code></td><td>For Bool tags: the word for true / false</td></tr>
+    <tr><td><code>{$1}</code>, <code>{$v}</code></td><td>A group from the /regex/ pattern</td></tr>
+    <tr><td><code>{Setpoint=$1}</code>, <code>{Mode=2}</code></td><td>Writes a tag (inserts nothing). A value that doesn't fit the tag sends the <em>Error reply</em> instead</td></tr>
+    <tr><td><code>{now}</code>, <code>{now:HH:mm:ss}</code></td><td>The current time</td></tr>
+    <tr><td><code>\r \n \t \xHH</code>, <code>{{ }}</code></td><td>Escapes and literal braces</td></tr>
+  </table>
+  <p>An empty reply stays silent. Requests that match no rule get the <em>Unknown command reply</em> (empty to stay silent). Each tag's address is just the variable name the rules use, such as <code>Temperature</code>.</p>
+  <h3>Framing and output</h3>
+  <p><em>Request framing</em> decides where a request ends: any newline (default), CR, LF, CRLF, a <em>Custom terminator</em> such as <code>\x03</code>, or <em>Silence</em> (a pause of <em>Frame gap</em>). Over UDP each datagram is a request, or several if it holds several lines. <em>Reply terminator</em> (default <code>\r\n</code>) is added to every reply, and <em>Echo requests</em> sends each request back first. For unsolicited output, <em>Greeting</em> is sent when a TCP client connects, and <em>Periodic message</em> is sent every <em>Period</em> to all TCP clients, recent UDP senders, or the serial port, for example a scale streaming <code>ST,GS,{Weight:+0000.00}kg</code>.</p>
+  <p>Rule errors stop the device from starting and name the bad line. Injected errors send the <em>Error reply</em> with <code>{code}</code> set to the fault error code.</p>
+</section>
+
+<section id="rest">
+  <h2>REST API</h2>
+  <p>A JSON-over-HTTP API simulator. It listens <strong>only on this computer's loopback interface</strong> (<code>127.0.0.1</code> and <code>::1</code>), so other machines can't reach it. The base URL is built from the <em>Host name</em>, <em>TCP port</em> and <em>Base path</em> settings, default <code>http://localhost:5080/api/v1</code>. Every response is JSON (<code>application/json; charset=utf-8</code>).</p>
+  <h3>Authentication</h3>
+  <p>With <em>Require bearer token</em> on (the default), each request needs <code>Authorization: Bearer &lt;token&gt;</code>. Tokens come from the OAuth 2.0 client credentials endpoint, default <code>http://localhost:5080/oauth/token</code>:</p>
+  <pre>curl -X POST http://localhost:5080/oauth/token -d "grant_type=client_credentials&amp;client_id=protosim-client&amp;client_secret=..."</pre>
+  <p>Credentials can be sent as form fields, as JSON, or as HTTP Basic. The response holds <code>access_token</code> (an HS256-signed JWT), <code>token_type</code> and <code>expires_in</code>. On the <strong>API clients</strong> tab you add clients, each with its own client ID, secret and optional scopes; disable a client or generate a new secret; get a token for testing; and revoke all tokens. Tokens are kept while ProtoSim runs and end when it closes.</p>
+  <h3>Simulated GET endpoints (tags)</h3>
+  <p>Each tag's address is a path relative to the base URL. The tag <code>sensors/temperature</code> answers <code>GET /api/v1/sensors/temperature</code> with <code>{"path", "value", "dataType", "timestamp"}</code>, or just the value when <em>Tag response format</em> is ValueOnly. Tags are simulated like any other protocol. <code>PUT</code>, <code>PATCH</code> or <code>POST</code> to a tag path writes its value (<code>42</code>, <code>true</code>, <code>"text"</code> or <code>{"value": 42}</code>). <code>GET /api/v1/_tags</code> lists all tags and <code>GET /api/v1</code> describes the API.</p>
+  <h3>JSON database</h3>
+  <p>Paths that aren't tags go to a JSON database. Each device creates its database once, filled with sample data, in <code>%LocalAppData%\ProtoSim\RestDatabases</code>, and keeps it across restarts. Every change made through the API is saved straight away. Each top-level property is a resource:</p>
+  <table>
+    <tr><th>Request</th><th>Effect</th></tr>
+    <tr><td><code>GET /users</code></td><td>List the collection. Filter with <code>?role=admin</code>, <code>price_gte=</code>, <code>_lte</code>, <code>_gt</code>, <code>_lt</code>, <code>_ne</code>, <code>_like</code>, search with <code>q=</code>, sort with <code>_sort=name</code> or <code>_sort=-price</code>, page with <code>_page</code>/<code>_limit</code> or <code>_start</code>/<code>_end</code>. The <code>X-Total-Count</code> header holds the count before paging.</td></tr>
+    <tr><td><code>GET /users/1</code></td><td>One item, matched on <code>id</code>.</td></tr>
+    <tr><td><code>POST /users</code></td><td>Create an item (201 with a <code>Location</code> header). Ids are numbered automatically when none is given. Posting to a new name creates the collection.</td></tr>
+    <tr><td><code>PUT /users/1</code></td><td>Replace the item.</td></tr>
+    <tr><td><code>PATCH /users/1</code></td><td>Merge into the item (JSON Merge Patch: <code>null</code> removes a property).</td></tr>
+    <tr><td><code>DELETE /users/1</code></td><td>Delete the item (204).</td></tr>
+    <tr><td><code>GET</code>/<code>PUT</code>/<code>PATCH /settings</code></td><td>Single-object resources.</td></tr>
+  </table>
+  <p>On the <strong>Database</strong> tab you can edit the whole database as JSON and apply it, <strong>Recreate</strong> it from the sample data, and <strong>Export</strong> it to a file and <strong>Import</strong> that file on another computer. The project file stores which database a device uses but not its contents, so export the database to move it with a project.</p>
+  <h3>Errors and faults</h3>
+  <p>Errors are JSON: <code>{"error", "message", "status"}</code> (token errors use the OAuth <code>error</code>/<code>error_description</code> format). Injected error responses map the fault error code to an HTTP status: 1 → 405, 2 → 404, 3 → 400, 6 → 503, anything else → 500. A dropped response closes the connection without answering. CORS headers are added unless <em>Allow CORS</em> is off.</p>
+</section>
+
+<section id="sparkplug">
+  <h2>Sparkplug B</h2>
+  <p>A simulated Sparkplug B (<code>spBv1.0</code>) edge node. With <em>Broker</em> set to Embedded (the default), ProtoSim also runs an MQTT broker on the <em>Embedded broker port</em> (default <code>1883</code>) and the edge node connects to it. Set it to External to publish to another broker, such as Mosquitto, HiveMQ or Ignition's MQTT Distributor.</p>
+  <h3>Tag addresses</h3>
+  <table>
+    <tr><th>Address</th><th>Metric</th></tr>
+    <tr><td><code>Inputs/Temperature</code></td><td>Edge node metric, published in NBIRTH/NDATA</td></tr>
+    <tr><td><code>Pump1:Speed</code></td><td>Metric <code>Speed</code> of device <code>Pump1</code>, published in DBIRTH/DDATA</td></tr>
+  </table>
+  <p>Data types map to Sparkplug types: Bool → Boolean, Int16/32/64, UInt16/32/64, Float32 → Float, Float64 → Double, String. <code>bdSeq</code> and <code>Node Control/...</code> are reserved.</p>
+  <h3>Behaviour</h3>
+  <ul>
+    <li>On connect the edge node registers NDEATH (with <code>bdSeq</code>) as its MQTT will, then publishes NBIRTH and one DBIRTH per device. Each new MQTT session increments <code>bdSeq</code>.</li>
+    <li>Changed values are reported by exception: changes are collected for <em>Publish interval</em> and sent in one NDATA or DDATA per device, with <code>seq</code> counting 0–255.</li>
+    <li>With <em>Use aliases</em> on, births carry names and aliases and data messages carry only aliases.</li>
+    <li>NCMD and DCMD write metric values (by name or alias). <code>Node Control/Rebirth</code> = true republishes all births. Adding or removing tags while running also triggers a rebirth; a device whose last metric is removed gets a DDEATH.</li>
+    <li>With a <em>Primary host ID</em>, births wait until <code>spBv1.0/STATE/&lt;host&gt;</code> (or the older <code>STATE/&lt;host&gt;</code>) reports online, and NDEATH is sent when the host goes offline.</li>
+    <li>Stopping the device publishes NDEATH and disconnects cleanly. <strong>Drop</strong> on the Connections tab closes the session without DISCONNECT, so the broker publishes the will.</li>
+  </ul>
+  <h3>Faults</h3>
+  <p>Response delay and jitter delay data messages, <em>Drop responses</em> skips data messages, and <em>Disconnect after response</em> drops the MQTT session after a data message (the edge node reconnects after <em>Reconnect delay</em>). Error responses don't apply.</p>
 </section>
 
 <section id="projects">

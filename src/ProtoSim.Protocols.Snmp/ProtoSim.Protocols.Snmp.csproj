@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ProtoSim.Protocols.Snmp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ProtoSim.Snmp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Lextm.SharpSnmpLib" Version="12.5.7" />
+    <ProjectReference Include="..\ProtoSim.Core\ProtoSim.Core.csproj" />
+  </ItemGroup>
+
+</Project>

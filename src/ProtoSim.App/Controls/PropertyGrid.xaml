@@ -31,6 +31,12 @@
                     <TextBox Grid.Column="1" MinHeight="32"
                              Text="{Binding Text, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}"
                              Visibility="{Binding IsText, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBox Grid.Column="1" MinHeight="160" MaxHeight="420"
+                             AcceptsReturn="True" AcceptsTab="False" TextWrapping="NoWrap"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                             VerticalContentAlignment="Top" FontFamily="Cascadia Mono, Consolas"
+                             Text="{Binding Text, UpdateSourceTrigger=LostFocus, ValidatesOnNotifyDataErrors=True}"
+                             Visibility="{Binding IsMultiline, Converter={StaticResource BoolToVisibility}}" />
                     <CheckBox Grid.Column="1" IsChecked="{Binding BoolValue}" VerticalAlignment="Center"
                                Visibility="{Binding IsBool, Converter={StaticResource BoolToVisibility}}" />
                     <ComboBox Grid.Column="1" ItemsSource="{Binding EnumValues}" SelectedItem="{Binding Value}" MinHeight="32"

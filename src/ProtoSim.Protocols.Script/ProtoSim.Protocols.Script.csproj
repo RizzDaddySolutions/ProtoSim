@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ProtoSim.Protocols.Script</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ProtoSim.Script.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="11.0.0" />
+    <ProjectReference Include="..\ProtoSim.Core\ProtoSim.Core.csproj" />
+  </ItemGroup>
+
+</Project>

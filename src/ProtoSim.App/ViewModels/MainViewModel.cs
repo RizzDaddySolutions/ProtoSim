@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using ProtoSim.App.Mvvm;
+using ProtoSim.App.Services;
 using ProtoSim.Core;
 using ProtoSim.Core.Project;
 using ProtoSim.Core.Protocols;
@@ -49,6 +50,12 @@ public sealed class MainViewModel : ObservableObject
         AboutCommand = new RelayCommand(ShowAbout);
         HelpCommand = new RelayCommand(ShowHelp);
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
+        ShowLogicCommand = new RelayCommand(ShowLogic);
+        ToggleLogicDockCommand = new RelayCommand(ToggleLogicDock);
+        Logic.ToggleDockCommand = ToggleLogicDockCommand;
+        Logic.IsUndocked = UiLayout.Current.LogicUndocked;
+        _simulationEnabled = UiLayout.Current.SimulationEnabled;
+        Engine.IsEnabled = _simulationEnabled;
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
     }
@@ -56,6 +63,16 @@ public sealed class MainViewModel : ObservableObject
     public PluginCatalog Catalog { get; }
     public IReadOnlyList<string> PluginErrors { get; }
     public SimulationEngine Engine { get; } = new();
+
+    /// <summary>Function block programs across devices (the Logic page).</summary>
+    public LogicViewModel Logic { get; } = new(new ProjectTagDirectory());
+    public ICommand ShowLogicCommand { get; }
+    public ICommand ToggleLogicDockCommand { get; }
+
+    public string LogicSummary =>
+        $"{Logic.Programs.Count} program{(Logic.Programs.Count == 1 ? "" : "s")} · {(Logic.IsRunning ? "running" : "stopped")}";
+
+    public bool IsLogicSelected => ReferenceEquals(_selected, Logic);
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
     public IReadOnlyList<PluginActionViewModel> AddDeviceActions { get; }
 
@@ -68,10 +85,17 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RemoveSelectedCommand { get; }
     public ICommand DuplicateSelectedCommand { get; }
     public ICommand SetThemeCommand { get; }
+    public bool IsSystemTheme => Application.Current.ThemeMode == ThemeMode.System;
+    public bool IsLightTheme => Application.Current.ThemeMode == ThemeMode.Light;
+    public bool IsDarkTheme => Application.Current.ThemeMode == ThemeMode.Dark;
     public ICommand AboutCommand { get; }
     public ICommand HelpCommand { get; }
     public ICommand ExitCommand { get; }
-    public object? Selected { get => _selected; private set => SetProperty(ref _selected, value); }
+    public object? Selected
+    {
+        get => _selected;
+        private set { if (SetProperty(ref _selected, value)) OnPropertyChanged(nameof(IsLogicSelected)); }
+    }
 
     public DeviceViewModel? SelectedDevice
     {
@@ -86,7 +110,13 @@ public sealed class MainViewModel : ObservableObject
     public bool SimulationEnabled
     {
         get => _simulationEnabled;
-        set { if (SetProperty(ref _simulationEnabled, value)) Engine.IsEnabled = value; }
+        set
+        {
+            if (!SetProperty(ref _simulationEnabled, value)) return;
+            Engine.IsEnabled = value;
+            UiLayout.Current.SimulationEnabled = value;
+            UiLayout.Save();
+        }
     }
 
     public string Title => $"{(_filePath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_filePath))} – ProtoSim";
@@ -96,6 +126,8 @@ public sealed class MainViewModel : ObservableObject
     private void Tick()
     {
         foreach (var d in Devices) d.Refresh(ReferenceEquals(d, _selected));
+        Logic.Refresh(Devices, IsLogicSelected || _logicWindow != null);
+        OnPropertyChanged(nameof(LogicSummary));
 
         int running = Devices.Count(d => d.IsRunning);
         long connections = Devices.Sum(d => d.Stats.ActiveConnections);
@@ -137,14 +169,14 @@ public sealed class MainViewModel : ObservableObject
         var settingsJson = ProjectSerializer.ToElement(src.Settings);
         var settings = ProjectSerializer.FromElement(settingsJson, src.Plugin.ServerSettingsType)!;
         var fresh = src.Plugin.CreateServerSettings(Devices.Where(d => d.Plugin == src.Plugin).Select(d => d.Settings));
-        // Take the new port (if any) from freshly generated settings to avoid a clash.
-        var portProp = settings.GetType().GetProperty("Port");
-        if (portProp?.PropertyType == typeof(int)) portProp.SetValue(settings, portProp.GetValue(fresh));
+        // The plugin takes e.g. the new port from freshly generated settings to avoid a clash.
+        settings = src.Plugin.PrepareDuplicateSettings(src.Settings, settings, fresh);
 
         var copy = CreateDevice(src.Plugin, UniqueName(src.Name + " copy", Devices.Select(d => d.Name)), settings,
             ProjectSerializer.FromElement(ProjectSerializer.ToElement(src.Faults), typeof(FaultSettings)) as FaultSettings);
         foreach (var t in src.Tags) copy.AddTag(TagDocument.From(t.Tag).ToTag());
         CopyData(src, copy);
+        copy.ScenarioText = src.ScenarioText;
         SelectedDevice = copy;
     }
 
@@ -163,6 +195,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_selected is not DeviceViewModel d) return;
         if (!Confirm($"Remove device '{d.Name}'?")) return;
+        await d.StopRecordAndReplayAsync();
         await d.StopAsync();
         d.RemoveAllTags();
         Devices.Remove(d);
@@ -183,18 +216,106 @@ public sealed class MainViewModel : ObservableObject
         foreach (var d in Devices.Where(d => d.IsRunning).ToList()) await d.StopAsync();
     }
 
+    private bool _shutDown;
+
     public async Task ShutdownAsync()
     {
+        if (_shutDown) return;
+        _shutDown = true;
+        _shuttingDown = true;
         _timer.Stop();
+        Views.LogicView.SaveOpenLayouts();
+        UiLayout.Current.LogicWindowOpen = _logicWindow != null;
+        CloseLogicWindow();
+        UiLayout.Save();
+        await Logic.ShutdownAsync();
         await StopAllAsync();
         Engine.Dispose();
+    }
+
+    // ---- Logic designer window ----
+
+    private Views.LogicWindow? _logicWindow;
+    private bool _shuttingDown;
+
+    /// <summary>Shows the designer where it lives: in the main window, or in its own window when undocked.</summary>
+    private void ShowLogic()
+    {
+        if (Logic.IsUndocked)
+        {
+            OpenLogicWindow();
+            return;
+        }
+        _selectedDevice = null;
+        OnPropertyChanged(nameof(SelectedDevice));
+        Selected = Logic;
+    }
+
+    private void ToggleLogicDock()
+    {
+        Views.LogicView.SaveOpenLayouts(); // the designer is recreated in its new host with the same panel layout
+        bool undock = !Logic.IsUndocked;
+        Logic.IsUndocked = undock;
+        UiLayout.Current.LogicUndocked = undock;
+        if (undock)
+        {
+            if (IsLogicSelected)
+            {
+                if (Devices.Count > 0) SelectedDevice = Devices[0];
+                else Selected = null;
+            }
+            OpenLogicWindow();
+        }
+        else
+        {
+            CloseLogicWindow();
+            ShowLogic();
+            Application.Current.MainWindow?.Activate();
+        }
+        UiLayout.Save();
+    }
+
+    private void OpenLogicWindow()
+    {
+        if (_logicWindow != null)
+        {
+            if (_logicWindow.WindowState == WindowState.Minimized) _logicWindow.WindowState = WindowState.Normal;
+            _logicWindow.Activate();
+            return;
+        }
+        var window = new Views.LogicWindow(this);
+        window.Closed += (_, _) =>
+        {
+            if (!ReferenceEquals(_logicWindow, window)) return;
+            _logicWindow = null;
+            if (_shuttingDown) return;
+            UiLayout.Current.LogicWindowOpen = false;
+            UiLayout.Save();
+        };
+        _logicWindow = window;
+        UiLayout.Current.LogicWindowOpen = true;
+        UiLayout.Save();
+        window.Show();
+    }
+
+    private void CloseLogicWindow()
+    {
+        var window = _logicWindow;
+        _logicWindow = null;
+        window?.Close();
+    }
+
+    /// <summary>Reopens the undocked designer if it was open when the app last closed.</summary>
+    public void RestoreUi()
+    {
+        if (UiLayout.Current.LogicUndocked && UiLayout.Current.LogicWindowOpen) OpenLogicWindow();
     }
 
     // ---- Project files ----
 
     private async Task NewProjectAsync()
     {
-        if (Devices.Count > 0 && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
+        if ((Devices.Count > 0 || Logic.Programs.Count > 0) && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
         await ClearAsync();
         _filePath = null;
         OnPropertyChanged(nameof(Title));
@@ -202,8 +323,11 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ClearAsync()
     {
+        await Logic.StopAsync();
+        Logic.Clear();
         foreach (var d in Devices.ToList())
         {
+            await d.StopRecordAndReplayAsync();
             await d.StopAsync();
             d.RemoveAllTags();
         }
@@ -239,6 +363,7 @@ public sealed class MainViewModel : ObservableObject
                 var settings = ProjectSerializer.FromElement(dd.Settings, plugin.ServerSettingsType) ?? plugin.CreateServerSettings([]);
                 var device = CreateDevice(plugin, dd.Name, settings, dd.Faults);
                 device.AutoStart = dd.AutoStart;
+                if (dd.Scenario != null) device.ScenarioText = dd.Scenario;
                 var restoreValues = new List<(TagViewModel Tag, string Value)>();
                 foreach (var td in dd.Tags)
                 {
@@ -260,11 +385,18 @@ public sealed class MainViewModel : ObservableObject
                 foreach (var (tvm, value) in restoreValues) tvm.ValueText = value;
             }
 
+            Logic.Load(doc.Logic, doc.LogicAutoRun);
+
             _filePath = path;
             OnPropertyChanged(nameof(Title));
             if (Devices.Count > 0) SelectedDevice = Devices[0];
 
             foreach (var d in Devices.Where(d => d.AutoStart)) await d.StartAsync();
+            if (Logic.AutoRun && Logic.Programs.Count > 0)
+            {
+                Logic.Refresh(Devices, false);
+                Logic.Run();
+            }
 
             if (missing.Count > 0)
                 Views.MessageDialog.Show($"These protocols are not installed and were skipped: {string.Join(", ", missing.Distinct())}",
@@ -297,6 +429,7 @@ public sealed class MainViewModel : ObservableObject
                 Settings = ProjectSerializer.ToElement(d.Settings),
                 Faults = d.Faults,
                 Tags = d.Tags.Select(t => TagDocument.From(t.Tag)).ToList(),
+                Scenario = d.ScenarioText == ScenarioScript.Help || string.IsNullOrWhiteSpace(d.ScenarioText) ? null : d.ScenarioText,
             };
             foreach (var area in d.DataModel.Areas)
             {
@@ -310,6 +443,8 @@ public sealed class MainViewModel : ObservableObject
             }
             doc.Devices.Add(dd);
         }
+        doc.Logic = Logic.ToModels();
+        doc.LogicAutoRun = Logic.AutoRun;
         await ProjectSerializer.SaveAsync(doc, path);
         _filePath = path;
         OnPropertyChanged(nameof(Title));
@@ -318,7 +453,7 @@ public sealed class MainViewModel : ObservableObject
 
     // ---- Misc ----
 
-    private static void SetTheme(string? theme)
+    private void SetTheme(string? theme)
     {
         Application.Current.ThemeMode = theme switch
         {
@@ -326,6 +461,17 @@ public sealed class MainViewModel : ObservableObject
             "Dark" => ThemeMode.Dark,
             _ => ThemeMode.System,
         };
+        OnPropertyChanged(nameof(IsSystemTheme));
+        OnPropertyChanged(nameof(IsLightTheme));
+        OnPropertyChanged(nameof(IsDarkTheme));
+        UiLayout.Current.Theme = theme switch
+        {
+            "Light" => "Light",
+            "Dark" => "Dark",
+            _ => "System",
+        };
+        UiLayout.Save();
+        App.RaiseThemeChanged();
     }
 
     private void ShowAbout()

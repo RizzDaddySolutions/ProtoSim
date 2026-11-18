@@ -1,4 +1,5 @@
 using Opc.Ua;
+using Opc.Ua.Identity;
 using Opc.Ua.Server;
 using System.Text;
 using ProtoSim.Core.Diagnostics;
@@ -7,14 +8,32 @@ using ProtoSim.Core.Protocols;
 namespace ProtoSim.Protocols.OpcUa;
 
 /// <summary>OPC Foundation StandardServer wired to ProtoSim's data model, log, statistics and fault injection.</summary>
-internal sealed class SimulationServer(OpcUaDataModel model, OpcUaServerSettings settings, ServerContext context) : StandardServer(OpcUaConfiguration.Telemetry)
+internal sealed class SimulationServer : StandardServer
 {
+    private readonly OpcUaServerSettings settings;
+    private readonly ServerContext context;
+
+    public SimulationServer(OpcUaDataModel model, OpcUaServerSettings settings, ServerContext context) : base(OpcUaConfiguration.Telemetry)
+    {
+        this.settings = settings;
+        this.context = context;
+        // SDK 2.0.2+ requires application node managers to be registered as factories before the server starts.
+        AddNodeManager(new NodeManagerFactory(this, model, settings));
+    }
+
     public SimulationNodeManager? NodeManager { get; private set; }
 
-    protected override MasterNodeManager CreateMasterNodeManager(IServerInternal server, ApplicationConfiguration configuration)
+    /// <summary>Creates the simulation node manager when the server starts.</summary>
+    private sealed class NodeManagerFactory(SimulationServer owner, OpcUaDataModel model, OpcUaServerSettings settings) : INodeManagerFactory
     {
-        NodeManager = new SimulationNodeManager(server, configuration, model, settings);
-        return new MasterNodeManager(server, configuration, null, NodeManager);
+        public ArrayOf<string> NamespacesUris => new[] { settings.NamespaceUri };
+
+        public INodeManager Create(IServerInternal server, ApplicationConfiguration configuration)
+        {
+            var manager = new SimulationNodeManager(server, configuration, model, settings);
+            owner.NodeManager = manager;
+            return manager;
+        }
     }
 
     protected override ServerProperties LoadServerProperties() => new()
@@ -30,7 +49,8 @@ internal sealed class SimulationServer(OpcUaDataModel model, OpcUaServerSettings
     protected override void OnServerStarted(IServerInternal server)
     {
         base.OnServerStarted(server);
-        server.SessionManager.ImpersonateUser += OnImpersonateUser;
+        server.IdentityRegistry.Register(new AnonymousAuthenticator(settings.AllowAnonymous));
+        server.IdentityRegistry.Register(new UserNameAuthenticator(settings, context));
         server.SessionManager.SessionCreated += (session, _) =>
         {
             context.Statistics.OnConnected();
@@ -43,24 +63,45 @@ internal sealed class SimulationServer(OpcUaDataModel model, OpcUaServerSettings
         };
     }
 
-    private void OnImpersonateUser(object? sender, ImpersonateEventArgs args)
+    private sealed class AnonymousAuthenticator(bool allowAnonymous) : IUserTokenAuthenticator
     {
-        switch (args.NewIdentity)
+        public UserTokenType TokenType => UserTokenType.Anonymous;
+        public string? IssuedTokenProfileUri => null;
+
+        public ValueTask<AuthenticationResult> AuthenticateAsync(AuthenticationContext context, CancellationToken ct)
         {
-            case AnonymousIdentityToken when settings.AllowAnonymous:
-                return;
-            case UserNameIdentityToken token:
-                var decryptedToken = args.UserIdentityTokenHandler?.Token as UserNameIdentityToken ?? token;
-                string password = decryptedToken.Password.IsEmpty ? string.Empty : Encoding.UTF8.GetString(decryptedToken.Password.Memory.Span);
-                if (settings.UserName.Length > 0 && token.UserName == settings.UserName && password == settings.Password)
-                {
-                    args.Identity = new UserIdentity(token);
-                    return;
-                }
-                context.Log.Warn("", $"Login rejected for user '{token.UserName}'");
-                throw ServiceResultException.Create(StatusCodes.BadUserAccessDenied, "Invalid user name or password.");
-            default:
-                throw ServiceResultException.Create(StatusCodes.BadIdentityTokenRejected, "This identity token type is not allowed.");
+            if (allowAnonymous)
+                return ValueTask.FromResult(AuthenticationResult.Accept(new UserIdentity()));
+
+            return ValueTask.FromResult(AuthenticationResult.Reject(
+                ServiceResultException.Create(StatusCodes.BadIdentityTokenRejected, "Anonymous authentication is not allowed.").StatusCode));
+        }
+    }
+
+    private sealed class UserNameAuthenticator(OpcUaServerSettings settings, ServerContext serverContext) : IUserTokenAuthenticator
+    {
+        public UserTokenType TokenType => UserTokenType.UserName;
+        public string? IssuedTokenProfileUri => null;
+
+        public ValueTask<AuthenticationResult> AuthenticateAsync(AuthenticationContext authenticationContext, CancellationToken ct)
+        {
+            if (authenticationContext.TokenHandler is not UserNameIdentityTokenHandler handler)
+            {
+                return ValueTask.FromResult(AuthenticationResult.Reject(
+                    ServiceResultException.Create(StatusCodes.BadIdentityTokenRejected, "This identity token type is not allowed.").StatusCode));
+            }
+
+            byte[]? decryptedPassword = handler.DecryptedPassword;
+            string password = decryptedPassword is null || decryptedPassword.Length == 0
+                ? string.Empty
+                : Encoding.UTF8.GetString(decryptedPassword);
+
+            if (settings.UserName.Length > 0 && handler.UserName == settings.UserName && password == settings.Password)
+                return ValueTask.FromResult(AuthenticationResult.Accept(new UserIdentity(handler)));
+
+            serverContext.Log.Warn("", $"Login rejected for user '{handler.UserName}'");
+            return ValueTask.FromResult(AuthenticationResult.Reject(
+                ServiceResultException.Create(StatusCodes.BadUserAccessDenied, "Invalid user name or password.").StatusCode));
         }
     }
 

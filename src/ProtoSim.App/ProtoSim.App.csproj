@@ -43,6 +43,19 @@
     <ProjectReference Include="..\ProtoSim.Protocols.OpcUa\ProtoSim.Protocols.OpcUa.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Mqtt\ProtoSim.Protocols.Mqtt.csproj" />
     <ProjectReference Include="..\ProtoSim.Protocols.Dnp3\ProtoSim.Protocols.Dnp3.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Rest\ProtoSim.Protocols.Rest.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.SparkplugB\ProtoSim.Protocols.SparkplugB.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Bacnet\ProtoSim.Protocols.Bacnet.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Snmp\ProtoSim.Protocols.Snmp.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.MTConnect\ProtoSim.Protocols.MTConnect.csproj" />
+    <ProjectReference Include="..\ProtoSim.Protocols.Script\ProtoSim.Protocols.Script.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dirkster.AvalonDock" Version="5.0.2" />
+    <PackageReference Include="Dirkster.AvalonDock.Themes.VS2013" Version="5.0.2" />
+    <PackageReference Include="Dirkster.AvalonDock.Serializer.Xml" Version="5.0.2" />
+    <PackageReference Include="System.DirectoryServices" Version="11.0.0" />
   </ItemGroup>
 
   <Target Name="RemovePublishSymbols" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">

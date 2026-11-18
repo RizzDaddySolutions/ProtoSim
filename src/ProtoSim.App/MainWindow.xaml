@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
         xmlns:views="clr-namespace:ProtoSim.App.Views"
         Title="{Binding Title}" Width="1440" Height="900" MinWidth="980" MinHeight="600"
-        WindowStartupLocation="CenterScreen">
+        Background="{DynamicResource ApplicationWindowBackgroundBrush}" WindowStartupLocation="CenterScreen">
     <Window.InputBindings>
         <KeyBinding Key="N" Modifiers="Control" Command="{Binding NewCommand}" />
         <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenCommand}" />
@@ -13,11 +13,16 @@
         <KeyBinding Key="F5" Command="{Binding StartAllCommand}" />
         <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopAllCommand}" />
         <KeyBinding Key="F1" Command="{Binding HelpCommand}" />
+        <KeyBinding Key="L" Modifiers="Control" Command="{Binding ShowLogicCommand}" />
+        <KeyBinding Key="L" Modifiers="Control+Shift" Command="{Binding ToggleLogicDockCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
             <views:DeviceView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LogicViewModel}">
+            <views:LogicView />
         </DataTemplate>
 
         <Style x:Key="PluginMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
@@ -39,17 +44,27 @@
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
             <MenuItem Header="_Simulation">
-                <MenuItem Header="Add _device" ItemsSource="{Binding AddDeviceActions}" ItemContainerStyle="{StaticResource PluginMenuItem}" />
+                <MenuItem Header="Add _device" Padding="28,4,8,4" ItemsSource="{Binding AddDeviceActions}" ItemContainerStyle="{StaticResource PluginMenuItem}" />
                 <MenuItem Header="D_uplicate device" Command="{Binding DuplicateSelectedCommand}" />
                 <MenuItem Header="_Remove device" Command="{Binding RemoveSelectedCommand}" />
                 <Separator />
                 <MenuItem Header="_Start all devices" Command="{Binding StartAllCommand}" InputGestureText="F5" />
                 <MenuItem Header="S_top all devices" Command="{Binding StopAllCommand}" InputGestureText="Shift+F5" />
             </MenuItem>
+            <MenuItem Header="_Logic">
+                <MenuItem Header="Logic _designer" Command="{Binding ShowLogicCommand}" InputGestureText="Ctrl+L"
+                          ToolTip="Function block programs that combine tags from different devices" />
+                <MenuItem Header="_Undock designer" IsCheckable="True" IsChecked="{Binding Logic.IsUndocked, Mode=OneWay}"
+                          Command="{Binding ToggleLogicDockCommand}" InputGestureText="Ctrl+Shift+L"
+                          ToolTip="Open the designer in a window of its own instead of inside the main window" />
+            </MenuItem>
             <MenuItem Header="_View">
-                <MenuItem Header="Theme: _system" Command="{Binding SetThemeCommand}" CommandParameter="System" />
-                <MenuItem Header="Theme: _light" Command="{Binding SetThemeCommand}" CommandParameter="Light" />
-                <MenuItem Header="Theme: _dark" Command="{Binding SetThemeCommand}" CommandParameter="Dark" />
+                <MenuItem Header="Theme: _System" IsCheckable="True" IsChecked="{Binding IsSystemTheme, Mode=OneWay}"
+                          Command="{Binding SetThemeCommand}" CommandParameter="System" />
+                <MenuItem Header="Theme: _Light" IsCheckable="True" IsChecked="{Binding IsLightTheme, Mode=OneWay}"
+                          Command="{Binding SetThemeCommand}" CommandParameter="Light" />
+                <MenuItem Header="Theme: _Dark" IsCheckable="True" IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                          Command="{Binding SetThemeCommand}" CommandParameter="Dark" />
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_View help" Command="{Binding HelpCommand}" InputGestureText="F1" />
@@ -58,6 +73,40 @@
             </MenuItem>
         </Menu>
 
+        <Border DockPanel.Dock="Top" Padding="8,4" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+            <ToggleButton IsChecked="{Binding SimulationEnabled, UpdateSourceTrigger=PropertyChanged}"
+                          Height="32" Padding="10,5" HorizontalAlignment="Left" VerticalContentAlignment="Center"
+                          ToolTip="Enable or disable simulated tag values">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Margin="0,0,6,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                <Setter Property="Text" Value="&#xE768;" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SimulationEnabled}" Value="True">
+                                        <Setter Property="Text" Value="&#xE71A;" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="Enable Simulation" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SimulationEnabled}" Value="True">
+                                        <Setter Property="Text" Value="Disable Simulation" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </ToggleButton>
+        </Border>
+
         <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" />
@@ -65,7 +114,6 @@
 
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
@@ -74,15 +122,8 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="0" Margin="12,8,12,0" Padding="10,6"
-                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
-                <CheckBox Content="Enable simulated values" IsChecked="{Binding SimulationEnabled, UpdateSourceTrigger=PropertyChanged}"
-                          ToolTip="Allow enabled tags to update their simulated values."
-                          HorizontalAlignment="Left" VerticalAlignment="Center" />
-            </Border>
-
             <!-- Navigation -->
-            <Grid Grid.Row="1" Margin="12,12,6,12">
+            <Grid Grid.Row="0" Margin="12,12,6,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -104,6 +145,8 @@
                 </DockPanel>
 
                 <ListBox Grid.Row="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                         Background="{DynamicResource ApplicationPanelBackgroundBrush}"
+                         BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
@@ -125,30 +168,32 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
-                    <Button Command="{Binding StartAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Start all devices (F5)">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                            <TextBlock Text="Start all" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding StopAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Stop all devices (Shift+F5)">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE71A;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
-                            <TextBlock Text="Stop all" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove selected device">
-                        <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
-                    </Button>
+                <StackPanel Grid.Row="2" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding StartAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Start all devices (F5)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                                <TextBlock Text="Start all" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding StopAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Stop all devices (Shift+F5)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE71A;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                                <TextBlock Text="Stop all" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove selected device">
+                            <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </Grid>
 
-            <GridSplitter Grid.Row="1" Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+            <GridSplitter Grid.Row="0" Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!-- Content -->
-            <ContentControl Grid.Row="1" Grid.Column="2" Content="{Binding Selected}" Margin="6,12,12,12" Focusable="False">
+            <ContentControl Grid.Row="0" Grid.Column="2" Content="{Binding Selected}" Margin="6,12,12,12" Focusable="False">
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
                         <Style.Triggers>

@@ -2,13 +2,40 @@
   <Folder Name="/src/">
     <Project Path="src/ProtoSim.App/ProtoSim.App.csproj" />
     <Project Path="src/ProtoSim.Core/ProtoSim.Core.csproj" />
+    <Project Path="src/ProtoSim.Protocols.Bacnet/ProtoSim.Protocols.Bacnet.csproj" />
     <Project Path="src/ProtoSim.Protocols.Dnp3/ProtoSim.Protocols.Dnp3.csproj" />
     <Project Path="src/ProtoSim.Protocols.ModbusTcp/ProtoSim.Protocols.ModbusTcp.csproj" />
     <Project Path="src/ProtoSim.Protocols.Mqtt/ProtoSim.Protocols.Mqtt.csproj" />
+    <Project Path="src/ProtoSim.Protocols.MTConnect/ProtoSim.Protocols.MTConnect.csproj" />
     <Project Path="src/ProtoSim.Protocols.OpcUa/ProtoSim.Protocols.OpcUa.csproj" />
+    <Project Path="src/ProtoSim.Protocols.Rest/ProtoSim.Protocols.Rest.csproj" />
+    <Project Path="src/ProtoSim.Protocols.Script/ProtoSim.Protocols.Script.csproj" />
+    <Project Path="src/ProtoSim.Protocols.Snmp/ProtoSim.Protocols.Snmp.csproj" />
+    <Project Path="src/ProtoSim.Protocols.SparkplugB/ProtoSim.Protocols.SparkplugB.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OpcUa.Tests/ProtoSim.OpcUa.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Rest.Tests/">
+    <Project Path="tests/Rest.Tests/ProtoSim.Rest.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Bacnet.Tests/">
+    <Project Path="tests/Bacnet.Tests/ProtoSim.Bacnet.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/MTConnect.Tests/">
+    <Project Path="tests/MTConnect.Tests/ProtoSim.MTConnect.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Core.Tests/">
+    <Project Path="tests/Core.Tests/ProtoSim.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Script.Tests/">
+    <Project Path="tests/Script.Tests/ProtoSim.Script.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Snmp.Tests/">
+    <Project Path="tests/Snmp.Tests/ProtoSim.Snmp.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/SparkplugB.Tests/">
+    <Project Path="tests/SparkplugB.Tests/ProtoSim.SparkplugB.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/ModbusTcp.Tests/">
     <Project Path="tests/ModbusTcp.Tests/ProtoSim.ModbusTcp.Tests.csproj" />

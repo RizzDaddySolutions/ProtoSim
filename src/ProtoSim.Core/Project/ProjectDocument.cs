@@ -12,6 +12,12 @@ public sealed class ProjectDocument
     public int Version { get; set; } = 1;
     public List<DeviceDocument> Devices { get; set; } = [];
     // Older files may also contain a "clients" list; it is ignored when loading.
+
+    /// <summary>Function block programs that wire tags across devices.</summary>
+    public List<Logic.LogicProgram> Logic { get; set; } = [];
+
+    /// <summary>Start the logic engine when the project opens.</summary>
+    public bool LogicAutoRun { get; set; }
 }
 
 public sealed class DeviceDocument
@@ -25,6 +31,9 @@ public sealed class DeviceDocument
 
     /// <summary>Non-zero values per area, keyed by area short name.</summary>
     public Dictionary<string, Dictionary<int, ushort>> Data { get; set; } = [];
+
+    /// <summary>Scenario script text; null in files from before scenarios existed.</summary>
+    public string? Scenario { get; set; }
 }
 
 public sealed class TagDocument

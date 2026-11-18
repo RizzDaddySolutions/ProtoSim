@@ -55,14 +55,17 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         _model.ValueChanged += OnValueChanged;
     }
 
+    /// <summary>Stops listening to the data model, which outlives the server. Safe to call more than once.</summary>
+    public void Detach()
+    {
+        _model.VariableAdded -= OnVariableAdded;
+        _model.VariableRemoved -= OnVariableRemoved;
+        _model.ValueChanged -= OnValueChanged;
+    }
+
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _model.VariableAdded -= OnVariableAdded;
-            _model.VariableRemoved -= OnVariableRemoved;
-            _model.ValueChanged -= OnValueChanged;
-        }
+        if (disposing) Detach();
         base.Dispose(disposing);
     }
 
@@ -86,7 +89,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         lock (Lock)
         {
             if (!_nodes.TryGetValue(v, out var node)) return;
-            node.Value = new Variant(v.Value);
+            node.Value = ToVariant(v.Value, v.DataType);
             node.Timestamp = DateTime.UtcNow;
             node.StatusCode = StatusCodes.Good;
             node.ClearChangeMasks(SystemContext, false);
@@ -140,7 +143,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             UserAccessLevel = access,
             MinimumSamplingInterval = _settings.MinSamplingIntervalMs,
             Historizing = false,
-            Value = new Variant(v.Value),
+            Value = ToVariant(v.Value, v.DataType),
             StatusCode = StatusCodes.Good,
             Timestamp = DateTime.UtcNow,
         };
@@ -155,9 +158,9 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         if (!_settings.AllowWrites) return StatusCodes.BadNotWritable;
         try
         {
-            var converted = ValueConverter.Coerce(value.Value, v.DataType);
+            var converted = ValueConverter.Coerce(value.AsBoxedObject(), v.DataType);
             OpcUaDataModel.SetRemote(v, converted);
-            value = new Variant(converted);
+            value = ToVariant(converted, v.DataType);
             return ServiceResult.Good;
         }
         catch (Exception)
@@ -165,4 +168,19 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             return StatusCodes.BadTypeMismatch;
         }
     }
+
+    private static Variant ToVariant(object value, TagDataType dataType) => dataType switch
+    {
+        TagDataType.Bool => Variant.From((bool)value),
+        TagDataType.Int16 => Variant.From((short)value),
+        TagDataType.UInt16 => Variant.From((ushort)value),
+        TagDataType.Int32 => Variant.From((int)value),
+        TagDataType.UInt32 => Variant.From((uint)value),
+        TagDataType.Int64 => Variant.From((long)value),
+        TagDataType.UInt64 => Variant.From((ulong)value),
+        TagDataType.Float32 => Variant.From((float)value),
+        TagDataType.Float64 => Variant.From((double)value),
+        TagDataType.String => Variant.From((string)value),
+        _ => throw new ArgumentOutOfRangeException(nameof(dataType)),
+    };
 }

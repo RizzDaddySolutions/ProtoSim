@@ -28,7 +28,8 @@ public sealed class PropertyItem : ObservableObject, INotifyDataErrorInfo
         var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
         IsBool = type == typeof(bool);
         IsEnum = type.IsEnum;
-        IsText = !IsBool && !IsEnum;
+        IsMultiline = type == typeof(string) && property.GetCustomAttribute<DataTypeAttribute>()?.DataType == DataType.MultilineText;
+        IsText = !IsBool && !IsEnum && !IsMultiline;
         EnumValues = IsEnum ? Enum.GetValues(type) : null;
     }
 
@@ -39,6 +40,9 @@ public sealed class PropertyItem : ObservableObject, INotifyDataErrorInfo
     public bool IsBool { get; }
     public bool IsEnum { get; }
     public bool IsText { get; }
+
+    /// <summary>A string marked [DataType(DataType.MultilineText)]: edited in a tall, monospaced box.</summary>
+    public bool IsMultiline { get; }
     public IEnumerable? EnumValues { get; }
 
     /// <summary>Raised after a value is successfully written to the target.</summary>
