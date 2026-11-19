@@ -369,7 +369,7 @@ offset_s,tag,value
   <h2>OPC UA</h2>
   <p>An OPC UA server (<code>opc.tcp</code>), default port <code>4840</code>.</p>
   <h3>Tag addresses</h3>
-  <p>A folder path such as <code>Plant/Tank1/Level</code>. It appears under <code>Objects/&lt;root folder&gt;</code> with NodeId <code>ns=2;s=Plant/Tank1/Level</code>. Folders are created automatically and nodes appear and disappear live as tags are added or removed.</p>
+  <p>A path whose levels are separated by <code>.</code> or <code>/</code>, such as <code>BOB.MARY.SUE.PV</code> or <code>Plant/Tank1/Level</code>. Each level is a folder, so <code>BOB.MARY.SUE.PV</code> browses as <strong>Objects &gt; BOB &gt; MARY &gt; SUE &gt; PV</strong> with the NodeId as typed, <code>ns=2;s=BOB.MARY.SUE.PV</code>. Set <em>Root folder</em> in the settings to put every tag under one folder instead. Folders are created automatically and nodes appear and disappear live as tags are added or removed.</p>
   <h3>Security</h3>
   <p>None, Basic256Sha256 Sign, or Sign &amp; Encrypt; anonymous and/or user-name login. A self-signed certificate is created on first start in <code>%LocalAppData%\ProtoSim\pki</code>. Untrusted client certificates can be accepted automatically.</p>
 </section>

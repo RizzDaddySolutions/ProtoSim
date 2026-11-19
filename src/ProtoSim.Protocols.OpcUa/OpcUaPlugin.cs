@@ -27,7 +27,7 @@ public sealed class OpcUaPlugin : IProtocolPlugin
     public string DescribeClient(object clientSettings) => ((OpcUaClientSettings)clientSettings).EndpointUrl;
 
     public string AddressHelp =>
-        "Folder path such as Plant/Tank1/Level. It appears under Objects/<root folder> with NodeId ns=2;s=Plant/Tank1/Level. Folders are created automatically. Word order is ignored.";
+        "Path with levels separated by . or /, such as BOB.MARY.SUE.PV or Plant/Tank1/Level. Each level is a folder under Objects (or under the root folder, if one is set), so BOB.MARY.SUE.PV browses as Objects > BOB > MARY > SUE > PV with NodeId ns=2;s=BOB.MARY.SUE.PV. Word order is ignored.";
 
     public string DefaultTagAddress(int n) => $"Tags/Tag{n}";
 

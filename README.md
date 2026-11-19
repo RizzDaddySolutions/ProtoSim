@@ -80,7 +80,7 @@ The logic designer now has a compact top bar, a menu for layout and run options,
 
 Built on the official OPC Foundation .NET Standard stack (2.0.2).
 
-- **Server:** each tag becomes a variable node under `Objects/<root folder>`. A tag address like `Plant/Tank1/Level` creates the folders and the NodeId `ns=2;s=Plant/Tank1/Level`. Nodes appear and disappear live as tags are added or removed, and simulated values are pushed to subscriptions.
+- **Server:** each tag becomes a variable node in a folder tree under `Objects`. Every `.` or `/` in the address is a folder level: `BOB.MARY.SUE.PV` browses as Objects > BOB > MARY > SUE > PV, with the NodeId as typed (`ns=2;s=BOB.MARY.SUE.PV`). An optional root folder setting puts everything under one folder. Nodes appear and disappear live as tags are added or removed, and simulated values are pushed to subscriptions.
 - **Security:** None, Basic256Sha256 Sign, and Sign & Encrypt. Login can be anonymous, with a user name and password, or both. A self-signed application certificate is created on first start in `%LocalAppData%\ProtoSim\pki`, and untrusted client certificates can be accepted automatically.
 - **Settings:** host name, port (4840), endpoint path, namespace URI, root folder, read-only mode, maximum sessions and minimum sampling interval.
 - **Fault injection:** delay, simulated timeouts (`BadTimeout`), error responses (codes are mapped to OPC UA status codes such as `BadInternalError` and `BadNodeIdUnknown`), and closing sessions.

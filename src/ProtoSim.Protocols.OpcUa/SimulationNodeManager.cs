@@ -6,7 +6,8 @@ namespace ProtoSim.Protocols.OpcUa;
 
 /// <summary>
 /// Exposes the variables of an <see cref="OpcUaDataModel"/> as an OPC UA address space:
-/// Objects/&lt;RootFolder&gt;/&lt;path folders&gt;/&lt;variable&gt;, NodeId ns=X;s=&lt;path&gt;.
+/// Objects/[&lt;RootFolder&gt;/]&lt;folders&gt;/&lt;variable&gt;. Each '.' or '/' in a tag address is a folder level, so
+/// BOB.MARY.SUE.PV browses as Objects/BOB/MARY/SUE/PV with NodeId ns=X;s=BOB.MARY.SUE.PV.
 /// Tags added or removed while running appear and disappear live.
 /// </summary>
 internal sealed class SimulationNodeManager : CustomNodeManager2
@@ -16,6 +17,9 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
     private readonly Dictionary<string, FolderState> _folders = new(StringComparer.Ordinal);
     private readonly Dictionary<OpcUaVariable, BaseDataVariableState> _nodes = [];
     private FolderState? _root;
+
+    // References from the Objects folder to top-level nodes, collected while the address space is created.
+    private IList<IReference>? _objectsReferences;
 
     public SimulationNodeManager(IServerInternal server, ApplicationConfiguration configuration, OpcUaDataModel model, OpcUaServerSettings settings)
         : base(server, configuration, settings.NamespaceUri)
@@ -31,23 +35,25 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             if (!externalReferences.TryGetValue(ObjectIds.ObjectsFolder, out var references))
                 externalReferences[ObjectIds.ObjectsFolder] = references = new List<IReference>();
 
-            string rootName = string.IsNullOrWhiteSpace(_settings.RootFolder) ? "ProtoSim" : _settings.RootFolder.Trim();
-            _root = new FolderState(null)
+            _objectsReferences = references;
+            if (!string.IsNullOrWhiteSpace(_settings.RootFolder))
             {
-                SymbolicName = rootName,
-                ReferenceTypeId = new NodeId(ReferenceTypes.Organizes),
-                TypeDefinitionId = ObjectTypeIds.FolderType,
-                NodeId = new NodeId(rootName, NamespaceIndex),
-                BrowseName = new QualifiedName(rootName, NamespaceIndex),
-                DisplayName = new LocalizedText("en", rootName),
-                EventNotifier = EventNotifiers.SubscribeToEvents,
-            };
-            _root.AddReference(new NodeId(ReferenceTypes.Organizes), true, new ExpandedNodeId(ObjectIds.ObjectsFolder));
-            references.Add(new NodeStateReference(new NodeId(ReferenceTypes.Organizes), false, _root));
-            AddRootNotifier(_root);
-            AddPredefinedNode(SystemContext, _root);
+                string rootName = _settings.RootFolder.Trim();
+                _root = new FolderState(null)
+                {
+                    SymbolicName = rootName,
+                    ReferenceTypeId = new NodeId(ReferenceTypes.Organizes),
+                    TypeDefinitionId = ObjectTypeIds.FolderType,
+                    NodeId = new NodeId(rootName, NamespaceIndex),
+                    BrowseName = new QualifiedName(rootName, NamespaceIndex),
+                    DisplayName = new LocalizedText("en", rootName),
+                    EventNotifier = EventNotifiers.SubscribeToEvents,
+                };
+                AddToObjects(_root);
+            }
 
             foreach (var v in _model.Variables) AddVariableNode(v);
+            _objectsReferences = null;
         }
 
         _model.VariableAdded += OnVariableAdded;
@@ -111,9 +117,26 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
     private byte AccessFor(OpcUaVariable v) =>
         _settings.AllowWrites && v.ClientWritable ? AccessLevels.CurrentReadOrWrite : AccessLevels.CurrentRead;
 
-    private FolderState GetFolder(string folderPath)
+    /// <summary>Links a top-level node into the standard Objects folder (also while the server is running).</summary>
+    private void AddToObjects(BaseInstanceState node)
     {
-        if (folderPath.Length == 0) return _root!;
+        node.AddReference(ReferenceTypeIds.Organizes, true, ObjectIds.ObjectsFolder);
+        if (node is BaseObjectState obj)
+        {
+            obj.EventNotifier = EventNotifiers.SubscribeToEvents;
+            AddRootNotifier(obj);
+        }
+        AddPredefinedNode(SystemContext, node);
+        var reference = new NodeStateReference(ReferenceTypeIds.Organizes, false, node.NodeId);
+        if (_objectsReferences != null) _objectsReferences.Add(reference);
+        // Not awaited: we hold this manager's lock, and the Objects folder belongs to the core node manager.
+        else _ = Server.NodeManager.AddReferencesAsync(ObjectIds.ObjectsFolder, new List<IReference> { reference }, CancellationToken.None).AsTask();
+    }
+
+    /// <summary>The folder for a '/'-joined folder path; null means the node goes straight into Objects.</summary>
+    private FolderState? GetFolder(string folderPath)
+    {
+        if (folderPath.Length == 0) return _root;
         if (_folders.TryGetValue(folderPath, out var folder)) return folder;
 
         int slash = folderPath.LastIndexOf('/');
@@ -130,8 +153,15 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             DisplayName = new LocalizedText("en", name),
             EventNotifier = EventNotifiers.None,
         };
-        parent.AddChild(folder);
-        AddPredefinedNode(SystemContext, folder);
+        if (parent == null)
+        {
+            AddToObjects(folder);
+        }
+        else
+        {
+            parent.AddChild(folder);
+            AddPredefinedNode(SystemContext, folder);
+        }
         _folders[folderPath] = folder;
         return folder;
     }
@@ -147,7 +177,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             SymbolicName = v.Name,
             ReferenceTypeId = new NodeId(ReferenceTypes.Organizes),
             TypeDefinitionId = VariableTypeIds.BaseDataVariableType,
-            NodeId = new NodeId(v.Path, NamespaceIndex),
+            NodeId = new NodeId(v.NodeIdText, NamespaceIndex),
             BrowseName = new QualifiedName(v.Name, NamespaceIndex),
             DisplayName = new LocalizedText("en", v.Name),
             WriteMask = AttributeWriteMask.None,
@@ -163,8 +193,15 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
             Timestamp = DateTime.UtcNow,
         };
         node.OnSimpleWriteValue = (ISystemContext context, NodeState n, ref Variant value) => OnClientWrite(v, ref value);
-        parent.AddChild(node);
-        AddPredefinedNode(SystemContext, node);
+        if (parent == null)
+        {
+            AddToObjects(node); // a single-level address such as PV sits directly in Objects
+        }
+        else
+        {
+            parent.AddChild(node);
+            AddPredefinedNode(SystemContext, node);
+        }
         _nodes[v] = node;
     }
 

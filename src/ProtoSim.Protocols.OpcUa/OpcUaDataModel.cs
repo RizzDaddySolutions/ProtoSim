@@ -2,22 +2,30 @@ using ProtoSim.Core.Data;
 
 namespace ProtoSim.Protocols.OpcUa;
 
-/// <summary>One simulated variable. Its path ("Plant/Tank1/Level") becomes the string NodeId.</summary>
+/// <summary>
+/// One simulated variable. Its address as typed ("BOB.MARY.SUE.PV" or "Plant/Tank1/Level") becomes the string NodeId;
+/// every '.' or '/' starts a new folder level, so both appear as a tree under Objects.
+/// </summary>
 public sealed class OpcUaVariable
 {
     private readonly object _gate = new();
     private object _value;
 
-    internal OpcUaVariable(string path, TagDataType type)
+    internal OpcUaVariable(string nodeIdText, TagDataType type)
     {
-        Path = path;
+        NodeIdText = nodeIdText;
+        Path = OpcUaDataModel.CanonicalPath(nodeIdText);
         DataType = type;
         _value = ValueConverter.Coerce(null, type);
-        var parts = path.Split('/');
+        var parts = Path.Split('/');
         Name = parts[^1];
         FolderPath = parts.Length > 1 ? string.Join('/', parts[..^1]) : string.Empty;
     }
 
+    /// <summary>The string NodeId identifier, e.g. BOB.MARY.SUE.PV.</summary>
+    public string NodeIdText { get; }
+
+    /// <summary>Folder levels joined with '/', e.g. BOB/MARY/SUE/PV. Two addresses with the same levels are the same variable.</summary>
     public string Path { get; }
     public string Name { get; }
     public string FolderPath { get; }
@@ -85,14 +93,15 @@ public sealed class OpcUaDataModel : IDeviceDataModel
         get { lock (_gate) return _variables.Values.ToList(); }
     }
 
-    public OpcUaVariable? Find(string path)
+    public OpcUaVariable? Find(string address)
     {
-        lock (_gate) return _variables.GetValueOrDefault(path);
+        lock (_gate) return _variables.GetValueOrDefault(CanonicalPath(NormalizePath(address)));
     }
 
     public ITagBinding Bind(string address, TagDataType type, WordOrder order)
     {
-        var path = NormalizePath(address);
+        var nodeIdText = NormalizePath(address);
+        var path = CanonicalPath(nodeIdText);
         OpcUaVariable variable;
         bool added = false;
         lock (_gate)
@@ -110,7 +119,7 @@ public sealed class OpcUaDataModel : IDeviceDataModel
                 var parentClash = _variables.Keys.FirstOrDefault(k => path.StartsWith(k + "/", StringComparison.Ordinal));
                 if (parentClash != null)
                     throw new FormatException($"'{parentClash}' is a variable, so it cannot also be a folder.");
-                variable = new OpcUaVariable(path, type);
+                variable = new OpcUaVariable(nodeIdText, type);
                 _variables[path] = variable;
                 added = true;
             }
@@ -138,7 +147,10 @@ public sealed class OpcUaDataModel : IDeviceDataModel
     /// <summary>Called by the server when a client writes; does not echo back to the server.</summary>
     internal static void SetRemote(OpcUaVariable variable, object value) => variable.SetValue(value);
 
-    /// <summary>"Plant.Tank1/ Level" → "Plant.Tank1/Level". Segments are separated by '/'.</summary>
+    /// <summary>
+    /// The NodeId identifier for an address: "BOB . MARY.PV" → "BOB.MARY.PV", "Plant\\Tank1/ Level" → "Plant/Tank1/Level".
+    /// '.' and '/' separate folder levels and are kept as typed; spaces around levels are trimmed.
+    /// </summary>
     public static string NormalizePath(string? address)
     {
         var raw = (address ?? string.Empty).Trim();
@@ -148,16 +160,25 @@ public sealed class OpcUaDataModel : IDeviceDataModel
             if (s < 0) throw new FormatException("Only string node IDs (ns=…;s=Path) are supported for simulated variables.");
             raw = raw[(s + 3)..];
         }
-        var segments = raw.Split(['/', '\\'], StringSplitOptions.TrimEntries);
-        if (segments.Length == 0 || segments.Any(s => s.Length == 0))
-            throw new FormatException("Enter a path like Plant/Tank1/Level (no empty segments).");
-        foreach (var seg in segments)
+        var sb = new System.Text.StringBuilder(raw.Length);
+        int start = 0;
+        for (int i = 0; i <= raw.Length; i++)
         {
+            if (i < raw.Length && raw[i] is not ('/' or '\\' or '.')) continue;
+            var seg = raw[start..i].Trim();
+            if (seg.Length == 0)
+                throw new FormatException("Enter a path like BOB.MARY.SUE.PV or Plant/Tank1/Level (no empty levels).");
             if (seg.Any(c => char.IsControl(c) || c is ':' or ';' or '<' or '>' or '&'))
                 throw new FormatException($"'{seg}' contains a character that is not allowed in a node name.");
+            sb.Append(seg);
+            if (i < raw.Length) sb.Append(raw[i] == '.' ? '.' : '/');
+            start = i + 1;
         }
-        return string.Join('/', segments);
+        return sb.ToString();
     }
+
+    /// <summary>The folder levels of a normalized address joined with '/': "BOB.MARY.PV" → "BOB/MARY/PV".</summary>
+    public static string CanonicalPath(string nodeIdText) => nodeIdText.Replace('.', '/');
 }
 
 internal sealed class OpcUaTagBinding : ITagBinding

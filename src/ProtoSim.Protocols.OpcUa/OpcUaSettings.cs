@@ -20,8 +20,9 @@ public sealed class OpcUaServerSettings
     [Display(Name = "Namespace URI", GroupName = "Application", Order = 11, Description = "Namespace of the simulated variables (normally namespace index 2).")]
     public string NamespaceUri { get; set; } = "urn:protosim:simulation";
 
-    [Display(Name = "Root folder", GroupName = "Application", Order = 12, Description = "Folder under Objects that holds all simulated variables.")]
-    public string RootFolder { get; set; } = "ProtoSim";
+    [Display(Name = "Root folder", GroupName = "Application", Order = 12,
+        Description = "Optional folder under Objects that holds all simulated variables. Empty = the tag folders (BOB in BOB.MARY.SUE.PV) sit directly under Objects.")]
+    public string RootFolder { get; set; } = string.Empty;
 
     [Display(Name = "Allow unsecured (None)", GroupName = "Security", Order = 20, Description = "Offer an endpoint without signing or encryption. Easiest for testing.")]
     public bool AllowSecurityNone { get; set; } = true;

@@ -16,11 +16,15 @@ public class DataModelTests
     [InlineData("Plant\\Tank1", "Plant/Tank1")]
     [InlineData("ns=2;s=A/B", "A/B")]
     [InlineData("Motor.Speed", "Motor.Speed")]
+    [InlineData(" BOB . MARY.SUE.PV ", "BOB.MARY.SUE.PV")]
+    [InlineData("Plant.Tank1/ Level", "Plant.Tank1/Level")]
     public void NormalizesPaths(string input, string expected) => Assert.Equal(expected, OpcUaDataModel.NormalizePath(input));
 
     [Theory]
     [InlineData("")]
     [InlineData("A//B")]
+    [InlineData("A..B")]
+    [InlineData("A.")]
     [InlineData("ns=2;i=5")]
     [InlineData("A/B;C")]
     public void RejectsBadPaths(string input) => Assert.Throws<FormatException>(() => OpcUaDataModel.NormalizePath(input));
@@ -159,6 +163,33 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
         var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Level", "55.5"), TestContext.Current.CancellationToken);
         Assert.True(r.Success, r.Message);
         Assert.Equal(55.5, fx.Setpoint.Read());
+    }
+
+    [Fact]
+    public async Task DottedAddress_BrowsesAsTreeUnderObjects()
+    {
+        var pv = fx.Model.Bind("BOB.MARY.SUE.PV", TagDataType.Float64, WordOrder.ABCD); // added while running
+        pv.Write(4.5);
+        try
+        {
+            await using var client = fx.NewClient();
+            var r = await client.ExecuteAsync(Req(OpcUaOperation.Browse), TestContext.Current.CancellationToken);
+            Assert.True(r.Success, r.Message);
+            // Indentation is two spaces per level below Objects.
+            Assert.Contains(r.Rows, row => row.Address == "BOB/" && row.Raw == "ns=2;s=BOB");
+            Assert.Contains(r.Rows, row => row.Address == "  MARY/" && row.Raw == "ns=2;s=BOB/MARY");
+            Assert.Contains(r.Rows, row => row.Address == "    SUE/" && row.Raw == "ns=2;s=BOB/MARY/SUE");
+            var leaf = Assert.Single(r.Rows, row => row.Raw == "ns=2;s=BOB.MARY.SUE.PV");
+            Assert.Equal("      PV", leaf.Address);
+            Assert.Equal("4.5", leaf.Value);
+
+            var read = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=BOB.MARY.SUE.PV"), TestContext.Current.CancellationToken);
+            Assert.Equal(4.5, Assert.Single(read.Rows).Typed);
+        }
+        finally
+        {
+            pv.Dispose();
+        }
     }
 
     [Fact]
