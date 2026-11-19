@@ -1,14 +1,16 @@
-using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Threading;
+using Microsoft.Win32;
 using ProtoSim.App.Mvvm;
 using ProtoSim.App.Services;
 using ProtoSim.Core;
 using ProtoSim.Core.Project;
 using ProtoSim.Core.Protocols;
 using ProtoSim.Core.Simulation;
-using Microsoft.Win32;
+using System.Collections.ObjectModel;
+using System.Reflection;
+using System.Text;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace ProtoSim.App.ViewModels;
 
@@ -569,12 +571,28 @@ public sealed class MainViewModel : ObservableObject
 
     private static void ShowHelp()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Help", "index.html");
-        if (!File.Exists(path))
+        // Extract the HTML resource to a temporary file
+        string tempFilePath = Path.Combine(Path.GetTempPath(), "ProtoSim Help.html");
+
+        using Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ProtoSim.App.Help.index.html");
+
+        if (resourceStream == null)
         {
-            Views.MessageDialog.Show($"The help file was not found:{Environment.NewLine}{path}", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Console.WriteLine($"Resource 'ProtoSim.App.Help.index.html' not found.");
             return;
         }
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+
+        using FileStream fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
+        resourceStream.CopyTo(fileStream);
+
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(tempFilePath) { UseShellExecute = true });
+
+        //var path = Path.Combine(AppContext.BaseDirectory, "Help", "index.html");
+        //if (!File.Exists(path))
+        //{
+        //    Views.MessageDialog.Show($"The help file was not found:{Environment.NewLine}{path}", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
+        //    return;
+        //}
+        //System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
     }
 }

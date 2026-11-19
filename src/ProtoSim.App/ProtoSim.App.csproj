@@ -27,7 +27,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Help\index.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="icon.ico" />
+    <EmbeddedResource Include="Help\index.html" />
     <!-- Help opens in the default browser, so it ships as a loose file next to the executable. -->
     <None Update="Help\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
