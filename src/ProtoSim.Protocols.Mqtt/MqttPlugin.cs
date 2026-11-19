@@ -10,6 +10,17 @@ public sealed class MqttPlugin : IProtocolPlugin
     public string DisplayName => "MQTT";
     public string Description => "MQTT broker with topic-based simulated tags and external publish/subscribe clients.";
     public Type ServerSettingsType => typeof(MqttServerSettings);
+    public Type? ClientSettingsType => typeof(MqttClientSettings);
+    public Type? ClientRequestType => typeof(MqttClientRequest);
+    public object CreateClientSettings() => new MqttClientSettings();
+    public object CreateClientSettingsFor(object serverSettings) => new MqttClientSettings { Host = "127.0.0.1", Port = ((MqttServerSettings)serverSettings).Port };
+    public object CreateClientRequest() => new MqttClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new MqttTopicClient((MqttClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (MqttClientSettings)clientSettings;
+        return $"{s.Host}:{s.Port}{(s.UseTls ? " TLS" : "")}";
+    }
     public string AddressHelp => "MQTT topic, for example sensors/temperature or plant/pump/running.";
     public string DefaultTagAddress(int n) => $"protosim/tag{n}";
 

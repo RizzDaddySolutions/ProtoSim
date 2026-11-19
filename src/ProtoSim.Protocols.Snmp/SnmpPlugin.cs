@@ -10,6 +10,25 @@ public sealed class SnmpPlugin : IProtocolPlugin
     public string DisplayName => "SNMP agent";
     public string Description => "SNMPv1/v2c agent with the system group plus one scalar OID per tag: Get, GetNext, GetBulk, Set, community strings and v2c traps.";
     public Type ServerSettingsType => typeof(SnmpSettings);
+    public Type? ClientSettingsType => typeof(SnmpManagerSettings);
+    public Type? ClientRequestType => typeof(SnmpManagerRequest);
+    public object CreateClientSettings() => new SnmpManagerSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (SnmpSettings)serverSettings;
+        return new SnmpManagerSettings
+        {
+            Host = "127.0.0.1", Port = s.Port, ReadCommunity = s.ReadCommunity, WriteCommunity = s.WriteCommunity,
+            Version = s.AllowV2c ? SnmpManagerVersion.V2c : SnmpManagerVersion.V1,
+        };
+    }
+    public object CreateClientRequest() => new SnmpManagerRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new SnmpManager((SnmpManagerSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (SnmpManagerSettings)clientSettings;
+        return $"{s.Host}:{s.Port} · {s.Version}";
+    }
     public string AddressHelp => SnmpAddress.Help;
     public string DefaultTagAddress(int n) => $"1.3.6.1.4.1.99999.1.{n}.0";
 

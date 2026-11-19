@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -16,7 +16,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="xunit.v3" Version="4.0.3" />
-    <!-- Only the tests need an OPC UA client (to exercise the simulated server). -->
     <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="2.0.2" />
   </ItemGroup>
 

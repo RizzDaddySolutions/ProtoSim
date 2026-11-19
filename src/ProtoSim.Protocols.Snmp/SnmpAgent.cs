@@ -437,7 +437,7 @@ public sealed class SnmpAgent : IProtocolServer
         {
             var e = Exact(view, request[i].Id.ToNumerical());
             if (e == null) return (v1 ? ErrorCode.NoSuchName : ErrorCode.NoCreation, i + 1, request);
-            if (e.Tag == null) return (v1 ? ErrorCode.ReadOnly : ErrorCode.NotWritable, i + 1, request);
+            if (e.Tag == null || !e.Tag.ClientWritable) return (v1 ? ErrorCode.ReadOnly : ErrorCode.NotWritable, i + 1, request);
             if (request[i].Data.TypeCode != SnmpAddress.TypeOf(e.Syntax)) return (v1 ? ErrorCode.BadValue : ErrorCode.WrongType, i + 1, request);
             var value = SnmpAddress.Decode(e.Syntax, request[i].Data, e.Tag.DataType);
             if (value == null) return (v1 ? ErrorCode.BadValue : ErrorCode.WrongValue, i + 1, request);

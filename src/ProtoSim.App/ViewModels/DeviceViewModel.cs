@@ -593,6 +593,7 @@ public sealed class DeviceViewModel : ObservableObject
             WordOrder = src.WordOrder,
             Description = src.Description,
             Simulation = src.Simulation.Clone(),
+            Writable = src.Writable,
         });
     }
 
@@ -602,6 +603,7 @@ public sealed class DeviceViewModel : ObservableObject
         _engine.Remove(vm.Tag);
         vm.Detach();
         Tags.Remove(vm);
+        if (ReferenceEquals(SelectedTag, vm)) SelectedTag = null;
     }
 
     public void RemoveAllTags()

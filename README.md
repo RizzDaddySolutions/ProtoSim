@@ -1,6 +1,6 @@
 # ProtoSim
 
-ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with the built-in Fluent theme). It simulates devices that real clients (SCADA, HMI, PLC programs) can talk to. Each protocol is a plugin. **Modbus TCP** and **OPC UA** are included.
+ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with the built-in Fluent theme). It simulates devices that real clients (SCADA, HMI, PLC programs) can talk to, and its own clients pull data in from external servers and devices. Each protocol is a plugin.
 
 ![Simulated OPC UA device](docs/screenshots/opcua-device.png)
 
@@ -21,7 +21,8 @@ The logic designer now has a compact top bar, a menu for layout and run options,
 **Simulated devices (servers)**
 - Run any number of devices at once, mixing protocols, each on its own port, with a start/stop control and live status.
 - **Tags** map typed values (Bool, Int16/32/64, UInt16/32/64, Float32/64, String) onto protocol addresses: Modbus registers, or OPC UA variables in a folder tree.
-- **Value simulation** per tag: ramp, sine, triangle, square, random, random walk, counter and toggle, each with its own min/max/period/step/update rate. Tags can be imported and exported as CSV.
+- **Value simulation** per tag: ramp, sine, triangle, square, random, random walk, counter and toggle, each with its own min/max/period/step/update rate. **None** holds the value still: it changes only when a client, you, a scenario or logic writes it. Tags can be imported and exported as CSV.
+- **Writeable** per tag: clear the box and external clients can read the tag but not write it. The protocol's own "not writable" error comes back (Modbus exception 02, OPC UA `BadNotWritable`, BACnet write-access-denied, SNMP `notWritable`, HTTP 403); MQTT publishes and Sparkplug commands to it are dropped and logged. Local writes (the grid, simulation, scenarios, logic, client mappings) still work.
 - **Traffic log** with decoded summaries (and hex bytes for Modbus), filtering, pause, auto-scroll, and export to .log/.csv.
 - **Connections and statistics**: connected clients or sessions (with a button to drop each one), requests/s, errors and unanswered requests.
 - **Fault injection** (applies while running): response delay and jitter, timeouts, error responses, and random disconnects.
@@ -29,8 +30,26 @@ The logic designer now has a compact top bar, a menu for layout and run options,
 - **Logic designer**: drag-and-drop function block programs that read and write tags on *any* device in the project, so separate simulators behave like one real system (a Modbus level sensor driving an OPC UA pump command, a BACnet setpoint feeding a PID loop...). About 40 blocks: tag in/out, constants, clock, AND/OR/XOR/NOT, SR/RS latches, edge detection, comparisons and hysteresis, math, scale/limit/select, TON/TOF/TP timers, CTU/CTD counters, PID, first-order lag, integrator (tank), rate limiter, noise and dead time. Programs run on a scan cycle with live values on the canvas, feedback loops allowed, edits applied while running, and are saved with the project. Open it from the **Logic** menu; palette and project-tag panels can be closed or hidden individually and restored from **Panels**, with the layout remembered between runs. The **Options** menu controls auto-run, restores the default panel layout, and docks or undocks the designer. Right-click a block to edit its properties or delete it; program and block settings are available from the selection editor. The color-coded run status is right-aligned beside the program selector, with program controls at the upper right.
 - **Scenario scripts**: a timed script per device, saved with the project, e.g. `0 ramp Tank level from 20 to 80 over 30s`, `30s set Pump running = false`, `+5s fault error 50 code 4`, `60s device stop`, with `repeat` to loop. Fault settings changed by a scenario are restored when it ends.
 
+**Clients**
+- Add a client from **Simulation > Add client** or the **Clients** list on the left to connect to any external server or device, real or simulated. Send a request once or poll it on an interval, with decoded results, success/failure counters and a traffic log.
+- **Copy into tags**: map result rows to project tags (`Device/Tag`). After every successful request the values are written into those tags, so simulated servers re-publish them and logic programs can use them. Mapped tags pause their own simulation while polling. A client can start polling when the project opens.
+
+| Client | What it does |
+|---|---|
+| Modbus TCP | Every function code the server supports: read coils/inputs/registers, single and multiple writes, mask write, read/write multiple, device identification. Registers are decoded with a data type and word order; Quantity counts values of that type. |
+| Modbus RTU (serial) / over TCP | The same requests as an RTU master on a COM port, or RTU frames over TCP. Responses are length-checked and CRC-checked; the unit ID must match. |
+| OPC UA | Browse (as a tree, with values), Read, Write (converted to each node's type) and Subscribe (poll to see the latest notifications). Security, user name login and auto-accepting the server certificate are optional. |
+| MQTT | Subscribe to topic filters (+ and # wildcards) and keep the latest payload per topic, or Publish with QoS and retain. TLS and user name login are optional. |
+| Sparkplug B | A host application: watches births, data and deaths for a group (or all groups), resolves aliases, shows every metric with its online state, sends NCMD/DCMD writes and Rebirth requests, and can publish STATE as the primary host. |
+| REST API | Any method and path with an optional body. Basic, bearer token or OAuth 2.0 client credentials (renewed automatically). JSON responses become one row per value (path such as data.items[0].value), or only the paths you list. |
+| MTConnect | Probe, Current, Sample (continues from the last nextSequence) and Assets against any agent, with an optional XPath filter. One row per data item, keyed by its ID. |
+| DNP3 | A TCP master: integrity and event polls, range reads per point type, CROB (latch, pulse, trip/close) and analog output commands, select-before-operate or direct. Polled values are kept, so events update the rows. |
+| BACnet/IP | Who-Is discovery, the device's object list with names and present values, ReadProperty of any property, and WriteProperty with a priority ('null' relinquishes). |
+| SNMP | A v1/v2c manager: Get, Walk (subtree, with a limit) and Set with an explicit SNMP type. |
+| Scripted device | A line-oriented terminal for ASCII instruments over TCP, UDP or serial: sends each command and waits for its reply (newline, custom terminator or silence), with an optional regex to pull the value out. Listen shows unsolicited messages such as a streaming scale. |
+
 **Projects**
-- Save and open `.psim` files (JSON). A project holds devices, settings, faults, tags and their values, and Modbus memory. Older files that contain client sessions still open; the sessions are ignored. A device can be set to start automatically when the project opens.
+- Save and open `.psim` files (JSON). A project holds devices, settings, faults, tags and their values, Modbus memory, client sessions with their tag mappings, and logic programs. A device can be set to start automatically when the project opens, and a client to start polling.
 - Command line: `ProtoSim.exe project.psim` opens a project. `ProtoSim.exe --demo modbus-tcp` or `--demo opc-ua` starts a running demo device with sample tags.
 - Light, dark or system theme (View menu).
 
@@ -59,7 +78,7 @@ The logic designer now has a compact top bar, a menu for layout and run options,
 
 ## OPC UA
 
-Built on the official OPC Foundation .NET Standard stack (1.5.378).
+Built on the official OPC Foundation .NET Standard stack (2.0.2).
 
 - **Server:** each tag becomes a variable node under `Objects/<root folder>`. A tag address like `Plant/Tank1/Level` creates the folders and the NodeId `ns=2;s=Plant/Tank1/Level`. Nodes appear and disappear live as tags are added or removed, and simulated values are pushed to subscriptions.
 - **Security:** None, Basic256Sha256 Sign, and Sign & Encrypt. Login can be anonymous, with a user name and password, or both. A self-signed application certificate is created on first start in `%LocalAppData%\ProtoSim\pki`, and untrusted client certificates can be accepted automatically.
@@ -161,8 +180,8 @@ src/
   ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
   ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
 tests/
-  ModbusTcp.Tests               Codec, addressing, request handler, RTU framing/CRC and loopback tests (with a test-only client)
-  OpcUa.Tests                   Variable model and loopback tests with a test-only client (browse, read, write, subscribe, security, login)
+  ModbusTcp.Tests               Codec, addressing, request handler, RTU framing/CRC, loopback tests, the Modbus TCP client and Writeable tags
+  OpcUa.Tests                   Variable model and loopback tests with the OPC UA client (browse, read, write, subscribe, security, login, Writeable)
   Rest.Tests                    Token, auth, tag, CRUD/query, persistence/export and loopback HTTP tests
   Bacnet.Tests                  Address rules and loopback tests with a BACnet client (discovery, reads, commands, COV, DCC, faults)
   MTConnect.Tests               Address rules and HTTP tests for probe, current, sample, XPath, buffer wrap, errors and faults
@@ -178,6 +197,8 @@ The UI never references protocol types. Everything it shows comes from these Cor
 - `IDeviceDataModel`: the device memory. Register protocols expose `IDataArea` tables, which the UI shows as the Data tab. Node-based protocols such as OPC UA expose no tables and work through tags only.
 - `ITagBinding`: a typed value at a protocol-specific address, which the simulation engine drives. It is disposed when a tag is removed, so node-based protocols can delete the node.
 - `IProtocolServer`: the running simulated device.
+- `IProtocolClient` (optional): a client session. A plugin opts in by returning client settings and request types; `ClientResultRow.Typed` carries the value copied into mapped tags.
+- `ITagBinding.RemoteWritable`: the tag's Writeable box. Protocols check it (or `RemoteWriteGuard` for values shared by several tags) before applying a client write.
 - Settings and request objects are plain classes. A reflection-based property grid edits them (using `[Display]`, `[Range]` and `[Browsable(false)]` attributes), and they are saved as JSON. **A new protocol needs no WPF code.**
 
 ## Adding a protocol

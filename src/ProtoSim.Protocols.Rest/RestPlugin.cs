@@ -10,6 +10,24 @@ public sealed class RestPlugin : IProtocolPlugin
     public string DisplayName => "REST API";
     public string Description => "Local-only HTTP JSON API with OAuth 2.0 bearer tokens, simulated GET endpoints and a JSON database for POST/PUT/PATCH/DELETE.";
     public Type ServerSettingsType => typeof(RestServerSettings);
+    public Type? ClientSettingsType => typeof(RestClientSettings);
+    public Type? ClientRequestType => typeof(RestClientRequest);
+    public object CreateClientSettings() => new RestClientSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (RestServerSettings)serverSettings;
+        var c = new RestClientSettings { BaseUrl = s.BaseUrl, TokenUrl = s.TokenUrl };
+        if (s.RequireAuthentication && s.Clients.FirstOrDefault(x => x.Enabled) is { } cred)
+        {
+            c.Authentication = RestClientAuth.ClientCredentials;
+            c.UserName = cred.ClientId;
+            c.Password = cred.ClientSecret;
+        }
+        return c;
+    }
+    public object CreateClientRequest() => new RestClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new RestApiClient((RestClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings) => ((RestClientSettings)clientSettings).BaseUrl;
     public string AddressHelp => "Endpoint path relative to the base path, e.g. sensors/temperature serves GET {base URL}/sensors/temperature. PUT/PATCH/POST to the same path writes the value. Other paths go to the JSON database (Database tab).";
     public string DefaultTagAddress(int n) => $"tags/tag{n}";
 

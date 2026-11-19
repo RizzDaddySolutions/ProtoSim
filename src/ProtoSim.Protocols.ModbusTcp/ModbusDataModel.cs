@@ -56,6 +56,9 @@ public sealed class ModbusDataArea : IDataArea
     private readonly Func<int> _count;
     private readonly ushort[] _values = new ushort[ModbusLimits.AddressSpace];
 
+    // Per element: how many tags covering it are not writeable by clients.
+    private readonly int[] _readOnly = new int[ModbusLimits.AddressSpace];
+
     internal ModbusDataArea(ModbusDataModel model, ModbusAreaKind kind, Func<int> count)
     {
         _model = model;
@@ -103,15 +106,58 @@ public sealed class ModbusDataArea : IDataArea
 
     public string FormatAddress(int index) => ModbusNames.Modicon(AreaKind, index);
 
+    /// <summary>True when a tag that isn't writeable covers any element of [start, start+count).</summary>
+    public bool IsWriteProtected(int start, int count)
+    {
+        lock (_model.Sync)
+        {
+            int end = Math.Min(start + count, _readOnly.Length);
+            for (int i = Math.Max(0, start); i < end; i++)
+                if (_readOnly[i] > 0) return true;
+            return false;
+        }
+    }
+
+    internal void ChangeProtection(int start, int count, int delta)
+    {
+        lock (_model.Sync)
+        {
+            int end = Math.Min(start + count, _readOnly.Length);
+            for (int i = start; i < end; i++) _readOnly[i] = Math.Max(0, _readOnly[i] + delta);
+        }
+    }
+
     // Callers must hold _model.Sync.
     internal ushort GetUnsafe(int index) => _values[index];
     internal void SetUnsafe(int index, ushort value) =>
         _values[index] = Kind == DataElementKind.Bit ? (ushort)(value != 0 ? 1 : 0) : value;
 }
 
-internal sealed class ModbusTagBinding(ModbusDataModel model, ModbusDataArea area, ModbusAddress address, TagDataType type, WordOrder order) : ITagBinding
+internal sealed class ModbusTagBinding : ITagBinding
 {
+    private readonly ModbusDataModel model;
+    private readonly ModbusDataArea area;
+    private readonly ModbusAddress address;
+    private readonly TagDataType type;
+    private readonly WordOrder order;
+    private readonly RemoteWriteFlag _writable;
+
+    public ModbusTagBinding(ModbusDataModel model, ModbusDataArea area, ModbusAddress address, TagDataType type, WordOrder order)
+    {
+        this.model = model;
+        this.area = area;
+        this.address = address;
+        this.type = type;
+        this.order = order;
+        int words = address.IsBitArea || address.Bit >= 0 ? 1 : RegisterCodec.WordCount(type);
+        _writable = new RemoteWriteFlag(delta => area.ChangeProtection(address.Index, words, delta));
+    }
+
     public TagDataType DataType => type;
+
+    public bool RemoteWritable { get => _writable.Writable; set => _writable.Writable = value; }
+
+    public void Dispose() => _writable.Release();
 
     public object Read()
     {

@@ -52,6 +52,14 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="IntervalCell" TargetType="DataGridCell" BasedOn="{StaticResource GridCell}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding UsesInterval}" Value="False">
+                    <Setter Property="IsEnabled" Value="False" />
+                    <Setter Property="Opacity" Value="0.3" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -173,6 +181,8 @@
                         </Button>
                         <Button Content="Duplicate" Command="{Binding DuplicateTagCommand}" Style="{StaticResource ToolbarButton}" />
                         <Button Content="Remove" Command="{Binding RemoveTagCommand}" Style="{StaticResource ToolbarButton}" />
+                        <Button Content="Clear all tags…" Click="OnClearAllTags" Style="{StaticResource ToolbarButton}"
+                                ToolTip="Remove every tag from this simulator" />
                         <Button Content="Import CSV…" Command="{Binding ImportTagsCommand}" Style="{StaticResource ToolbarButton}" />
                         <Button Content="Export CSV…" Command="{Binding ExportTagsCommand}" Style="{StaticResource ToolbarButton}" />
                     </WrapPanel>
@@ -209,19 +219,29 @@
 
                      <DataGrid x:Name="TagGrid" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
                                PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding" FrozenColumnCount="1">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <EventSetter Event="ContextMenuOpening" Handler="OnTagContextMenuOpening" />
+                            </Style>
+                        </DataGrid.RowStyle>
                         <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Tag.Name}" Width="Auto" />
                                 <DataGridTextColumn Header="Address" Binding="{Binding Tag.Address}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
                                 <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Tag.DataType, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.DataTypes}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                                 <DataGridComboBoxColumn Header="Order" SelectedItemBinding="{Binding Tag.WordOrder, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.WordOrders}" CellStyle="{StaticResource WordOrderCell}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                                <DataGridCheckBoxColumn Binding="{Binding Tag.Writable, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCheckBoxCell}" EditingElementStyle="{StaticResource CenteredCheckBoxCell}" Width="Auto">
+                                    <DataGridCheckBoxColumn.Header>
+                                        <TextBlock Text="Writeable" ToolTip="Allow external clients to write this tag. Writes to a tag that isn't writeable are rejected with the protocol's 'not writable' error." />
+                                    </DataGridCheckBoxColumn.Header>
+                                </DataGridCheckBoxColumn>
                                 <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCheckBoxCell}" EditingElementStyle="{StaticResource CenteredCheckBoxCell}" Width="Auto" />
                                 <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" CellStyle="{StaticResource RangeCell}" Width="Auto" />
                             <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" CellStyle="{StaticResource RangeCell}" Width="Auto" />
                             <DataGridTextColumn Header="Period (s)" Binding="{Binding Tag.Simulation.PeriodSeconds}" CellStyle="{StaticResource PeriodCell}" Width="Auto" />
                             <DataGridTextColumn Header="Step" Binding="{Binding Tag.Simulation.Step}" CellStyle="{StaticResource StepCell}" Width="Auto" />
-                            <DataGridTextColumn Header="Every (ms)" Binding="{Binding Tag.Simulation.IntervalMs}" Width="Auto" />
+                            <DataGridTextColumn Header="Every (ms)" Binding="{Binding Tag.Simulation.IntervalMs}" CellStyle="{StaticResource IntervalCell}" Width="Auto" />
                             <DataGridTextColumn Header="Description" Binding="{Binding Tag.Description}" Width="Auto" />
                             <DataGridTemplateColumn Header="Status" Width="Auto" IsReadOnly="True">
                                 <DataGridTemplateColumn.CellTemplate>

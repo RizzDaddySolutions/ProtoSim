@@ -10,8 +10,21 @@ public sealed class ModbusRtuOverTcpPlugin : IProtocolPlugin
 {
     public string Id => "modbus-rtu-tcp";
     public string DisplayName => "Modbus RTU over TCP";
-    public string Description => "Modbus RTU frames (with CRC, no MBAP header) over TCP, like a serial device server. Same function codes and memory as Modbus TCP.";
+    public string Description => "Modbus RTU frames (with CRC, no MBAP header) over TCP, like a serial device server: a slave, or a master that polls one. Same function codes and memory as Modbus TCP.";
     public Type ServerSettingsType => typeof(ModbusRtuOverTcpSettings);
+    public Type? ClientSettingsType => typeof(ModbusRtuOverTcpClientSettings);
+    public Type? ClientRequestType => typeof(ModbusClientRequest);
+    public object CreateClientSettings() => new ModbusRtuOverTcpClientSettings();
+    public object CreateClientSettingsFor(object serverSettings) =>
+        new ModbusRtuOverTcpClientSettings { Host = "127.0.0.1", Port = ((ModbusRtuOverTcpSettings)serverSettings).Port };
+    public object CreateClientRequest() => new ModbusClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) =>
+        new ModbusRtuOverTcpClient((ModbusRtuOverTcpClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (ModbusRtuOverTcpClientSettings)clientSettings;
+        return $"{s.Host}:{s.Port} · RTU";
+    }
     public string AddressHelp => ModbusAddress.Help;
     public string DefaultTagAddress(int n) => $"HR:{100 + n}";
     public bool SupportsWordOrder => true;
@@ -43,8 +56,21 @@ public sealed class ModbusRtuSerialPlugin : IProtocolPlugin
 {
     public string Id => "modbus-rtu";
     public string DisplayName => "Modbus RTU (serial)";
-    public string Description => "Modbus RTU slave on a COM port (RS-232/RS-485 or a virtual COM port pair). Same function codes and memory as Modbus TCP.";
+    public string Description => "Modbus RTU slave or master on a COM port (RS-232/RS-485 or a virtual COM port pair). Same function codes and memory as Modbus TCP.";
     public Type ServerSettingsType => typeof(ModbusRtuSerialSettings);
+    public Type? ClientSettingsType => typeof(ModbusRtuSerialClientSettings);
+    public Type? ClientRequestType => typeof(ModbusClientRequest);
+    public object CreateClientSettings()
+    {
+        string[] ports;
+        try { ports = SerialPort.GetPortNames(); }
+        catch (Exception) { ports = []; }
+        return new ModbusRtuSerialClientSettings { PortName = ports.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).FirstOrDefault() ?? "COM1" };
+    }
+    public object CreateClientRequest() => new ModbusClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) =>
+        new ModbusRtuSerialClient((ModbusRtuSerialClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings) => ((ModbusRtuSerialClientSettings)clientSettings).Describe();
     public string AddressHelp => ModbusAddress.Help;
     public string DefaultTagAddress(int n) => $"HR:{100 + n}";
     public bool SupportsWordOrder => true;

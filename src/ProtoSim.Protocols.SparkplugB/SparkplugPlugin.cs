@@ -10,6 +10,23 @@ public sealed class SparkplugPlugin : IProtocolPlugin
     public string DisplayName => "Sparkplug B";
     public string Description => "Sparkplug B edge node with device metrics, births/deaths, report by exception, NCMD/DCMD writes and an optional embedded MQTT broker.";
     public Type ServerSettingsType => typeof(SparkplugSettings);
+    public Type? ClientSettingsType => typeof(SparkplugHostSettings);
+    public Type? ClientRequestType => typeof(SparkplugHostRequest);
+    public object CreateClientSettings() => new SparkplugHostSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (SparkplugSettings)serverSettings;
+        return s.BrokerMode == SparkplugBrokerMode.Embedded
+            ? new SparkplugHostSettings { Host = "127.0.0.1", Port = s.Port, GroupId = s.GroupId }
+            : new SparkplugHostSettings { Host = s.BrokerHost, Port = s.BrokerPort, GroupId = s.GroupId, UserName = s.UserName, Password = s.Password };
+    }
+    public object CreateClientRequest() => new SparkplugHostRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new SparkplugHostClient((SparkplugHostSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (SparkplugHostSettings)clientSettings;
+        return $"{s.Host}:{s.Port} · spBv1.0/{s.GroupId}";
+    }
     public string AddressHelp => SparkplugAddress.Help;
     public string DefaultTagAddress(int n) => $"Device1:Metric{n}";
 

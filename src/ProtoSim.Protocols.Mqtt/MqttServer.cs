@@ -96,11 +96,21 @@ public sealed class MqttServer : IProtocolServer
         foreach (var segment in args.ApplicationMessage.Payload)
             payloadBuilder.Append(Encoding.UTF8.GetString(segment.Span));
         var payload = payloadBuilder.ToString();
-        if (_model.TryWrite(topic, payload))
+        // ProtoSim's own tag publishes are not client writes.
+        if (args.ClientId == "ProtoSim") return Task.CompletedTask;
+        switch (_model.TryWrite(topic, payload))
         {
-            _context.Statistics.OnRequest(payload.Length);
-            _context.Statistics.OnResponse(payload.Length, false);
-            _context.Log.Frame(TrafficDirection.Rx, topic, Encoding.UTF8.GetBytes(payload), () => payload);
+            case MqttDataModel.WriteResult.Written:
+                _context.Statistics.OnRequest(payload.Length);
+                _context.Statistics.OnResponse(payload.Length, false);
+                _context.Log.Frame(TrafficDirection.Rx, topic, Encoding.UTF8.GetBytes(payload), () => payload);
+                break;
+            case MqttDataModel.WriteResult.ReadOnly:
+                // Don't pass on a value the tag rejected.
+                args.ProcessPublish = false;
+                _context.Statistics.OnRequest(payload.Length);
+                _context.Log.Warn(args.ClientId ?? string.Empty, $"Publish to '{topic}' rejected: the tag isn't writeable");
+                break;
         }
         return Task.CompletedTask;
     }

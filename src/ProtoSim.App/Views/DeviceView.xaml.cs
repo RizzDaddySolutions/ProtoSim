@@ -22,6 +22,38 @@ public partial class DeviceView : UserControl
             : System.Windows.Visibility.Collapsed;
     }
 
+    private void OnTagContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not DataGridRow row || row.Item is not TagViewModel) return;
+        TagGrid.SelectedItem = row.Item;
+        if (row.ContextMenu != null) return;
+
+        var menu = new ContextMenu();
+        var deleteItem = new MenuItem { Header = "_Delete tag" };
+        deleteItem.Click += OnDeleteTag;
+        menu.Items.Add(deleteItem);
+        row.ContextMenu = menu;
+    }
+
+    private void OnDeleteTag(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Parent: ContextMenu { PlacementTarget: DataGridRow { Item: TagViewModel tag } } } ||
+            DataContext is not DeviceViewModel device) return;
+
+        TagGrid.SelectedItem = tag;
+        device.RemoveTagCommand.Execute(tag);
+    }
+
+    private void OnClearAllTags(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DeviceViewModel { Tags.Count: > 0 } device) return;
+        string message = $"This will permanently remove all {device.Tags.Count} tags from '{device.Name}'. This cannot be undone. Continue?";
+        if (MessageDialog.Show(message, "Clear all tags?", MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                Window.GetWindow(this)) != MessageBoxResult.Yes) return;
+
+        device.RemoveAllTags();
+    }
+
     // Live values refresh several times a second; pause refreshing the row being edited
     // so the user's typing isn't overwritten.
     private void OnPreparingCellForEdit(object? sender, DataGridPreparingCellForEditEventArgs e)

@@ -8,14 +8,15 @@ public partial class AboutWindow : Window
 {
     public AboutWindow(PluginCatalog catalog, IReadOnlyList<string> pluginErrors)
     {
-        Protocols = catalog.Plugins;
+        Protocols = catalog.Plugins.OrderBy(plugin => plugin.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToArray();
         Errors = pluginErrors;
         InitializeComponent();
         DataContext = this;
     }
 
-    public IEnumerable<IProtocolPlugin> Protocols { get; }
+    public IReadOnlyList<IProtocolPlugin> Protocols { get; }
     public IReadOnlyList<string> Errors { get; }
+    public int ProtocolCount => Protocols.Count;
     public bool HasErrors => Errors.Count > 0;
 
     public static string Version

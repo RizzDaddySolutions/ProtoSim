@@ -208,6 +208,8 @@ internal sealed class RestRequestHandler(RestDataModel model)
             case "GET" or "HEAD":
                 return HttpResponse.Json(200, Settings.TagResponseFormat == TagResponseFormat.ValueOnly ? ToJson(tag.Value) : TagObject(tag), Indent);
             case "PUT" or "PATCH" or "POST":
+                if (!tag.ClientWritable)
+                    return HttpResponse.Error(403, "forbidden", $"Tag '{tag.Path}' isn't writeable.", Indent);
                 JsonNode? body;
                 try { body = request.Body.Length == 0 ? null : JsonNode.Parse(request.Body); }
                 catch (JsonException) { body = JsonValue.Create(request.BodyText.Trim()); } // plain text value

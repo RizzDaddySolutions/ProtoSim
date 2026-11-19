@@ -96,6 +96,8 @@ public sealed class RestDataModel : IDeviceDataModel, ICredentialProvider, IJson
         public bool Removed;
 
         public object Value => Volatile.Read(ref _value);
+        public RemoteWriteGuard WriteGuard { get; } = new();
+        public bool ClientWritable => WriteGuard.AllowsWrites;
         public DateTime TimestampUtc => new(Interlocked.Read(ref _timestampTicks), DateTimeKind.Utc);
 
         public void Write(object value)
@@ -107,13 +109,17 @@ public sealed class RestDataModel : IDeviceDataModel, ICredentialProvider, IJson
 
     private sealed class TagHandle(RestDataModel model, TagSlot slot) : ITagBinding
     {
+        private readonly RemoteWriteFlag _writable = new(slot.WriteGuard);
         private int _disposed;
         public TagDataType DataType => slot.DataType;
         public object Read() => slot.Value;
         public void Write(object value) => slot.Write(value);
+        public bool RemoteWritable { get => _writable.Writable; set => _writable.Writable = value; }
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0) model.Release(slot);
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            _writable.Release();
+            model.Release(slot);
         }
     }
 

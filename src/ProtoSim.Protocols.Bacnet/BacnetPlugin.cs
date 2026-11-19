@@ -10,6 +10,22 @@ public sealed class BacnetPlugin : IProtocolPlugin
     public string DisplayName => "BACnet/IP";
     public string Description => "BACnet/IP device with analog, binary, multi-state and character-string objects, priority arrays, COV subscriptions and Who-Is/I-Am discovery.";
     public Type ServerSettingsType => typeof(BacnetSettings);
+    public Type? ClientSettingsType => typeof(BacnetClientSettings);
+    public Type? ClientRequestType => typeof(BacnetClientRequest);
+    public object CreateClientSettings() => new BacnetClientSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (BacnetSettings)serverSettings;
+        string ip = string.IsNullOrWhiteSpace(s.LocalAddress) ? "127.0.0.1" : s.LocalAddress.Trim();
+        return new BacnetClientSettings { DeviceAddress = $"{ip}:{s.Port}", DeviceInstance = s.DeviceInstance };
+    }
+    public object CreateClientRequest() => new BacnetClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new BacnetClientSession((BacnetClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (BacnetClientSettings)clientSettings;
+        return $"{s.DeviceAddress} · device {s.DeviceInstance}";
+    }
     public string AddressHelp => BacnetAddressSpec.Help;
     public string DefaultTagAddress(int n) => $"AV:{n}";
 

@@ -95,11 +95,11 @@ public sealed class ServerFixture : IAsyncLifetime
 
     public string Url => $"opc.tcp://localhost:{Settings.Port}";
 
-    public TestOpcUaClient NewClient(Action<OpcUaClientSettings>? configure = null)
+    public OpcUaClient NewClient(Action<OpcUaClientSettings>? configure = null)
     {
         var s = new OpcUaClientSettings { EndpointUrl = Url, OperationTimeoutMs = 10_000 };
         configure?.Invoke(s);
-        return new TestOpcUaClient(s);
+        return new OpcUaClient(s, new ClientContext(new TrafficLog()));
     }
 
     private static int FreePort()
@@ -159,6 +159,41 @@ public sealed class LoopbackTests(ServerFixture fx) : IClassFixture<ServerFixtur
         var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Level", "55.5"), TestContext.Current.CancellationToken);
         Assert.True(r.Success, r.Message);
         Assert.Equal(55.5, fx.Setpoint.Read());
+    }
+
+    [Fact]
+    public async Task Write_NotWriteableTag_IsRejected()
+    {
+        var locked = fx.Model.Bind("Plant/Setpoints/Locked", TagDataType.Float64, WordOrder.ABCD);
+        locked.Write(1.5);
+        locked.RemoteWritable = false;
+        try
+        {
+            await using var client = fx.NewClient();
+            var r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Locked", "9"), TestContext.Current.CancellationToken);
+            Assert.False(r.Success);
+            Assert.Contains("BadNotWritable", r.Message);
+            Assert.Equal(1.5, locked.Read());
+
+            locked.RemoteWritable = true;
+            r = await client.ExecuteAsync(Req(OpcUaOperation.Write, "ns=2;s=Plant/Setpoints/Locked", "9"), TestContext.Current.CancellationToken);
+            Assert.True(r.Success, r.Message);
+            Assert.Equal(9.0, locked.Read());
+        }
+        finally
+        {
+            locked.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Read_RowsCarryTypedValues()
+    {
+        await using var client = fx.NewClient();
+        fx.Level.Write(3.25);
+        var r = await client.ExecuteAsync(Req(OpcUaOperation.Read, "ns=2;s=Plant/Tank1/Level"), TestContext.Current.CancellationToken);
+        Assert.True(r.Success, r.Message);
+        Assert.Equal(3.25, Assert.Single(r.Rows).Typed);
     }
 
     [Fact]

@@ -521,6 +521,11 @@ public sealed class SparkplugEdgeNode : IProtocolServer
                 Log.Warn(remote, $"Command for unknown metric {m.Name ?? "alias " + m.Alias}");
                 continue;
             }
+            if (!tag.ClientWritable)
+            {
+                Log.Warn(remote, $"Command for {tag.Name} ignored: the tag isn't writeable");
+                continue;
+            }
             try
             {
                 tag.Write(m.ToClrValue()!);

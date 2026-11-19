@@ -10,6 +10,25 @@ public sealed class ScriptPlugin : IProtocolPlugin
     public string DisplayName => "Scripted device";
     public string Description => "Text request/reply device over TCP, UDP or a serial port, defined by rules with tag values in the replies: instruments, scales, barcode readers, legacy ASCII protocols.";
     public Type ServerSettingsType => typeof(ScriptSettings);
+    public Type? ClientSettingsType => typeof(ScriptClientSettings);
+    public Type? ClientRequestType => typeof(ScriptClientRequest);
+    public object CreateClientSettings() => new ScriptClientSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (ScriptSettings)serverSettings;
+        return new ScriptClientSettings
+        {
+            Transport = s.Transport, Host = "127.0.0.1", Port = s.Port, PortName = s.PortName, BaudRate = s.BaudRate,
+            DataBits = s.DataBits, Parity = s.Parity, StopBits = s.StopBits,
+        };
+    }
+    public object CreateClientRequest() => new ScriptClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new ScriptClient((ScriptClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (ScriptClientSettings)clientSettings;
+        return s.Transport == ScriptTransport.Serial ? $"{s.PortName} {s.BaudRate}" : $"{s.Transport.ToString().ToUpperInvariant()} {s.Host}:{s.Port}";
+    }
     public string AddressHelp => ScriptDataModel.Help;
     public string DefaultTagAddress(int n) => $"Value{n}";
 

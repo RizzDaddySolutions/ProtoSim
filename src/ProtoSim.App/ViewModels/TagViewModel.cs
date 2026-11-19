@@ -9,7 +9,7 @@ public static class EnumLists
 {
     public static TagDataType[] DataTypes { get; } = Enum.GetValues<TagDataType>();
     public static WordOrder[] WordOrders { get; } = Enum.GetValues<WordOrder>();
-    public static SimulationKind[] SimulationKinds { get; } = Enum.GetValues<SimulationKind>().Where(k => k != SimulationKind.None).ToArray();
+    public static SimulationKind[] SimulationKinds { get; } = Enum.GetValues<SimulationKind>();
 }
 
 /// <summary>Grid row for a tag: keeps the binding in sync with address/type edits and shows the live value.</summary>
@@ -35,6 +35,7 @@ public sealed class TagViewModel : ObservableObject, IEditableRow
     public bool UsesRange => SimulationSettings.UsesRange(Tag.Simulation.Kind);
     public bool UsesPeriod => SimulationSettings.UsesPeriod(Tag.Simulation.Kind);
     public bool UsesStep => SimulationSettings.UsesStep(Tag.Simulation.Kind);
+    public bool UsesInterval => SimulationSettings.UsesInterval(Tag.Simulation.Kind);
 
     /// <summary>Word order only matters for values that span more than one 16-bit register.</summary>
     public bool UsesWordOrder => Tag.DataType is TagDataType.Int32 or TagDataType.UInt32 or TagDataType.Int64
@@ -50,6 +51,7 @@ public sealed class TagViewModel : ObservableObject, IEditableRow
         OnPropertyChanged(nameof(UsesRange));
         OnPropertyChanged(nameof(UsesPeriod));
         OnPropertyChanged(nameof(UsesStep));
+        OnPropertyChanged(nameof(UsesInterval));
     }
 
     public SimTag Tag { get; }

@@ -147,7 +147,8 @@
   <a href="#rest">REST API</a>
   <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
-  <a href="#projects">Project files</a>
+  <a href="#clients">Clients</a>
+<a href="#projects">Project files</a>
   <a href="#shortcuts">Keyboard shortcuts</a>
   <a href="#plugins">Plugins</a>
   <a href="#whats-new">What's new in 1.1</a>
@@ -184,6 +185,7 @@
   <ul>
     <li><strong>Enable simulated values</strong> — the master switch for simulation. When off, every tag keeps its current value.</li>
     <li><strong>Simulated devices</strong> — the list on the left. The dot shows the state: green running, amber starting/stopping, red faulted, grey stopped. <strong>Start all</strong>, <strong>Stop all</strong> and the delete button are below the list.</li>
+    <li><strong>Clients</strong> — below the devices: sessions that connect to external servers and devices (see <a href="#clients">Clients</a>). Green while connected or polling, red after a failed request.</li>
     <li><strong>Device pane</strong> — the selected device. Click its name to rename it. The tabs are described below.</li>
     <li><strong>Status bar</strong> — devices running, open connections, request rate and whether simulation is on.</li>
   </ul>
@@ -211,6 +213,7 @@
     <tr><td>Type</td><td><code>Bool</code>, <code>Int16</code>, <code>UInt16</code>, <code>Int32</code>, <code>UInt32</code>, <code>Int64</code>, <code>UInt64</code>, <code>Float32</code>, <code>Float64</code>, <code>String</code> (String only for node/topic-based protocols).</td></tr>
     <tr><td>Order</td><td>Word order for values that span several registers. <strong>Shown only for Modbus devices</strong>, and dimmed for single-register types (Bool, Int16, UInt16).</td></tr>
     <tr><td>Value</td><td>The live value. Double-click to write a new one.</td></tr>
+    <tr><td>Writeable</td><td>Whether external clients may write the tag. Cleared, a client write is refused with the protocol's own error (Modbus exception 02, OPC UA <code>BadNotWritable</code>, BACnet write-access-denied, SNMP <code>notWritable</code>, HTTP 403) and MQTT publishes or Sparkplug commands to it are dropped and logged. Writes from the grid, simulation, scenarios, logic and client mappings always work. On by default.</td></tr>
     <tr><td>Simulate</td><td>Turns simulation on or off for this tag. When off, the tag keeps whatever value it is given.</td></tr>
     <tr><td>Simulation</td><td>The simulation kind (see the next section).</td></tr>
     <tr><td>Min / Max</td><td>Value range of the simulation.</td></tr>
@@ -227,6 +230,7 @@
   <h2>Simulation kinds</h2>
   <table>
     <tr><th>Kind</th><th>Behaviour</th><th>Min/Max</th><th>Period</th><th>Step</th></tr>
+    <tr><td>None</td><td>Holds the value still. It changes only when a client, you, a scenario or logic writes it. Use it for setpoints and commands.</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
     <tr><td>Ramp</td><td>Rises linearly from Min to Max over one period, then jumps back.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
     <tr><td>Sine</td><td>Smooth sine wave between Min and Max.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
     <tr><td>Triangle</td><td>Rises to Max over half a period, falls back over the other half.</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
@@ -236,7 +240,7 @@
     <tr><td>Counter</td><td>Adds Step each update; wraps to Min after Max.</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
     <tr><td>Toggle</td><td>Alternates between 0 and 1 each update.</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
   </table>
-  <p>All kinds use <strong>Every (ms)</strong>. For <code>Bool</code> tags, analog shapes become true when the value is above the midpoint of Min and Max, so a Square wave toggles cleanly.</p>
+  <p>All kinds except None use <strong>Every (ms)</strong>. For <code>Bool</code> tags, analog shapes become true when the value is above the midpoint of Min and Max, so a Square wave toggles cleanly.</p>
 </section>
 
 <section id="csv">
@@ -248,7 +252,7 @@
     <li><strong>Overwrite</strong> — remove all existing tags and replace them with the imported ones.</li>
   </ul>
   <h3>Columns</h3>
-  <p><code>Name, Address, DataType, WordOrder, Simulate, Simulation, Min, Max, PeriodSeconds, Step, IntervalMs, Description</code></p>
+  <p><code>Name, Address, DataType, WordOrder, Simulate, Simulation, Min, Max, PeriodSeconds, Step, IntervalMs, Writeable, Description</code></p>
   <p>Only <code>Name</code> and <code>Address</code> are required; column order doesn't matter and names are case-insensitive. Numbers use a dot as the decimal separator. Missing values get defaults (UInt16, ABCD, simulation off, Sine, 0–100, 10 s, step 1, 500 ms).</p>
 </section>
 
@@ -541,10 +545,36 @@ offset_s,tag,value
   <p>Response delay and jitter delay data messages, <em>Drop responses</em> skips data messages, and <em>Disconnect after response</em> drops the MQTT session after a data message (the edge node reconnects after <em>Reconnect delay</em>). Error responses don't apply.</p>
 </section>
 
+<section id="clients">
+  <h2>Clients</h2>
+  <p>A client connects to an external server or device, real or simulated, and pulls its data in. Add one with <strong>Simulation &gt; Add client</strong> or the <strong>Add</strong> button above the Clients list.</p>
+  <ul>
+    <li><strong>Connection</strong> — host, port and protocol options. Disconnect to change them.</li>
+    <li><strong>Request</strong> — what to send. <strong>Send once</strong> runs it; <strong>Poll</strong> repeats it every <em>Poll every</em> ms until <strong>Stop</strong>. Tick <em>Start polling when the project opens</em> to poll automatically.</li>
+    <li><strong>Results</strong> — one row per value: its address, the raw representation and the decoded value. Successes, failures and the response time are shown above, and the traffic log below.</li>
+    <li><strong>Copy into tags</strong> — select a result row and click <strong>Map selected row</strong> (or <strong>Map all rows</strong>), then pick a project tag as <code>Device/Tag</code>. After every successful request each mapped value is written into its tag, so a simulated server re-publishes it and logic programs can use it. Mapped tags pause their own simulation while the client polls. <em>Last copy</em> shows what was written or why it couldn't be.</li>
+  </ul>
+  <table>
+    <tr><th>Client</th><th>What it does</th></tr>
+    <tr><td>Modbus TCP</td><td>Every function code the server supports: read coils/inputs/registers, single and multiple writes, mask write, read/write multiple, device identification. Registers are decoded with a data type and word order; Quantity counts values of that type.</td></tr>
+    <tr><td>Modbus RTU (serial) / over TCP</td><td>The same requests as an RTU master on a COM port, or RTU frames over TCP. Responses are length-checked and CRC-checked; the unit ID must match.</td></tr>
+    <tr><td>OPC UA</td><td>Browse (as a tree, with values), Read, Write (converted to each node's type) and Subscribe (poll to see the latest notifications). Security, user name login and auto-accepting the server certificate are optional.</td></tr>
+    <tr><td>MQTT</td><td>Subscribe to topic filters (+ and # wildcards) and keep the latest payload per topic, or Publish with QoS and retain. TLS and user name login are optional.</td></tr>
+    <tr><td>Sparkplug B</td><td>A host application: watches births, data and deaths for a group (or all groups), resolves aliases, shows every metric with its online state, sends NCMD/DCMD writes and Rebirth requests, and can publish STATE as the primary host.</td></tr>
+    <tr><td>REST API</td><td>Any method and path with an optional body. Basic, bearer token or OAuth 2.0 client credentials (renewed automatically). JSON responses become one row per value (path such as data.items[0].value), or only the paths you list.</td></tr>
+    <tr><td>MTConnect</td><td>Probe, Current, Sample (continues from the last nextSequence) and Assets against any agent, with an optional XPath filter. One row per data item, keyed by its ID.</td></tr>
+    <tr><td>DNP3</td><td>A TCP master: integrity and event polls, range reads per point type, CROB (latch, pulse, trip/close) and analog output commands, select-before-operate or direct. Polled values are kept, so events update the rows.</td></tr>
+    <tr><td>BACnet/IP</td><td>Who-Is discovery, the device's object list with names and present values, ReadProperty of any property, and WriteProperty with a priority ('null' relinquishes).</td></tr>
+    <tr><td>SNMP</td><td>A v1/v2c manager: Get, Walk (subtree, with a limit) and Set with an explicit SNMP type.</td></tr>
+    <tr><td>Scripted device</td><td>A line-oriented terminal for ASCII instruments over TCP, UDP or serial: sends each command and waits for its reply (newline, custom terminator or silence), with an optional regex to pull the value out. Listen shows unsolicited messages such as a streaming scale.</td></tr>
+  </table>
+  <div class="note">Mappings refer to a row's <em>Address</em>, so map rows from a request whose rows stay the same between polls (Read, Current, Monitor, Get…), not from Browse or Sample.</div>
+</section>
+
 <section id="projects">
   <h2>Project files</h2>
-  <p>Projects are saved as <code>.psim</code> files (JSON). A project holds the devices, their settings, fault settings, tags and values, and raw Modbus memory. To open a project at startup, pass its path on the command line: <code>ProtoSim.exe project.psim</code>.</p>
-  <div class="note">Projects from version 1.0 open unchanged. Tags that used the old <em>None</em> simulation kind are loaded with <strong>Simulate</strong> turned off.</div>
+  <p>Projects are saved as <code>.psim</code> files (JSON). A project holds the devices, their settings, fault settings, tags and values, raw Modbus memory, client sessions with their tag mappings, and logic programs. To open a project at startup, pass its path on the command line: <code>ProtoSim.exe project.psim</code>.</p>
+  <div class="note">Projects from earlier versions open unchanged. Tags that use the <em>None</em> simulation kind keep their value, and tags saved before the <strong>Writeable</strong> column existed are writeable.</div>
 </section>
 
 <section id="shortcuts">

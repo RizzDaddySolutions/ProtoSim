@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ProtoSim.OpcUa.Tests;
+namespace ProtoSim.Protocols.OpcUa;
 
 public sealed class OpcUaClientSettings
 {

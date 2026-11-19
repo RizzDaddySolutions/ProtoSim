@@ -1,11 +1,12 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using ProtoSim.Core.Data;
 
 namespace ProtoSim.Core.Simulation;
 
 public enum SimulationKind
 {
-    /// <summary>Legacy value from v1.0 project files. Treated as "simulation disabled"; not offered in the UI.</summary>
+    /// <summary>The value holds still: it only changes when a client, the user, a scenario or logic writes it.</summary>
     None,
     Ramp,
     Sine,
@@ -29,23 +30,17 @@ public sealed class SimulationSettings : ObservableObject
     private int _intervalMs = 500;
 
     public bool Enabled { get => _enabled; set => SetProperty(ref _enabled, value); }
-    public SimulationKind Kind
-    {
-        get => _kind;
-        set
-        {
-            // "None" is the v1.0 way of turning simulation off; v1.1 uses the Enabled flag instead.
-            if (value == SimulationKind.None)
-            {
-                Enabled = false;
-                return;
-            }
-            SetProperty(ref _kind, value);
-        }
-    }
+    public SimulationKind Kind { get => _kind; set => SetProperty(ref _kind, value); }
 
-    /// <summary>Min/Max bound the value (all kinds except Toggle).</summary>
-    public static bool UsesRange(SimulationKind k) => k != SimulationKind.Toggle;
+    /// <summary>True when the value changes on its own (simulation on and a kind other than None).</summary>
+    [JsonIgnore]
+    public bool IsActive => Enabled && Kind != SimulationKind.None;
+
+    /// <summary>Min/Max bound the value (all kinds except None and Toggle).</summary>
+    public static bool UsesRange(SimulationKind k) => k is not (SimulationKind.None or SimulationKind.Toggle);
+
+    /// <summary>The update interval applies to every kind except None.</summary>
+    public static bool UsesInterval(SimulationKind k) => k != SimulationKind.None;
 
     /// <summary>Period applies to the periodic wave shapes.</summary>
     public static bool UsesPeriod(SimulationKind k) =>
@@ -102,6 +97,7 @@ public sealed class SimTag : ObservableObject
     private WordOrder _wordOrder = WordOrder.ABCD;
     private string _description = string.Empty;
     private SimulationSettings _simulation = new();
+    private bool _writable = true;
     private volatile ITagBinding? _binding;
 
     public string Name { get => _name; set => SetProperty(ref _name, value); }
@@ -111,8 +107,28 @@ public sealed class SimTag : ObservableObject
     public string Description { get => _description; set => SetProperty(ref _description, value); }
     public SimulationSettings Simulation { get => _simulation; set => SetProperty(ref _simulation, value ?? new()); }
 
+    /// <summary>Whether external clients may write this tag (where the protocol supports writes at all).</summary>
+    public bool Writable
+    {
+        get => _writable;
+        set
+        {
+            if (!SetProperty(ref _writable, value)) return;
+            if (_binding is { } b) b.RemoteWritable = value;
+        }
+    }
+
     /// <summary>Current binding to the device memory; null when the address is invalid.</summary>
-    public ITagBinding? Binding { get => _binding; set { _binding = value; OnPropertyChanged(); } }
+    public ITagBinding? Binding
+    {
+        get => _binding;
+        set
+        {
+            _binding = value;
+            if (value != null) value.RemoteWritable = _writable;
+            OnPropertyChanged();
+        }
+    }
 
     internal double LastSimTime = double.NegativeInfinity;
 
@@ -194,7 +210,7 @@ public sealed class SimulationEngine : IDisposable
     {
         var sim = tag.Simulation;
         var binding = tag.Binding;
-        if (!sim.Enabled || sim.Kind == SimulationKind.None || binding == null || tag.IsReplaying) return;
+        if (!sim.IsActive || binding == null || tag.IsReplaying) return;
 
         double interval = Math.Max(sim.IntervalMs, 10) / 1000.0;
         if (t - tag.LastSimTime < interval) return;

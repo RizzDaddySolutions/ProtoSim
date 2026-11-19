@@ -5,19 +5,12 @@ using Opc.Ua.Client;
 using Opc.Ua.Configuration;
 using ProtoSim.Core.Data;
 using ProtoSim.Core.Diagnostics;
-using ProtoSim.Protocols.OpcUa;
+using ProtoSim.Core.Protocols;
 
-namespace ProtoSim.OpcUa.Tests;
+namespace ProtoSim.Protocols.OpcUa;
 
-public sealed record ClientResultRow(string Address, string Raw, string Value);
-
-public sealed record ClientResult(bool Success, string Message, IReadOnlyList<ClientResultRow> Rows, TimeSpan Elapsed)
-{
-    public static ClientResult Fail(string message, TimeSpan elapsed) => new(false, message, [], elapsed);
-}
-
-/// <summary>OPC UA client used by the tests to exercise the simulated server: browse, read, write and subscribe.</summary>
-public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDisposable
+/// <summary>OPC UA client session: browse, read, write and subscribe.</summary>
+public sealed class OpcUaClient(OpcUaClientSettings settings, ClientContext context) : IProtocolClient
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentDictionary<string, (DataValue Value, long Updates)> _subscriptionValues = new();
@@ -28,7 +21,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
 
     public bool IsConnected => _session?.Connected == true;
 
-    private ITrafficLog Log { get; } = new TrafficLog();
+    private ITrafficLog Log => context.Log;
     private string Remote => settings.EndpointUrl;
 
     // The OPC UA stack does blocking work (certificates, sockets) and must not run on a UI thread.
@@ -55,6 +48,8 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         await DisconnectAsync();
         _gate.Dispose();
     }
+
+    public static string Endpoint(OpcUaServerSettings s) => OpcUaServer.BuildEndpointUrl(s);
 
     private async Task CloseCoreAsync()
     {
@@ -137,7 +132,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
                 OpcUaOperation.Subscribe => await SubscribeAsync(session, r, cancellationToken),
                 _ => throw new NotSupportedException(r.Operation.ToString()),
             };
-            return new ClientResult(true, $"{r.Operation}: OK ({rows.Count} rows)", rows, sw.Elapsed);
+            return ClientResult.Ok($"{r.Operation}: OK ({rows.Count} rows)", rows, sw.Elapsed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -190,13 +185,23 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
 
     private static string DescribeStatus(StatusCode status) => status.ToString();
 
+    /// <summary>The value as a plain CLR scalar for tag mapping; null for arrays and structures.</summary>
+    private static object? Scalar(DataValue dv) => dv.WrappedValue.AsBoxedObject() switch
+    {
+        null or Array => null,
+        LocalizedText lt => lt.Text ?? string.Empty,
+        bool or sbyte or byte or short or ushort or int or uint or long or ulong or float or double or string => dv.WrappedValue.AsBoxedObject(),
+        DateTime d => d.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        var other => other.ToString(),
+    };
+
     private static string Describe(DataValue dv) =>
         $"{DescribeStatus(dv.StatusCode)} · {dv.WrappedValue.TypeInfo.BuiltInType} · {dv.SourceTimestamp.ToLocalTime():HH:mm:ss.fff}";
 
     private async Task<IReadOnlyList<ClientResultRow>> ReadAsync(Session session, List<NodeId> ids, CancellationToken ct)
     {
         var values = await ReadValuesAsync(session, ids, ct);
-        return ids.Select((id, i) => new ClientResultRow(id.ToString(), Describe(values[i]), FormatValue(values[i]))).ToList();
+        return ids.Select((id, i) => new ClientResultRow(id.ToString(), Describe(values[i]), FormatValue(values[i])) { Typed = Scalar(values[i]) }).ToList();
     }
 
     private async Task<IList<DataValue>> ReadValuesAsync(Session session, IList<NodeId> ids, CancellationToken ct)
@@ -289,7 +294,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
             string indent = new string(' ', f.Depth * 2);
             string name = f.Ref.DisplayName.Text ?? f.Id.ToString();
             if (f.Ref.NodeClass == NodeClass.Variable && valueById.TryGetValue(f.Id, out var dv))
-                return new ClientResultRow(indent + name, f.Id.ToString(), FormatValue(dv));
+                return new ClientResultRow(indent + name, f.Id.ToString(), FormatValue(dv)) { Typed = Scalar(dv) };
             return new ClientResultRow(indent + name + "/", f.Id.ToString(), $"({f.Ref.NodeClass})");
         }).ToList();
     }
@@ -389,7 +394,7 @@ public sealed class TestOpcUaClient(OpcUaClientSettings settings) : IAsyncDispos
         {
             string name = id.ToString();
             return _subscriptionValues.TryGetValue(name, out var v)
-                ? new ClientResultRow(name, $"{Describe(v.Value)} · {v.Updates} updates", FormatValue(v.Value))
+                ? new ClientResultRow(name, $"{Describe(v.Value)} · {v.Updates} updates", FormatValue(v.Value)) { Typed = Scalar(v.Value) }
                 : new ClientResultRow(name, "waiting for first notification", "");
         }).ToList();
     }

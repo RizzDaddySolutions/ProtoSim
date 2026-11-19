@@ -21,6 +21,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly DispatcherTimer _timer;
     private object? _selected;
     private DeviceViewModel? _selectedDevice;
+    private ClientViewModel? _selectedClient;
     private string? _filePath;
     private bool _simulationEnabled;
     private string _statusText = "Ready";
@@ -35,6 +36,9 @@ public sealed class MainViewModel : ObservableObject
 
         AddDeviceActions = catalog.Plugins
             .Select(p => new PluginActionViewModel(p.DisplayName, p.Description, new RelayCommand(() => AddDevice(p)))).ToList();
+        AddClientActions = catalog.Plugins.Where(p => p.SupportsClient)
+            .Select(p => new PluginActionViewModel(p.DisplayName, $"Connect to an external {p.DisplayName} server or device", new RelayCommand(() => AddClient(p)))).ToList();
+        Logic = new LogicViewModel(TagDirectory);
 
         NewCommand = new AsyncRelayCommand(NewProjectAsync);
         OpenCommand = new AsyncRelayCommand(OpenAsync);
@@ -62,8 +66,11 @@ public sealed class MainViewModel : ObservableObject
     public IReadOnlyList<string> PluginErrors { get; }
     public SimulationEngine Engine { get; } = new();
 
+    /// <summary>Every project tag by "Device/Tag"; shared by the logic designer and client tag mappings.</summary>
+    public ProjectTagDirectory TagDirectory { get; } = new();
+
     /// <summary>Function block programs across devices (the Logic page).</summary>
-    public LogicViewModel Logic { get; } = new(new ProjectTagDirectory());
+    public LogicViewModel Logic { get; }
     public ICommand ShowLogicCommand { get; }
     public ICommand ToggleLogicDockCommand { get; }
 
@@ -72,7 +79,9 @@ public sealed class MainViewModel : ObservableObject
 
     public bool IsLogicSelected => ReferenceEquals(_selected, Logic);
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
+    public ObservableCollection<ClientViewModel> Clients { get; } = [];
     public IReadOnlyList<PluginActionViewModel> AddDeviceActions { get; }
+    public IReadOnlyList<PluginActionViewModel> AddClientActions { get; }
 
     public ICommand NewCommand { get; }
     public ICommand OpenCommand { get; }
@@ -101,6 +110,18 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (!SetProperty(ref _selectedDevice, value) || value == null) return;
+            if (_selectedClient != null) { _selectedClient = null; OnPropertyChanged(nameof(SelectedClient)); }
+            Selected = value;
+        }
+    }
+
+    public ClientViewModel? SelectedClient
+    {
+        get => _selectedClient;
+        set
+        {
+            if (!SetProperty(ref _selectedClient, value) || value == null) return;
+            if (_selectedDevice != null) { _selectedDevice = null; OnPropertyChanged(nameof(SelectedDevice)); }
             Selected = value;
         }
     }
@@ -125,12 +146,16 @@ public sealed class MainViewModel : ObservableObject
     {
         foreach (var d in Devices) d.Refresh(ReferenceEquals(d, _selected));
         Logic.Refresh(Devices, IsLogicSelected || _logicWindow != null);
+        foreach (var c in Clients) c.Refresh();
         OnPropertyChanged(nameof(LogicSummary));
 
         int running = Devices.Count(d => d.IsRunning);
         long connections = Devices.Sum(d => d.Stats.ActiveConnections);
         double rate = Devices.Sum(d => d.Stats.RequestsPerSecond);
-        StatusText = $"{running}/{Devices.Count} devices running · {connections} connections · {rate:F1} req/s · simulation {(SimulationEnabled ? "enabled" : "disabled")}";
+        int polling = Clients.Count(c => c.IsPolling);
+        StatusText = $"{running}/{Devices.Count} devices running · {connections} connections · {rate:F1} req/s · " +
+                     (Clients.Count > 0 ? $"{polling}/{Clients.Count} clients polling · " : "") +
+                     $"simulation {(SimulationEnabled ? "enabled" : "disabled")}";
     }
 
     // ---- Devices ----
@@ -149,6 +174,21 @@ public sealed class MainViewModel : ObservableObject
         foreach (var tag in plugin.CreateSampleTags()) device.AddTag(tag);
         SelectedDevice = device;
         return device;
+    }
+
+    public ClientViewModel AddClient(IProtocolPlugin plugin, object? settings = null)
+    {
+        var client = CreateClient(plugin, UniqueName($"{plugin.DisplayName} client", Clients.Select(c => c.Name)),
+            settings ?? plugin.CreateClientSettings(), plugin.CreateClientRequest());
+        SelectedClient = client;
+        return client;
+    }
+
+    private ClientViewModel CreateClient(IProtocolPlugin plugin, string name, object settings, object request)
+    {
+        var client = new ClientViewModel(plugin, name, settings, request, TagDirectory);
+        Clients.Add(client);
+        return client;
     }
 
     private static string UniqueName(string baseName, IEnumerable<string> existing)
@@ -191,14 +231,27 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task RemoveSelectedAsync()
     {
-        if (_selected is not DeviceViewModel d) return;
-        if (!Confirm($"Remove device '{d.Name}'?")) return;
-        await d.StopRecordAndReplayAsync();
-        await d.StopAsync();
-        d.RemoveAllTags();
-        Devices.Remove(d);
+        switch (_selected)
+        {
+            case DeviceViewModel d:
+                if (!Confirm($"Remove device '{d.Name}'?")) return;
+                await d.StopRecordAndReplayAsync();
+                await d.StopAsync();
+                d.RemoveAllTags();
+                Devices.Remove(d);
+                break;
+            case ClientViewModel c:
+                if (!Confirm($"Remove client '{c.Name}'?")) return;
+                await c.DisconnectAsync();
+                Clients.Remove(c);
+                break;
+            default:
+                return;
+        }
         _selectedDevice = null;
+        _selectedClient = null;
         OnPropertyChanged(nameof(SelectedDevice));
+        OnPropertyChanged(nameof(SelectedClient));
         Selected = null;
     }
 
@@ -227,6 +280,7 @@ public sealed class MainViewModel : ObservableObject
         CloseLogicWindow();
         UiLayout.Save();
         await Logic.ShutdownAsync();
+        foreach (var c in Clients) await c.DisconnectAsync();
         await StopAllAsync();
         Engine.Dispose();
     }
@@ -245,7 +299,9 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
         _selectedDevice = null;
+        _selectedClient = null;
         OnPropertyChanged(nameof(SelectedDevice));
+        OnPropertyChanged(nameof(SelectedClient));
         Selected = Logic;
     }
 
@@ -313,7 +369,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task NewProjectAsync()
     {
-        if ((Devices.Count > 0 || Logic.Programs.Count > 0) && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
+        if ((Devices.Count > 0 || Clients.Count > 0 || Logic.Programs.Count > 0) && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
         await ClearAsync();
         _filePath = null;
         OnPropertyChanged(nameof(Title));
@@ -323,6 +379,9 @@ public sealed class MainViewModel : ObservableObject
     {
         await Logic.StopAsync();
         Logic.Clear();
+        foreach (var c in Clients.ToList()) await c.DisconnectAsync();
+        Clients.Clear();
+        _selectedClient = null;
         foreach (var d in Devices.ToList())
         {
             await d.StopRecordAndReplayAsync();
@@ -383,13 +442,31 @@ public sealed class MainViewModel : ObservableObject
                 foreach (var (tvm, value) in restoreValues) tvm.ValueText = value;
             }
 
+            foreach (var cd in doc.Clients)
+            {
+                var plugin = Catalog.Find(cd.PluginId);
+                if (plugin == null || !plugin.SupportsClient) { missing.Add(cd.PluginId); continue; }
+                var settings = ProjectSerializer.FromElement(cd.Settings, plugin.ClientSettingsType!) ?? plugin.CreateClientSettings();
+                var request = ProjectSerializer.FromElement(cd.Request, plugin.ClientRequestType!) ?? plugin.CreateClientRequest();
+                var client = CreateClient(plugin, cd.Name, settings, request);
+                client.PollIntervalMs = cd.PollIntervalMs;
+                client.AutoPoll = cd.AutoPoll;
+                foreach (var m in cd.Mappings) client.Mappings.Add(new ClientMappingViewModel(m.Source, m.Target));
+            }
+
             Logic.Load(doc.Logic, doc.LogicAutoRun);
 
             _filePath = path;
             OnPropertyChanged(nameof(Title));
             if (Devices.Count > 0) SelectedDevice = Devices[0];
+            else if (Clients.Count > 0) SelectedClient = Clients[0];
 
             foreach (var d in Devices.Where(d => d.AutoStart)) await d.StartAsync();
+            if (Clients.Any(c => c.AutoPoll))
+            {
+                TagDirectory.Refresh(Devices);
+                foreach (var c in Clients.Where(c => c.AutoPoll)) c.StartPolling();
+            }
             if (Logic.AutoRun && Logic.Programs.Count > 0)
             {
                 Logic.Refresh(Devices, false);
@@ -440,6 +517,19 @@ public sealed class MainViewModel : ObservableObject
                 if (values.Count > 0) dd.Data[area.ShortName] = values;
             }
             doc.Devices.Add(dd);
+        }
+        foreach (var c in Clients)
+        {
+            doc.Clients.Add(new ClientDocument
+            {
+                PluginId = c.Plugin.Id,
+                Name = c.Name,
+                Settings = ProjectSerializer.ToElement(c.Settings),
+                Request = ProjectSerializer.ToElement(c.Request),
+                PollIntervalMs = c.PollIntervalMs,
+                AutoPoll = c.AutoPoll,
+                Mappings = c.Mappings.Select(m => m.ToModel()).ToList(),
+            });
         }
         doc.Logic = Logic.ToModels();
         doc.LogicAutoRun = Logic.AutoRun;

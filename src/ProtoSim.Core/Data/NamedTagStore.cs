@@ -60,13 +60,17 @@ public sealed class NamedTagStore
 
     private sealed class Handle(NamedTag tag) : ITagBinding
     {
+        private readonly RemoteWriteFlag _writable = new(tag.WriteGuard);
         private int _disposed;
         public TagDataType DataType => tag.DataType;
         public object Read() => tag.Value;
         public void Write(object value) => tag.Write(value);
+        public bool RemoteWritable { get => _writable.Writable; set => _writable.Writable = value; }
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0) tag.Store.Release(tag);
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            _writable.Release();
+            tag.Store.Release(tag);
         }
     }
 }
@@ -92,6 +96,11 @@ public sealed class NamedTag
     public string Name { get; }
     public TagDataType DataType { get; }
     public object Value => Volatile.Read(ref _value);
+
+    internal RemoteWriteGuard WriteGuard { get; } = new();
+
+    /// <summary>False while any tag bound to this name has its Writeable box cleared. Protocols check it before applying a client write.</summary>
+    public bool ClientWritable => WriteGuard.AllowsWrites;
     public DateTime TimestampUtc => new(Interlocked.Read(ref _timestampTicks), DateTimeKind.Utc);
 
     /// <summary>Incremented on every write; lets subscribers detect changes cheaply.</summary>

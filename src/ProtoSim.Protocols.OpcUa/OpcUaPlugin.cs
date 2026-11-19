@@ -8,9 +8,23 @@ public sealed class OpcUaPlugin : IProtocolPlugin
 {
     public string Id => "opc-ua";
     public string DisplayName => "OPC UA";
-    public string Description => "OPC UA server (opc.tcp, None/Sign/SignAndEncrypt, anonymous or user login) with live variables that clients can browse, read, write and subscribe to.";
+    public string Description => "OPC UA server (opc.tcp, None/Sign/SignAndEncrypt, anonymous or user login) with live variables, plus a client for browse, read, write and subscriptions.";
 
     public Type ServerSettingsType => typeof(OpcUaServerSettings);
+    public Type? ClientSettingsType => typeof(OpcUaClientSettings);
+    public Type? ClientRequestType => typeof(OpcUaClientRequest);
+
+    public object CreateClientSettings() => new OpcUaClientSettings();
+
+    public object CreateClientSettingsFor(object serverSettings) =>
+        new OpcUaClientSettings { EndpointUrl = OpcUaServer.BuildEndpointUrl((OpcUaServerSettings)serverSettings) };
+
+    public object CreateClientRequest() => new OpcUaClientRequest();
+
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) =>
+        new OpcUaClient((OpcUaClientSettings)clientSettings, context);
+
+    public string DescribeClient(object clientSettings) => ((OpcUaClientSettings)clientSettings).EndpointUrl;
 
     public string AddressHelp =>
         "Folder path such as Plant/Tank1/Level. It appears under Objects/<root folder> with NodeId ns=2;s=Plant/Tank1/Level. Folders are created automatically. Word order is ignored.";

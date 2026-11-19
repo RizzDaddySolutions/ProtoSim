@@ -67,6 +67,12 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         if (!settings.AllowWrites) throw new ModbusException(ModbusExceptionCode.IllegalFunction);
     }
 
+    /// <summary>Rejects writes that touch a tag whose Writeable box is cleared.</summary>
+    private static void CheckUnprotected(ModbusDataArea area, int start, int qty)
+    {
+        if (area.IsWriteProtected(start, qty)) throw new ModbusException(ModbusExceptionCode.IllegalDataAddress);
+    }
+
     private byte[] ReadBits(ReadOnlySpan<byte> pdu, ModbusDataArea area)
     {
         Require(pdu, 5);
@@ -115,6 +121,7 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         int addr = U16(pdu, 1), value = U16(pdu, 3);
         if (value != 0xFF00 && value != 0x0000) throw new ModbusException(ModbusExceptionCode.IllegalDataValue);
         CheckRange(model.Coils, addr, 1);
+        CheckUnprotected(model.Coils, addr, 1);
         model.Coils.Write(addr, value == 0xFF00 ? (ushort)1 : (ushort)0);
         return pdu[..5].ToArray();
     }
@@ -125,6 +132,7 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         Require(pdu, 5);
         int addr = U16(pdu, 1);
         CheckRange(model.HoldingRegisters, addr, 1);
+        CheckUnprotected(model.HoldingRegisters, addr, 1);
         model.HoldingRegisters.Write(addr, U16(pdu, 3));
         return pdu[..5].ToArray();
     }
@@ -137,6 +145,7 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         CheckQuantity(qty, ModbusLimits.MaxWriteBits);
         if (byteCount != (qty + 7) / 8 || pdu.Length < 6 + byteCount) throw new ModbusException(ModbusExceptionCode.IllegalDataValue);
         CheckRange(model.Coils, start, qty);
+        CheckUnprotected(model.Coils, start, qty);
 
         lock (model.Sync)
         {
@@ -154,6 +163,7 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         CheckQuantity(qty, ModbusLimits.MaxWriteRegisters);
         if (byteCount != qty * 2 || pdu.Length < 6 + byteCount) throw new ModbusException(ModbusExceptionCode.IllegalDataValue);
         CheckRange(model.HoldingRegisters, start, qty);
+        CheckUnprotected(model.HoldingRegisters, start, qty);
 
         lock (model.Sync)
         {
@@ -170,6 +180,7 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         int addr = U16(pdu, 1);
         ushort and = U16(pdu, 3), or = U16(pdu, 5);
         CheckRange(model.HoldingRegisters, addr, 1);
+        CheckUnprotected(model.HoldingRegisters, addr, 1);
         lock (model.Sync)
         {
             ushort cur = model.HoldingRegisters.GetUnsafe(addr);
@@ -189,6 +200,7 @@ public sealed class ModbusRequestHandler(ModbusDataModel model, ModbusDeviceSett
         if (byteCount != writeQty * 2 || pdu.Length < 10 + byteCount) throw new ModbusException(ModbusExceptionCode.IllegalDataValue);
         CheckRange(model.HoldingRegisters, readStart, readQty);
         CheckRange(model.HoldingRegisters, writeStart, writeQty);
+        CheckUnprotected(model.HoldingRegisters, writeStart, writeQty);
 
         lock (model.Sync)
         {

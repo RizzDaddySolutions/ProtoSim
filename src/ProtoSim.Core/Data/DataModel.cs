@@ -43,5 +43,49 @@ public interface ITagBinding : IDisposable
     object Read();
     void Write(object value);
 
+    /// <summary>
+    /// Whether external clients may write this tag's value. Protocols that can't enforce it keep the default (always
+    /// writable). Local writes (UI, simulation, scenarios, logic) are never blocked.
+    /// </summary>
+    bool RemoteWritable { get => true; set { } }
+
     void IDisposable.Dispose() { }
+}
+
+/// <summary>
+/// Shared by every tag bound to one value: counts the tags that forbid client writes.
+/// The value accepts client writes only while no bound tag forbids them.
+/// </summary>
+public sealed class RemoteWriteGuard
+{
+    private int _readOnly;
+
+    public bool AllowsWrites => Volatile.Read(ref _readOnly) <= 0;
+
+    public void Change(int delta) => Interlocked.Add(ref _readOnly, delta);
+}
+
+/// <summary>One binding's Writeable flag; keeps a shared <see cref="RemoteWriteGuard"/> up to date.</summary>
+public sealed class RemoteWriteFlag(Action<int> change)
+{
+    private int _readOnly;
+
+    public RemoteWriteFlag(RemoteWriteGuard guard) : this(guard.Change) { }
+
+    public bool Writable
+    {
+        get => Volatile.Read(ref _readOnly) == 0;
+        set
+        {
+            int next = value ? 0 : 1;
+            int old = Interlocked.Exchange(ref _readOnly, next);
+            if (old != next) change(next - old);
+        }
+    }
+
+    /// <summary>Call when the binding is disposed so it stops counting.</summary>
+    public void Release()
+    {
+        if (Interlocked.Exchange(ref _readOnly, 0) == 1) change(-1);
+    }
 }

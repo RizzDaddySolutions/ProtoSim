@@ -23,6 +23,17 @@ public sealed class OpcUaVariable
     public string FolderPath { get; }
     public TagDataType DataType { get; }
     internal int RefCount;
+    private int _readOnly;
+
+    /// <summary>False while any tag bound to this variable has its Writeable box cleared.</summary>
+    public bool ClientWritable => Volatile.Read(ref _readOnly) <= 0;
+
+    /// <summary>Returns true when <see cref="ClientWritable"/> flipped.</summary>
+    internal bool ChangeReadOnly(int delta)
+    {
+        int now = Interlocked.Add(ref _readOnly, delta);
+        return (now <= 0) != (now - delta <= 0);
+    }
 
     public object Value
     {
@@ -60,6 +71,14 @@ public sealed class OpcUaDataModel : IDeviceDataModel
 
     /// <summary>Raised when a value changes locally (simulation or UI). Remote writes do not raise it.</summary>
     public event Action<OpcUaVariable>? ValueChanged;
+
+    /// <summary>Raised when <see cref="OpcUaVariable.ClientWritable"/> changes.</summary>
+    public event Action<OpcUaVariable>? WritableChanged;
+
+    internal void ChangeReadOnly(OpcUaVariable variable, int delta)
+    {
+        if (variable.ChangeReadOnly(delta)) WritableChanged?.Invoke(variable);
+    }
 
     public IReadOnlyList<OpcUaVariable> Variables
     {
@@ -141,16 +160,29 @@ public sealed class OpcUaDataModel : IDeviceDataModel
     }
 }
 
-internal sealed class OpcUaTagBinding(OpcUaDataModel model, OpcUaVariable variable) : ITagBinding
+internal sealed class OpcUaTagBinding : ITagBinding
 {
+    private readonly OpcUaDataModel model;
+    private readonly OpcUaVariable variable;
+    private readonly RemoteWriteFlag _writable;
     private int _disposed;
+
+    public OpcUaTagBinding(OpcUaDataModel model, OpcUaVariable variable)
+    {
+        this.model = model;
+        this.variable = variable;
+        _writable = new RemoteWriteFlag(delta => model.ChangeReadOnly(variable, delta));
+    }
 
     public TagDataType DataType => variable.DataType;
     public object Read() => variable.Value;
     public void Write(object value) => model.SetLocal(variable, ValueConverter.Coerce(value, variable.DataType));
+    public bool RemoteWritable { get => _writable.Writable; set => _writable.Writable = value; }
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) == 0) model.Release(variable);
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _writable.Release();
+        model.Release(variable);
     }
 }

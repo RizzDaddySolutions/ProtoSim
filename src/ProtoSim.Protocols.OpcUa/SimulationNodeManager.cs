@@ -53,6 +53,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         _model.VariableAdded += OnVariableAdded;
         _model.VariableRemoved += OnVariableRemoved;
         _model.ValueChanged += OnValueChanged;
+        _model.WritableChanged += OnWritableChanged;
     }
 
     /// <summary>Stops listening to the data model, which outlives the server. Safe to call more than once.</summary>
@@ -61,6 +62,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         _model.VariableAdded -= OnVariableAdded;
         _model.VariableRemoved -= OnVariableRemoved;
         _model.ValueChanged -= OnValueChanged;
+        _model.WritableChanged -= OnWritableChanged;
     }
 
     protected override void Dispose(bool disposing)
@@ -96,6 +98,19 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
         }
     }
 
+    private void OnWritableChanged(OpcUaVariable v)
+    {
+        lock (Lock)
+        {
+            if (!_nodes.TryGetValue(v, out var node)) return;
+            node.AccessLevel = node.UserAccessLevel = AccessFor(v);
+            node.ClearChangeMasks(SystemContext, false);
+        }
+    }
+
+    private byte AccessFor(OpcUaVariable v) =>
+        _settings.AllowWrites && v.ClientWritable ? AccessLevels.CurrentReadOrWrite : AccessLevels.CurrentRead;
+
     private FolderState GetFolder(string folderPath)
     {
         if (folderPath.Length == 0) return _root!;
@@ -125,7 +140,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
     {
         if (_nodes.ContainsKey(v)) return;
         var parent = GetFolder(v.FolderPath);
-        byte access = _settings.AllowWrites ? AccessLevels.CurrentReadOrWrite : AccessLevels.CurrentRead;
+        byte access = AccessFor(v);
 
         var node = new BaseDataVariableState(parent)
         {
@@ -155,7 +170,7 @@ internal sealed class SimulationNodeManager : CustomNodeManager2
 
     private ServiceResult OnClientWrite(OpcUaVariable v, ref Variant value)
     {
-        if (!_settings.AllowWrites) return StatusCodes.BadNotWritable;
+        if (!_settings.AllowWrites || !v.ClientWritable) return StatusCodes.BadNotWritable;
         try
         {
             var converted = ValueConverter.Coerce(value.AsBoxedObject(), v.DataType);

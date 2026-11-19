@@ -8,7 +8,7 @@ namespace ProtoSim.Core.Protocols;
 /// <summary>
 /// Entry point for a protocol. Implement this in a class library referencing ProtoSim.Core
 /// and drop the DLL in the app's Plugins folder to add a new protocol.
-/// Settings objects are plain classes; the UI edits their public properties
+/// Settings and request objects are plain classes; the UI edits their public properties
 /// (honouring [Display], [Range] and [Browsable(false)]) and persists them as JSON.
 /// </summary>
 public interface IProtocolPlugin
@@ -35,6 +35,29 @@ public interface IProtocolPlugin
     IEnumerable<SimTag> CreateSampleTags();
 
     string DescribeServer(object serverSettings);
+
+    // ---- Client (optional) ----
+
+    /// <summary>Settings type of this protocol's client, or null when the protocol has no client.</summary>
+    Type? ClientSettingsType => null;
+
+    /// <summary>Request type of this protocol's client.</summary>
+    Type? ClientRequestType => null;
+
+    bool SupportsClient => ClientSettingsType != null;
+
+    object CreateClientSettings() => throw new NotSupportedException($"{DisplayName} has no client.");
+
+    /// <summary>Client settings that connect to a simulated device with the given server settings (used by demos).</summary>
+    object CreateClientSettingsFor(object serverSettings) => CreateClientSettings();
+
+    object CreateClientRequest() => throw new NotSupportedException($"{DisplayName} has no client.");
+
+    IProtocolClient CreateClient(object clientSettings, ClientContext context) =>
+        throw new NotSupportedException($"{DisplayName} has no client.");
+
+    /// <summary>Short text for the client's target, e.g. "192.168.1.10:502".</summary>
+    string DescribeClient(object clientSettings) => string.Empty;
 
     /// <summary>True when multi-word values can use a configurable word order (e.g. Modbus registers).
     /// The tag grid hides the Order column for protocols that don't.</summary>

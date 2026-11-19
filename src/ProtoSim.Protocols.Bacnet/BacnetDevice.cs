@@ -626,6 +626,10 @@ public sealed class BacnetDevice : IProtocolServer
         if (value.value == null || value.value.Count == 0) return Err(BacnetErrorClasses.ERROR_CLASS_PROPERTY, BacnetErrorCodes.ERROR_CODE_INVALID_DATA_TYPE);
         var v = value.value[0];
 
+        // The tag's Writeable box guards the value; Out_Of_Service stays writable so clients can still take the point over.
+        if (prop is Props.PROP_PRESENT_VALUE or Props.PROP_RELINQUISH_DEFAULT && !o.Tag.ClientWritable)
+            return Err(BacnetErrorClasses.ERROR_CLASS_PROPERTY, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
+
         switch (prop)
         {
             case Props.PROP_OUT_OF_SERVICE:

@@ -10,6 +10,21 @@ public sealed class Dnp3Plugin : IProtocolPlugin
     public string DisplayName => "DNP3";
     public string Description => "DNP3 TCP outstation with binary inputs, analog inputs, counters, commands, and simulated values.";
     public Type ServerSettingsType => typeof(Dnp3ServerSettings);
+    public Type? ClientSettingsType => typeof(Dnp3MasterSettings);
+    public Type? ClientRequestType => typeof(Dnp3MasterRequest);
+    public object CreateClientSettings() => new Dnp3MasterSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (Dnp3ServerSettings)serverSettings;
+        return new Dnp3MasterSettings { Host = "127.0.0.1", Port = s.Port, MasterAddress = s.MasterAddress, OutstationAddress = s.OutstationAddress };
+    }
+    public object CreateClientRequest() => new Dnp3MasterRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new Dnp3Master((Dnp3MasterSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (Dnp3MasterSettings)clientSettings;
+        return $"{s.Host}:{s.Port} · outstation {s.OutstationAddress}";
+    }
     public string AddressHelp => "BI:<index>, AI:<index>, or C:<index>";
     public string DefaultTagAddress(int n) => $"AI:{n - 1}";
 

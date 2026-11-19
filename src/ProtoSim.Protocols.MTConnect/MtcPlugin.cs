@@ -10,6 +10,21 @@ public sealed class MtcPlugin : IProtocolPlugin
     public string DisplayName => "MTConnect agent";
     public string Description => "MTConnect agent for a simulated machine tool: probe, current, sample and assets over HTTP, with a component tree, samples, events, conditions and a sequence-numbered buffer.";
     public Type ServerSettingsType => typeof(MtcSettings);
+    public Type? ClientSettingsType => typeof(MtcClientSettings);
+    public Type? ClientRequestType => typeof(MtcClientRequest);
+    public object CreateClientSettings() => new MtcClientSettings();
+    public object CreateClientSettingsFor(object serverSettings)
+    {
+        var s = (MtcSettings)serverSettings;
+        return new MtcClientSettings { AgentUrl = $"http://localhost:{s.Port}", Device = s.DeviceName };
+    }
+    public object CreateClientRequest() => new MtcClientRequest();
+    public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new MtcClient((MtcClientSettings)clientSettings, context);
+    public string DescribeClient(object clientSettings)
+    {
+        var s = (MtcClientSettings)clientSettings;
+        return string.IsNullOrWhiteSpace(s.Device) ? s.AgentUrl : $"{s.AgentUrl}/{s.Device}";
+    }
     public string AddressHelp => MtcAddress.Help;
     public string DefaultTagAddress(int n) => $"Controller/Path/item{n}:MESSAGE";
 
