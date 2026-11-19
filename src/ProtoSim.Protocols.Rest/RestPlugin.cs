@@ -89,7 +89,7 @@ public sealed class RestPlugin : IProtocolPlugin
             Name = "Batch counter", Address = "production/count", DataType = TagDataType.Int32,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Counter, Min = 0, Max = 100000, Step = 1, IntervalMs = 2000 },
         };
-        yield return new SimTag { Name = "Status", Address = "status", DataType = TagDataType.String, Description = "Writable with PUT." };
+        yield return new SimTag { Name = "Status", Address = "status", DataType = TagDataType.String, Description = "Writable with PUT.", Writable = true };
     }
 
     public string DescribeServer(object serverSettings) => ((RestServerSettings)serverSettings).BaseUrl;

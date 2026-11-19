@@ -116,7 +116,7 @@
 <nav>
   <div class="brand">
     <div class="logo">P</div>
-    <div><strong>ProtoSim</strong><br><span>Help · version 1.1</span></div>
+    <div><strong>ProtoSim</strong><br><span>Help · version 1.2</span></div>
   </div>
   <h4>Getting started</h4>
   <a href="#overview">Overview</a>
@@ -151,7 +151,8 @@
 <a href="#projects">Project files</a>
   <a href="#shortcuts">Keyboard shortcuts</a>
   <a href="#plugins">Plugins</a>
-  <a href="#whats-new">What's new in 1.1</a>
+  <a href="#whats-new">What's new in 1.2</a>
+  <a href="#whats-new-1-1">What's new in 1.1</a>
 </nav>
 
 <main>
@@ -205,7 +206,7 @@
 
 <section id="tags">
   <h2>Tags &amp; simulation</h2>
-  <p>Each row is a tag. Use <strong>Add tag</strong>, <strong>Duplicate</strong> and <strong>Remove</strong> above the grid. The address formats for the device's protocol are shown above the grid.</p>
+  <p>Each row is a tag. Use <strong>Add tag</strong>, <strong>Duplicate</strong> and <strong>Remove</strong> above the grid. Shift+click selects a range of tags and Ctrl+click adds or removes single tags; <strong>Remove</strong>, <kbd>Delete</kbd> or right-click &gt; <strong>Delete</strong> removes every selected tag (after asking, when there is more than one). The address formats for the device's protocol are shown above the grid.</p>
   <table>
     <tr><th>Column</th><th>Meaning</th></tr>
     <tr><td>Name</td><td>Display name of the tag.</td></tr>
@@ -213,7 +214,7 @@
     <tr><td>Type</td><td><code>Bool</code>, <code>Int16</code>, <code>UInt16</code>, <code>Int32</code>, <code>UInt32</code>, <code>Int64</code>, <code>UInt64</code>, <code>Float32</code>, <code>Float64</code>, <code>String</code> (String only for node/topic-based protocols).</td></tr>
     <tr><td>Order</td><td>Word order for values that span several registers. <strong>Shown only for Modbus devices</strong>, and dimmed for single-register types (Bool, Int16, UInt16).</td></tr>
     <tr><td>Value</td><td>The live value. Double-click to write a new one.</td></tr>
-    <tr><td>Writeable</td><td>Whether external clients may write the tag. Cleared, a client write is refused with the protocol's own error (Modbus exception 02, OPC UA <code>BadNotWritable</code>, BACnet write-access-denied, SNMP <code>notWritable</code>, HTTP 403) and MQTT publishes or Sparkplug commands to it are dropped and logged. Writes from the grid, simulation, scenarios, logic and client mappings always work. On by default.</td></tr>
+    <tr><td>Writeable</td><td>Whether external clients may write the tag. Off by default; ticking it sets the tag's simulation to None. Cleared, a client write is refused with the protocol's own error (Modbus exception 02, OPC UA <code>BadNotWritable</code>, BACnet write-access-denied, SNMP <code>notWritable</code>, HTTP 403) and MQTT publishes or Sparkplug commands to it are dropped and logged. Writes from the grid, simulation, scenarios, logic and client mappings always work.</td></tr>
     <tr><td>Simulate</td><td>Turns simulation on or off for this tag. When off, the tag keeps whatever value it is given.</td></tr>
     <tr><td>Simulation</td><td>The simulation kind (see the next section).</td></tr>
     <tr><td>Min / Max</td><td>Value range of the simulation.</td></tr>
@@ -574,7 +575,7 @@ offset_s,tag,value
 <section id="projects">
   <h2>Project files</h2>
   <p>Projects are saved as <code>.psim</code> files (JSON). A project holds the devices, their settings, fault settings, tags and values, raw Modbus memory, client sessions with their tag mappings, and logic programs. To open a project at startup, pass its path on the command line: <code>ProtoSim.exe project.psim</code>.</p>
-  <div class="note">Projects from earlier versions open unchanged. Tags that use the <em>None</em> simulation kind keep their value, and tags saved before the <strong>Writeable</strong> column existed are writeable.</div>
+  <div class="note">Projects from earlier versions open unchanged. Tags that use the <em>None</em> simulation kind keep their value, and tags saved before the <strong>Writeable</strong> column existed are not writeable.</div>
 </section>
 
 <section id="shortcuts">
@@ -597,6 +598,17 @@ offset_s,tag,value
 </section>
 
 <section id="whats-new">
+  <h2>What's new in 1.2</h2>
+  <ul>
+    <li><strong>Clients</strong> for every protocol pull data in from external servers and devices, and can copy it into project tags (see <a href="#clients">Clients</a>).</li>
+    <li>The <em>None</em> simulation kind is back: the value holds still until something writes it.</li>
+    <li>New <strong>Writeable</strong> column, off by default: only ticked tags accept writes from external clients.</li>
+    <li>Select several tags with Shift+click or Ctrl+click and remove them together.</li>
+    <li>Tag right-click menu with <strong>Delete</strong>, and <strong>Clear all tags…</strong>.</li>
+  </ul>
+</section>
+
+<section id="whats-new-1-1">
   <h2>What's new in 1.1</h2>
   <ul>
     <li>The Simulation drop-down no longer has a <em>None</em> option; use the <strong>Simulate</strong> check box to turn simulation off.</li>

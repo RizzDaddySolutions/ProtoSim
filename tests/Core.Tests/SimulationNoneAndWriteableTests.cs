@@ -51,16 +51,25 @@ public sealed class SimulationNoneAndWriteableTests
     }
 
     [Fact]
-    public void Writable_DefaultsToTrue_AndRoundTrips()
+    public void Writable_DefaultsToFalse_AndRoundTrips()
     {
+        Assert.False(new SimTag().Writable);
         var oldJson = """{"name":"A","address":"HR:1","dataType":"UInt16"}""";
         var doc = JsonSerializer.Deserialize<TagDocument>(oldJson, ProjectSerializer.Options)!;
-        Assert.True(doc.Writable);
+        Assert.False(doc.Writable);
 
-        var t = new SimTag { Name = "B", Address = "HR:2", Writable = false };
+        var t = new SimTag { Name = "B", Address = "HR:2", Writable = true };
         var back = JsonSerializer.Deserialize<TagDocument>(JsonSerializer.Serialize(TagDocument.From(t), ProjectSerializer.Options), ProjectSerializer.Options)!;
-        Assert.False(back.Writable);
-        Assert.False(back.ToTag().Writable);
+        Assert.True(back.Writable);
+        Assert.True(back.ToTag().Writable);
+    }
+
+    [Fact]
+    public void NewTagBinding_IsReadOnlyForClients()
+    {
+        var store = new NamedTagStore();
+        _ = new SimTag { Binding = store.Bind("fresh", TagDataType.Int32) };
+        Assert.False(store.Find("fresh")!.ClientWritable);
     }
 
     [Fact]

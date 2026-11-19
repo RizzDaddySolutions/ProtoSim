@@ -53,7 +53,7 @@ public static class TagCsv
                 DataType = En("DataType", TagDataType.UInt16),
                 WordOrder = En("WordOrder", WordOrder.ABCD),
                 Description = Get("Description"),
-                Writable = !bool.TryParse(Get("Writeable"), out var writable) || writable,
+                Writable = bool.TryParse(Get("Writeable"), out var writable) && writable,
                 Simulation = new SimulationSettings
                 {
                     Enabled = bool.TryParse(Get("Simulate"), out var enabled) && enabled,

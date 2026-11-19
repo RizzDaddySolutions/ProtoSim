@@ -79,8 +79,8 @@ public sealed class SparkplugPlugin : IProtocolPlugin
             Name = "Pump running", Address = "Pump1:Running", DataType = TagDataType.Bool,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Square, Min = 0, Max = 1, PeriodSeconds = 10, IntervalMs = 250 },
         };
-        yield return new SimTag { Name = "Pump speed setpoint", Address = "Pump1:Speed Setpoint", DataType = TagDataType.Int32, Description = "Writable with DCMD" };
-        yield return new SimTag { Name = "Batch ID", Address = "Pump1:Batch ID", DataType = TagDataType.String, Description = "Writable with DCMD" };
+        yield return new SimTag { Name = "Pump speed setpoint", Address = "Pump1:Speed Setpoint", DataType = TagDataType.Int32, Description = "Writable with DCMD", Writable = true };
+        yield return new SimTag { Name = "Batch ID", Address = "Pump1:Batch ID", DataType = TagDataType.String, Description = "Writable with DCMD", Writable = true };
     }
 
     public string DescribeServer(object serverSettings)

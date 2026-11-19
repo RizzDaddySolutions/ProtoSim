@@ -71,8 +71,8 @@ public sealed class OpcUaPlugin : IProtocolPlugin
             Name = "Units produced", Address = "Plant/Line1/Count", DataType = TagDataType.UInt32,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Counter, Min = 0, Max = 1_000_000, Step = 1, IntervalMs = 1000 },
         };
-        yield return new SimTag { Name = "Level setpoint", Address = "Plant/Setpoints/Level", DataType = TagDataType.Float64, Description = "Writable by clients" };
-        yield return new SimTag { Name = "Operator message", Address = "Plant/Setpoints/Message", DataType = TagDataType.String, Description = "Writable by clients" };
+        yield return new SimTag { Name = "Level setpoint", Address = "Plant/Setpoints/Level", DataType = TagDataType.Float64, Description = "Writable by clients", Writable = true };
+        yield return new SimTag { Name = "Operator message", Address = "Plant/Setpoints/Message", DataType = TagDataType.String, Description = "Writable by clients", Writable = true };
     }
 
     public string DescribeServer(object serverSettings) => OpcUaServer.BuildEndpointUrl((OpcUaServerSettings)serverSettings);

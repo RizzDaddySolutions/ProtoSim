@@ -97,7 +97,7 @@ public sealed class SimTag : ObservableObject
     private WordOrder _wordOrder = WordOrder.ABCD;
     private string _description = string.Empty;
     private SimulationSettings _simulation = new();
-    private bool _writable = true;
+    private bool _writable;
     private volatile ITagBinding? _binding;
 
     public string Name { get => _name; set => SetProperty(ref _name, value); }
@@ -107,7 +107,7 @@ public sealed class SimTag : ObservableObject
     public string Description { get => _description; set => SetProperty(ref _description, value); }
     public SimulationSettings Simulation { get => _simulation; set => SetProperty(ref _simulation, value ?? new()); }
 
-    /// <summary>Whether external clients may write this tag (where the protocol supports writes at all).</summary>
+    /// <summary>Whether external clients may write this tag (where the protocol supports writes at all). Off by default.</summary>
     public bool Writable
     {
         get => _writable;

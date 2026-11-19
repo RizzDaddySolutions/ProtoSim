@@ -47,8 +47,8 @@ public sealed class TagDocument
     public string Description { get; set; } = string.Empty;
     public SimulationSettings Simulation { get; set; } = new();
 
-    /// <summary>Whether external clients may write the tag; true in files from before the setting existed.</summary>
-    public bool Writable { get; set; } = true;
+    /// <summary>Whether external clients may write the tag. Off by default, also in files from before the setting existed.</summary>
+    public bool Writable { get; set; }
 
     /// <summary>
     /// Last value of a non-simulated tag. Needed for protocols whose memory isn't

@@ -481,6 +481,9 @@ public sealed class DeviceViewModel : ObservableObject
     public AreaViewModel? SelectedArea { get => _selectedArea; set => SetProperty(ref _selectedArea, value); }
     public TagViewModel? SelectedTag { get => _selectedTag; set => SetProperty(ref _selectedTag, value); }
 
+    /// <summary>Every selected row of the tag grid (Shift+click for a range, Ctrl+click for single rows).</summary>
+    public IReadOnlyList<TagViewModel> SelectedTags { get; set; } = [];
+
     public async Task StartAsync()
     {
         if (_server != null) return;
@@ -606,9 +609,17 @@ public sealed class DeviceViewModel : ObservableObject
         if (ReferenceEquals(SelectedTag, vm)) SelectedTag = null;
     }
 
+    /// <summary>Removes several tags at once (the grid's multi-selection).</summary>
+    public void RemoveTags(IEnumerable<TagViewModel> tags)
+    {
+        foreach (var t in tags.ToList()) RemoveTag(t);
+        SelectedTags = [];
+    }
+
     public void RemoveAllTags()
     {
         foreach (var t in Tags.ToList()) RemoveTag(t);
+        SelectedTags = [];
     }
 
     private void ExportTags()

@@ -63,13 +63,13 @@ public sealed class BacnetPlugin : IProtocolPlugin
             Name = "Zone temperature", Address = "AI:1/Zone Temperature", DataType = TagDataType.Float32,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.RandomWalk, Min = 19, Max = 24, Step = 0.1, IntervalMs = 1000 },
         };
-        yield return new SimTag { Name = "Zone setpoint", Address = "AV:1/Zone Setpoint", DataType = TagDataType.Float32, Description = "Commandable (priority array)" };
+        yield return new SimTag { Name = "Zone setpoint", Address = "AV:1/Zone Setpoint", DataType = TagDataType.Float32, Description = "Commandable (priority array)", Writable = true };
         yield return new SimTag
         {
             Name = "Supply fan status", Address = "BI:1/Supply Fan Status", DataType = TagDataType.Bool,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Square, Min = 0, Max = 1, PeriodSeconds = 20, IntervalMs = 500 },
         };
-        yield return new SimTag { Name = "Supply fan command", Address = "BO:1/Supply Fan Command", DataType = TagDataType.Bool, Description = "Commandable" };
+        yield return new SimTag { Name = "Supply fan command", Address = "BO:1/Supply Fan Command", DataType = TagDataType.Bool, Description = "Commandable", Writable = true };
         yield return new SimTag
         {
             Name = "Damper position", Address = "AO:1/Damper Position", DataType = TagDataType.Float32,

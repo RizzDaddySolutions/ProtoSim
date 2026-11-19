@@ -56,7 +56,7 @@ public sealed class MqttPlugin : IProtocolPlugin
             Name = "Pump running", Address = "protosim/plant/pump/running", DataType = TagDataType.Bool,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Square, Min = 0, Max = 1, PeriodSeconds = 10, IntervalMs = 250 },
         };
-        yield return new SimTag { Name = "Command", Address = "protosim/plant/pump/command", DataType = TagDataType.String, Description = "Writable by MQTT clients." };
+        yield return new SimTag { Name = "Command", Address = "protosim/plant/pump/command", DataType = TagDataType.String, Description = "Writable by MQTT clients.", Writable = true };
     }
 
     public string DescribeServer(object serverSettings)

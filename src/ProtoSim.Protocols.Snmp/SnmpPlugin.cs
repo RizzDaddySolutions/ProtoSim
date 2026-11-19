@@ -68,7 +68,7 @@ public sealed class SnmpPlugin : IProtocolPlugin
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.RandomWalk, Min = 20, Max = 35, Step = 0.3, IntervalMs = 1000 },
         };
         yield return new SimTag { Name = "Output enabled", Address = "1.3.6.1.4.1.99999.1.5.0", DataType = TagDataType.Bool, Description = "TruthValue, writable with Set" };
-        yield return new SimTag { Name = "Label", Address = "1.3.6.1.4.1.99999.1.6.0", DataType = TagDataType.String, Description = "Writable with Set" };
+        yield return new SimTag { Name = "Label", Address = "1.3.6.1.4.1.99999.1.6.0", DataType = TagDataType.String, Description = "Writable with Set", Writable = true };
     }
 
     public string DescribeServer(object serverSettings)

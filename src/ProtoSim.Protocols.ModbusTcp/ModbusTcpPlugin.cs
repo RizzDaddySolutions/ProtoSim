@@ -66,7 +66,7 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
             Name = "Production count", Address = "HR:10", DataType = TagDataType.UInt32,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Counter, Min = 0, Max = 1_000_000, Step = 1, IntervalMs = 1000 },
         };
-        yield return new SimTag { Name = "Setpoint", Address = "HR:20", DataType = TagDataType.UInt16, Description = "Writable by clients" };
+        yield return new SimTag { Name = "Setpoint", Address = "HR:20", DataType = TagDataType.UInt16, Description = "Writable by clients", Writable = true };
         yield return new SimTag
         {
             Name = "Flow rate", Address = "IR:0", DataType = TagDataType.UInt16,
@@ -77,7 +77,7 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
             Name = "Pump running", Address = "DI:0", DataType = TagDataType.Bool,
             Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Square, Min = 0, Max = 1, PeriodSeconds = 10, IntervalMs = 250 },
         };
-        yield return new SimTag { Name = "Start command", Address = "CO:0", DataType = TagDataType.Bool, Description = "Writable by clients" };
+        yield return new SimTag { Name = "Start command", Address = "CO:0", DataType = TagDataType.Bool, Description = "Writable by clients", Writable = true };
     }
 
     public string DescribeServer(object serverSettings)

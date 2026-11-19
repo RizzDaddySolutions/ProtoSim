@@ -187,7 +187,8 @@
                             </StackPanel>
                         </Button>
                         <Button Content="Duplicate" Command="{Binding DuplicateTagCommand}" Style="{StaticResource ToolbarButton}" />
-                        <Button Content="Remove" Command="{Binding RemoveTagCommand}" Style="{StaticResource ToolbarButton}" />
+                        <Button Content="Remove" Click="OnRemoveSelectedTags" Style="{StaticResource ToolbarButton}"
+                                ToolTip="Remove the selected tags (Delete). Shift+click selects a range, Ctrl+click adds or removes single tags." />
                         <Button Content="Clear all tags…" Click="OnClearAllTags" Style="{StaticResource ToolbarButton}"
                                 ToolTip="Remove every tag from this simulator" />
                         <Button Content="Import CSV…" Command="{Binding ImportTagsCommand}" Style="{StaticResource ToolbarButton}" />
@@ -225,6 +226,8 @@
                     </TextBlock>
 
                      <DataGrid x:Name="TagGrid" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
+                               SelectionMode="Extended" SelectionUnit="FullRow"
+                               SelectionChanged="OnTagSelectionChanged" PreviewKeyDown="OnTagGridKeyDown"
                                PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding" FrozenColumnCount="1">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">
