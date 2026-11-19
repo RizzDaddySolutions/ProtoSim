@@ -35,7 +35,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel>
             <TextBlock Style="{StaticResource SectionHeader}" Margin="0,0,0,8">
-                <Run Text="SIMULATION DEVICES (" /><Run Text="{Binding ProtocolCount}" /><Run Text=")" />
+                <Run Text="SIMULATION DEVICES (" /><Run Text="{Binding ProtocolCount, Mode=OneWay}" /><Run Text=")" />
             </TextBlock>
             <Border Style="{StaticResource Card}" Padding="0">
                 <ItemsControl ItemsSource="{Binding Protocols}" Margin="0,4">

@@ -574,16 +574,18 @@ public sealed class MainViewModel : ObservableObject
         // Extract the HTML resource to a temporary file
         string tempFilePath = Path.Combine(Path.GetTempPath(), "ProtoSim Help.html");
 
-        using Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ProtoSim.App.Help.index.html");
-
-        if (resourceStream == null)
+        using (Stream? resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ProtoSim.App.Help.index.html"))
         {
-            Console.WriteLine($"Resource 'ProtoSim.App.Help.index.html' not found.");
-            return;
-        }
+            if (resourceStream == null)
+            {
+                Views.MessageDialog.Show("The help is missing from this build.", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-        using FileStream fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
-        resourceStream.CopyTo(fileStream);
+            // Closed before the browser starts, so it never reads a half-written file.
+            using var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
+            resourceStream.CopyTo(fileStream);
+        }
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(tempFilePath) { UseShellExecute = true });
 
