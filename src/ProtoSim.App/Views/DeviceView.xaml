@@ -19,6 +19,13 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="ItemContainerStyle" Value="{StaticResource TagGridComboBoxItem}" />
         </Style>
+        <Style x:Key="SimulationGridComboBox" TargetType="ComboBox" BasedOn="{StaticResource TagGridComboBox}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Tag.Writable}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <!-- Simulation parameter cells that don't apply to the row's simulation kind are dimmed and read-only. -->
         <Style x:Key="RangeCell" TargetType="DataGridCell" BasedOn="{StaticResource GridCell}">
             <Style.Triggers>
@@ -236,7 +243,7 @@
                                     </DataGridCheckBoxColumn.Header>
                                 </DataGridCheckBoxColumn>
                                 <DataGridCheckBoxColumn Header="Simulate" Binding="{Binding Tag.Simulation.Enabled, UpdateSourceTrigger=PropertyChanged}" ElementStyle="{StaticResource CenteredCheckBoxCell}" EditingElementStyle="{StaticResource CenteredCheckBoxCell}" Width="Auto" />
-                                <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource TagGridComboBox}" EditingElementStyle="{StaticResource TagGridComboBox}" Width="Auto" />
+                                <DataGridComboBoxColumn Header="Simulation" SelectedItemBinding="{Binding Tag.Simulation.Kind, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" ElementStyle="{StaticResource SimulationGridComboBox}" EditingElementStyle="{StaticResource SimulationGridComboBox}" Width="Auto" />
                             <DataGridTextColumn Header="Min" Binding="{Binding Tag.Simulation.Min}" CellStyle="{StaticResource RangeCell}" Width="Auto" />
                             <DataGridTextColumn Header="Max" Binding="{Binding Tag.Simulation.Max}" CellStyle="{StaticResource RangeCell}" Width="Auto" />
                             <DataGridTextColumn Header="Period (s)" Binding="{Binding Tag.Simulation.PeriodSeconds}" CellStyle="{StaticResource PeriodCell}" Width="Auto" />

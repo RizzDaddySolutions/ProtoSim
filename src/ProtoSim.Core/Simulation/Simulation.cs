@@ -113,8 +113,16 @@ public sealed class SimTag : ObservableObject
         get => _writable;
         set
         {
-            if (!SetProperty(ref _writable, value)) return;
-            if (_binding is { } b) b.RemoteWritable = value;
+            bool changed = SetProperty(ref _writable, value);
+            if (value)
+            {
+                _simulation.Kind = SimulationKind.None;
+                if (_binding is { } b) b.RemoteWritable = true;
+            }
+            else if (changed && _binding is { } b)
+            {
+                b.RemoteWritable = false;
+            }
         }
     }
 

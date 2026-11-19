@@ -64,6 +64,21 @@ public sealed class SimulationNoneAndWriteableTests
     }
 
     [Fact]
+    public void WritableTag_ResetsSimulationToNone()
+    {
+        var tag = new SimTag
+        {
+            Writable = false,
+            Simulation = new SimulationSettings { Enabled = true, Kind = SimulationKind.Sine },
+        };
+
+        tag.Writable = true;
+
+        Assert.Equal(SimulationKind.None, tag.Simulation.Kind);
+        Assert.True(tag.Simulation.Enabled);
+    }
+
+    [Fact]
     public void SimTag_PushesWritableToItsBinding()
     {
         var store = new NamedTagStore();
