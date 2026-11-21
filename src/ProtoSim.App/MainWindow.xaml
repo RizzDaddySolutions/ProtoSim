@@ -16,6 +16,7 @@
         <KeyBinding Key="L" Modifiers="Control" Command="{Binding ShowLogicCommand}" />
         <KeyBinding Key="L" Modifiers="Control+Shift" Command="{Binding ToggleLogicDockCommand}" />
         <KeyBinding Key="W" Modifiers="Control+Shift" Command="{Binding NetworkWizardCommand}" />
+        <KeyBinding Key="B" Modifiers="Control" Command="{Binding ToggleLeftPanelCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
@@ -78,6 +79,14 @@
                           ToolTip="{Binding SharingStatus}" />
             </MenuItem>
             <MenuItem Header="_View">
+                <MenuItem Header="_Left panel" IsCheckable="True" IsChecked="{Binding LeftPanelExpanded, Mode=OneWay}"
+                          Command="{Binding ToggleLeftPanelCommand}" InputGestureText="Ctrl+B"
+                          ToolTip="Show or collapse the panel with devices, clients and network links" />
+                <MenuItem Header="_Clients panel" IsCheckable="True" IsChecked="{Binding ShowClientsPanel}"
+                          ToolTip="Show the Clients list in the left panel" />
+                <MenuItem Header="_Network links panel" IsCheckable="True" IsChecked="{Binding ShowLinksPanel}"
+                          ToolTip="Show the Network links list in the left panel" />
+                <Separator />
                 <MenuItem Header="Theme: _System" IsCheckable="True" IsChecked="{Binding IsSystemTheme, Mode=OneWay}"
                           Command="{Binding SetThemeCommand}" CommandParameter="System" />
                 <MenuItem Header="Theme: _Light" IsCheckable="True" IsChecked="{Binding IsLightTheme, Mode=OneWay}"
@@ -136,24 +145,36 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="290" MinWidth="220" />
+                <ColumnDefinition x:Name="NavColumn" Width="290" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <!-- Collapsed navigation: a narrow strip that expands it again -->
+            <Border Grid.Row="0" Margin="6,12,0,12" Visibility="{Binding LeftPanelCollapsed, Converter={StaticResource BoolToVisibility}}">
+                <Button Command="{Binding ToggleLeftPanelCommand}" Style="{StaticResource ToolbarButton}" VerticalAlignment="Top"
+                        ToolTip="Show the left panel (Ctrl+B)" Padding="6,8">
+                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" />
+                </Button>
+            </Border>
+
             <!-- Navigation -->
-            <Grid Grid.Row="0" Margin="12,12,6,12">
+            <Grid Grid.Row="0" Margin="12,12,6,12" Visibility="{Binding LeftPanelExpanded, Converter={StaticResource BoolToVisibility}}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="3*" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="2*" />
+                    <RowDefinition x:Name="ClientsRow" Height="2*" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="2*" />
+                    <RowDefinition x:Name="LinksRow" Height="2*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <DockPanel Margin="4,0,0,6">
+                    <Button DockPanel.Dock="Left" Command="{Binding ToggleLeftPanelCommand}" Style="{StaticResource ToolbarButton}"
+                            ToolTip="Collapse the left panel (Ctrl+B)" Padding="4,2" Margin="-4,0,4,0" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE76B;" Style="{StaticResource Icon}" />
+                    </Button>
                     <Menu DockPanel.Dock="Right" Background="Transparent">
                         <MenuItem ToolTip="Add a simulated device" ItemsSource="{Binding AddDeviceActions}" ItemContainerStyle="{StaticResource PluginMenuItem}">
                             <MenuItem.Header>
@@ -191,7 +212,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <DockPanel Grid.Row="2" Margin="4,14,0,6">
+                <DockPanel Grid.Row="2" Margin="4,14,0,6" Visibility="{Binding ShowClientsPanel, Converter={StaticResource BoolToVisibility}}">
                     <Menu DockPanel.Dock="Right" Background="Transparent">
                         <MenuItem ToolTip="Add a client that connects to an external server or device" ItemsSource="{Binding AddClientActions}" ItemContainerStyle="{StaticResource PluginMenuItem}">
                             <MenuItem.Header>
@@ -206,6 +227,7 @@
                 </DockPanel>
 
                 <ListBox Grid.Row="3" ItemsSource="{Binding Clients}" SelectedItem="{Binding SelectedClient}"
+                         Visibility="{Binding ShowClientsPanel, Converter={StaticResource BoolToVisibility}}"
                          Background="{DynamicResource ApplicationPanelBackgroundBrush}"
                          BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -229,7 +251,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <DockPanel Grid.Row="4" Margin="4,14,0,6">
+                <DockPanel Grid.Row="4" Margin="4,14,0,6" Visibility="{Binding ShowLinksPanel, Converter={StaticResource BoolToVisibility}}">
                     <Button DockPanel.Dock="Right" Command="{Binding NetworkWizardCommand}" Style="{StaticResource ToolbarButton}"
                             ToolTip="Connect a simulator here or on another computer (Ctrl+Shift+W)">
                         <StackPanel Orientation="Horizontal">
@@ -241,6 +263,7 @@
                 </DockPanel>
 
                 <ListBox Grid.Row="5" ItemsSource="{Binding Links}" SelectedItem="{Binding SelectedLink}"
+                         Visibility="{Binding ShowLinksPanel, Converter={StaticResource BoolToVisibility}}"
                          Background="{DynamicResource ApplicationPanelBackgroundBrush}"
                          BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -285,7 +308,8 @@
                 </StackPanel>
             </Grid>
 
-            <GridSplitter Grid.Row="0" Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+            <GridSplitter x:Name="NavSplitter" Grid.Row="0" Grid.Column="1" Width="5" DragCompleted="OnNavSplitterDragCompleted"
+                          Visibility="{Binding LeftPanelExpanded, Converter={StaticResource BoolToVisibility}}" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!-- Content -->

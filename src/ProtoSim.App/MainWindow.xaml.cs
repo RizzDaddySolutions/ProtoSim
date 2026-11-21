@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using ProtoSim.App.Services;
 using ProtoSim.App.ViewModels;
@@ -24,6 +25,49 @@ public partial class MainWindow : Window
         LocationChanged += OnPlacementChanged;
         SizeChanged += OnPlacementChanged;
         StateChanged += OnWindowStateChanged;
+        DataContextChanged += (_, e) =>
+        {
+            if (e.OldValue is MainViewModel old) old.PropertyChanged -= OnViewModelChanged;
+            if (e.NewValue is MainViewModel vm) vm.PropertyChanged += OnViewModelChanged;
+            ApplyPanels();
+        };
+    }
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainViewModel.ShowClientsPanel) or nameof(MainViewModel.ShowLinksPanel) or nameof(MainViewModel.LeftPanelCollapsed))
+            ApplyPanels();
+    }
+
+    /// <summary>Sizes the left panel and its lists from the view settings (hidden lists give their space to the others).</summary>
+    private void ApplyPanels()
+    {
+        if (DataContext is not MainViewModel vm) return;
+        ClientsRow.Height = vm.ShowClientsPanel ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+        LinksRow.Height = vm.ShowLinksPanel ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+        if (vm.LeftPanelCollapsed)
+        {
+            if (NavColumn.Width.IsAbsolute && NavColumn.ActualWidth > 0) RememberNavWidth(NavColumn.ActualWidth);
+            NavColumn.MinWidth = 0;
+            NavColumn.Width = GridLength.Auto;
+        }
+        else
+        {
+            NavColumn.MinWidth = 220;
+            NavColumn.Width = new GridLength(Math.Clamp(UiLayout.Current.LeftPanelWidth, 220, 900));
+        }
+    }
+
+    private void OnNavSplitterDragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (DataContext is MainViewModel { LeftPanelCollapsed: false }) RememberNavWidth(NavColumn.ActualWidth);
+    }
+
+    private static void RememberNavWidth(double width)
+    {
+        if (Math.Abs(UiLayout.Current.LeftPanelWidth - width) < 0.5) return;
+        UiLayout.Current.LeftPanelWidth = width;
+        UiLayout.Save();
     }
 
     private void OnPlacementChanged(object? sender, EventArgs e) => SchedulePlacementSave();

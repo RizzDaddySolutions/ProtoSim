@@ -28,6 +28,9 @@ public sealed class MainViewModel : ObservableObject
     private LinkViewModel? _selectedLink;
     private readonly DiscoveryService _discovery;
     private bool _shareOnNetwork;
+    private bool _showClientsPanel = UiLayout.Current.ShowClientsPanel;
+    private bool _showLinksPanel = UiLayout.Current.ShowLinksPanel;
+    private bool _leftPanelCollapsed = UiLayout.Current.LeftPanelCollapsed;
     private string? _filePath;
     private bool _simulationEnabled;
     private string _statusText = "Ready";
@@ -60,6 +63,7 @@ public sealed class MainViewModel : ObservableObject
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
         ShowLogicCommand = new RelayCommand(ShowLogic);
         NetworkWizardCommand = new RelayCommand(ShowNetworkWizard);
+        ToggleLeftPanelCommand = new RelayCommand(() => LeftPanelCollapsed = !LeftPanelCollapsed);
         StartAllLinksCommand = new RelayCommand(() => { TagDirectory.Refresh(Devices); foreach (var l in Links) l.Start(); }, () => Links.Any(l => !l.Link.IsRunning));
         StopAllLinksCommand = new AsyncRelayCommand(StopAllLinksAsync, () => Links.Any(l => l.Link.IsRunning));
         ToggleLogicDockCommand = new RelayCommand(ToggleLogicDock);
@@ -97,6 +101,46 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>Network links that feed tags here from other simulators (this computer or others).</summary>
     public ObservableCollection<LinkViewModel> Links { get; } = [];
     public ICommand NetworkWizardCommand { get; }
+    public ICommand ToggleLeftPanelCommand { get; }
+
+    /// <summary>Show the Clients list in the left panel (remembered between runs).</summary>
+    public bool ShowClientsPanel
+    {
+        get => _showClientsPanel;
+        set
+        {
+            if (!SetProperty(ref _showClientsPanel, value)) return;
+            UiLayout.Current.ShowClientsPanel = value;
+            UiLayout.Save();
+        }
+    }
+
+    /// <summary>Show the Network links list in the left panel (remembered between runs).</summary>
+    public bool ShowLinksPanel
+    {
+        get => _showLinksPanel;
+        set
+        {
+            if (!SetProperty(ref _showLinksPanel, value)) return;
+            UiLayout.Current.ShowLinksPanel = value;
+            UiLayout.Save();
+        }
+    }
+
+    /// <summary>Collapse the left panel to a narrow strip (remembered between runs).</summary>
+    public bool LeftPanelCollapsed
+    {
+        get => _leftPanelCollapsed;
+        set
+        {
+            if (!SetProperty(ref _leftPanelCollapsed, value)) return;
+            OnPropertyChanged(nameof(LeftPanelExpanded));
+            UiLayout.Current.LeftPanelCollapsed = value;
+            UiLayout.Save();
+        }
+    }
+
+    public bool LeftPanelExpanded => !_leftPanelCollapsed;
     public ICommand StartAllLinksCommand { get; }
     public ICommand StopAllLinksCommand { get; }
     public IReadOnlyList<PluginActionViewModel> AddDeviceActions { get; }

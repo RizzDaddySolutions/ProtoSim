@@ -52,6 +52,18 @@ public sealed class UiLayout
     /// <summary>Whether tag simulation is enabled.</summary>
     public bool SimulationEnabled { get; set; }
 
+    /// <summary>Whether the Clients list is shown in the left panel.</summary>
+    public bool ShowClientsPanel { get; set; } = true;
+
+    /// <summary>Whether the Network links list is shown in the left panel.</summary>
+    public bool ShowLinksPanel { get; set; } = true;
+
+    /// <summary>True when the left panel is collapsed to a narrow strip.</summary>
+    public bool LeftPanelCollapsed { get; set; }
+
+    /// <summary>Width of the left panel when expanded.</summary>
+    public double LeftPanelWidth { get; set; } = 290;
+
     /// <summary>Whether this instance answers network wizards on other computers (LAN discovery).</summary>
     public bool ShareOnNetwork { get; set; } = true;
 
