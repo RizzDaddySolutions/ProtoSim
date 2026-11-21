@@ -49,7 +49,7 @@ public partial class MainWindow : Window
         {
             if (NavColumn.Width.IsAbsolute && NavColumn.ActualWidth > 0) RememberNavWidth(NavColumn.ActualWidth);
             NavColumn.MinWidth = 0;
-            NavColumn.Width = GridLength.Auto;
+            NavColumn.Width = new GridLength(0);
         }
         else
         {

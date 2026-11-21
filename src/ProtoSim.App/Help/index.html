@@ -190,7 +190,7 @@
     <li><strong>Simulated devices</strong> — the list on the left. The dot shows the state: green running, amber starting/stopping, red faulted, grey stopped. <strong>Start all</strong>, <strong>Stop all</strong> and the delete button are below the list.</li>
     <li><strong>Clients</strong> — below the devices: sessions that connect to external servers and devices (see <a href="#clients">Clients</a>). Green while connected or polling, red after a failed request.</li>
     <li><strong>Network links</strong> — below the clients: links made with the network wizard that feed tags here from other simulators (see <a href="#network">Simulation network</a>). Green while running, red after a failed cycle.</li>
-    <li>The Simulated devices list is always shown. Hide or show the Clients and Network links lists with <strong>View › Clients panel</strong> and <strong>View › Network links panel</strong>; the other lists take the space. Collapse the whole left panel with the arrow beside <em>Simulated devices</em>, <strong>View › Left panel</strong> or <kbd>Ctrl</kbd>+<kbd>B</kbd>. These choices and the panel's width are remembered.</li>
+    <li>The Simulated devices list is always shown. Hide or show the Clients and Network links lists with <strong>View › Clients panel</strong> and <strong>View › Network links panel</strong>; the other lists take the space. Hide or show the whole left panel with the arrow button in the middle of the divider, or <kbd>Ctrl</kbd>+<kbd>B</kbd>. These choices and the panel's width are remembered.</li>
     <li><strong>Device pane</strong> — the selected device. Click its name to rename it. The tabs are described below.</li>
     <li><strong>Status bar</strong> — devices running, open connections, request rate and whether simulation is on.</li>
   </ul>
@@ -651,7 +651,7 @@ offset_s,tag,value
     <li><strong>Network links</strong> poll the source with its own protocol and can write changes back. Every protocol except Scripted device can be a source.</li>
     <li>ProtoSim instances find each other on the local network (<strong>Network › Share devices on the network</strong>).</li>
     <li>The MQTT broker publishes tag values as retained messages, so clients that subscribe later get the current value at once.</li>
-    <li>Hide the Clients and Network links lists from the <strong>View</strong> menu, and collapse the left panel (<kbd>Ctrl</kbd>+<kbd>B</kbd>); both are remembered.</li>
+    <li>Hide the Clients and Network links lists from the <strong>View</strong> menu, and hide the left panel with the button on its divider (<kbd>Ctrl</kbd>+<kbd>B</kbd>); both are remembered.</li>
     <li>DNP3 outstations now send updated values to masters while running (before, masters only saw the values from when the device started), and floating-point analog inputs are no longer rounded.</li>
   </ul>
 </section>
