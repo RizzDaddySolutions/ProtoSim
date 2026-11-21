@@ -58,6 +58,8 @@ public sealed class Dnp3Server : IProtocolServer
 
                 _outstation = _server.AddOutstation(config, application, information, controls, connection, AddressFilter.Any());
                 ConfigureDatabase(_outstation);
+                _model.ValueChanged += OnValueChanged;
+                _model.BindingAdded += OnBindingAdded;
                 _server.Bind();
                 _outstation.Enable();
 
@@ -117,6 +119,8 @@ public sealed class Dnp3Server : IProtocolServer
         }
 
         SetState(ServerState.Stopping);
+        _model.ValueChanged -= OnValueChanged;
+        _model.BindingAdded -= OnBindingAdded;
         try { _outstation?.Disable(); } catch { }
         try { _server?.Shutdown(); } catch { }
         try { _runtime?.Shutdown(); } catch { }
@@ -134,30 +138,72 @@ public sealed class Dnp3Server : IProtocolServer
         {
             foreach (var binding in _model.Bindings)
             {
-                var index = checked((ushort)binding.Index);
-                switch (binding.PointType)
-                {
-                    case Dnp3PointType.BinaryInput:
-                        database.AddBinaryInput(index, EventClass.None, new BinaryInputConfig());
-                        database.UpdateBinaryInput(
-                            new BinaryInput(index, Convert.ToBoolean(binding.Read()), new Flags(1), Timestamp.InvalidTimestamp()),
-                            UpdateOptions.NoEvent());
-                        break;
-                    case Dnp3PointType.AnalogInput:
-                        database.AddAnalogInput(index, EventClass.None, new AnalogInputConfig());
-                        database.UpdateAnalogInput(
-                            new AnalogInput(index, Convert.ToDouble(binding.Read()), new Flags(1), Timestamp.InvalidTimestamp()),
-                            UpdateOptions.NoEvent());
-                        break;
-                    case Dnp3PointType.Counter:
-                        database.AddCounter(index, EventClass.None, new CounterConfig());
-                        database.UpdateCounter(
-                            new Counter(index, Convert.ToUInt32(binding.Read()), new Flags(1), Timestamp.InvalidTimestamp()),
-                            UpdateOptions.NoEvent());
-                        break;
-                }
+                AddPoint(database, binding);
+                UpdatePoint(database, binding, UpdateOptions.NoEvent());
             }
         });
+    }
+
+    private static void AddPoint(Database database, Dnp3Binding binding)
+    {
+        var index = checked((ushort)binding.Index);
+        switch (binding.PointType)
+        {
+            case Dnp3PointType.BinaryInput: database.AddBinaryInput(index, EventClass.None, new BinaryInputConfig()); break;
+            case Dnp3PointType.AnalogInput:
+                // Floating-point tags use float variations so masters don't see 12.5 truncated to 12.
+                var config = binding.DataType switch
+                {
+                    Core.Data.TagDataType.Float32 => new AnalogInputConfig().WithStaticVariation(StaticAnalogInputVariation.Group30Var5),
+                    Core.Data.TagDataType.Float64 => new AnalogInputConfig().WithStaticVariation(StaticAnalogInputVariation.Group30Var6),
+                    _ => new AnalogInputConfig(),
+                };
+                database.AddAnalogInput(index, EventClass.None, config);
+                break;
+            case Dnp3PointType.Counter: database.AddCounter(index, EventClass.None, new CounterConfig()); break;
+        }
+    }
+
+    private static void UpdatePoint(Database database, Dnp3Binding binding, UpdateOptions options)
+    {
+        var index = checked((ushort)binding.Index);
+        var value = binding.Read();
+        switch (binding.PointType)
+        {
+            case Dnp3PointType.BinaryInput:
+                database.UpdateBinaryInput(new BinaryInput(index, Convert.ToBoolean(value), new Flags(1), Timestamp.InvalidTimestamp()), options);
+                break;
+            case Dnp3PointType.AnalogInput:
+                database.UpdateAnalogInput(new AnalogInput(index, Convert.ToDouble(value), new Flags(1), Timestamp.InvalidTimestamp()), options);
+                break;
+            case Dnp3PointType.Counter:
+                database.UpdateCounter(new Counter(index, Convert.ToUInt32(value), new Flags(1), Timestamp.InvalidTimestamp()), options);
+                break;
+        }
+    }
+
+    /// <summary>Keeps the outstation's database current, so masters see simulated and written values.</summary>
+    private void OnValueChanged(Dnp3Binding binding)
+    {
+        var outstation = _outstation;
+        if (outstation == null) return;
+        try { outstation.Transaction(db => UpdatePoint(db, binding, UpdateOptions.DetectEvent())); }
+        catch (Exception ex) { _context.Log.Warn("", $"Update {binding.PointType}:{binding.Index} failed: {ex.Message}"); }
+    }
+
+    private void OnBindingAdded(Dnp3Binding binding)
+    {
+        var outstation = _outstation;
+        if (outstation == null) return;
+        try
+        {
+            outstation.Transaction(db =>
+            {
+                AddPoint(db, binding);
+                UpdatePoint(db, binding, UpdateOptions.NoEvent());
+            });
+        }
+        catch (Exception ex) { _context.Log.Warn("", $"Add {binding.PointType}:{binding.Index} failed: {ex.Message}"); }
     }
 
     private void SetState(ServerState state)

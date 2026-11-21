@@ -52,6 +52,9 @@ public sealed class UiLayout
     /// <summary>Whether tag simulation is enabled.</summary>
     public bool SimulationEnabled { get; set; }
 
+    /// <summary>Whether this instance answers network wizards on other computers (LAN discovery).</summary>
+    public bool ShareOnNetwork { get; set; } = true;
+
     public WindowPlacement? MainWindow { get; set; }
 
     /// <summary>AvalonDock layout XML of the logic designer's panels.</summary>

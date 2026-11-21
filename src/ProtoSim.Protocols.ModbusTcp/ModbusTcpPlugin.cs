@@ -36,6 +36,13 @@ public sealed class ModbusTcpPlugin : IProtocolPlugin
 
     public bool SupportsWordOrder => true;
 
+    public bool SupportsLinks => true;
+    public string LinkSourceAddress(object serverSettings, string tagAddress) => ModbusLinks.SourceAddress(serverSettings, tagAddress);
+    public string SuggestTagAddress(IReadOnlyList<(string Address, TagDataType Type)> existing, TagDataType type, string nameHint) =>
+        ModbusLinks.SuggestAddress(existing, type);
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points) => ModbusLinks.CreateReads(points);
+    public object CreateLinkWrite(LinkPoint point, object value) => ModbusLinks.CreateWrite(point, value);
+
     public object CreateServerSettings(IEnumerable<object> existing)
     {
         var used = existing.OfType<ModbusServerSettings>().Select(s => s.Port).ToHashSet();

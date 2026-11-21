@@ -21,6 +21,31 @@ public sealed class MqttPlugin : IProtocolPlugin
         var s = (MqttClientSettings)clientSettings;
         return $"{s.Host}:{s.Port}{(s.UseTls ? " TLS" : "")}";
     }
+    // ---- Network links: one subscription for every topic; writes publish the value as text ----
+
+    public bool SupportsLinks => true;
+
+    public string SuggestTagAddress(IReadOnlyList<(string Address, TagDataType Type)> existing, TagDataType type, string nameHint) =>
+        IProtocolPlugin.UniqueAddress("protosim/links/" + IProtocolPlugin.Slug(nameHint), existing);
+
+    private static string LinkTopic(LinkPoint p)
+    {
+        var t = p.Address.Trim();
+        if (t.Length == 0 || t.Contains('#') || t.Contains('+')) throw new FormatException("Link points need one topic without wildcards.");
+        if (t.IndexOfAny([',', ';']) >= 0) throw new FormatException("Topics in links cannot contain ',' or ';'.");
+        return t;
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points)
+    {
+        var topics = points.Select(LinkTopic).ToList();
+        var request = new MqttClientRequest { Operation = MqttClientOperation.Subscribe, Topic = string.Join(",", topics.Distinct(StringComparer.Ordinal)) };
+        return [new LinkRead(request, Enumerable.Range(0, topics.Count).ToList()) { RowAddresses = topics }];
+    }
+
+    public object CreateLinkWrite(LinkPoint point, object value) =>
+        new MqttClientRequest { Operation = MqttClientOperation.Publish, Topic = LinkTopic(point), Payload = ValueConverter.Format(value) };
+
     public string AddressHelp => "MQTT topic, for example sensors/temperature or plant/pump/running.";
     public string DefaultTagAddress(int n) => $"protosim/tag{n}";
 

@@ -125,6 +125,7 @@ public sealed class MqttServer : IProtocolServer
                 .WithTopic(topic)
                 .WithPayload(payload)
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtMostOnce)
+                .WithRetainFlag(true) // clients that subscribe later (e.g. network links) get the current value at once
                 .Build())
         {
             SenderClientId = "ProtoSim"

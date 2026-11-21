@@ -116,7 +116,7 @@
 <nav>
   <div class="brand">
     <div class="logo">P</div>
-    <div><strong>ProtoSim</strong><br><span>Help · version 1.2</span></div>
+    <div><strong>ProtoSim</strong><br><span>Help · version 1.3</span></div>
   </div>
   <h4>Getting started</h4>
   <a href="#overview">Overview</a>
@@ -148,10 +148,12 @@
   <a href="#sparkplug">Sparkplug B</a>
   <h4>Reference</h4>
   <a href="#clients">Clients</a>
+  <a href="#network">Simulation network</a>
 <a href="#projects">Project files</a>
   <a href="#shortcuts">Keyboard shortcuts</a>
   <a href="#plugins">Plugins</a>
-  <a href="#whats-new">What's new in 1.2</a>
+  <a href="#whats-new">What's new in 1.3</a>
+  <a href="#whats-new-1-2">What's new in 1.2</a>
   <a href="#whats-new-1-1">What's new in 1.1</a>
 </nav>
 
@@ -187,6 +189,7 @@
     <li><strong>Enable simulated values</strong> — the master switch for simulation. When off, every tag keeps its current value.</li>
     <li><strong>Simulated devices</strong> — the list on the left. The dot shows the state: green running, amber starting/stopping, red faulted, grey stopped. <strong>Start all</strong>, <strong>Stop all</strong> and the delete button are below the list.</li>
     <li><strong>Clients</strong> — below the devices: sessions that connect to external servers and devices (see <a href="#clients">Clients</a>). Green while connected or polling, red after a failed request.</li>
+    <li><strong>Network links</strong> — below the clients: links made with the network wizard that feed tags here from other simulators (see <a href="#network">Simulation network</a>). Green while running, red after a failed cycle.</li>
     <li><strong>Device pane</strong> — the selected device. Click its name to rename it. The tabs are described below.</li>
     <li><strong>Status bar</strong> — devices running, open connections, request rate and whether simulation is on.</li>
   </ul>
@@ -572,9 +575,50 @@ offset_s,tag,value
   <div class="note">Mappings refer to a row's <em>Address</em>, so map rows from a request whose rows stay the same between polls (Read, Current, Monitor, Get…), not from Browse or Sample.</div>
 </section>
 
+<section id="network">
+  <h2>Simulation network</h2>
+  <p>Simulators can talk to each other the way controllers in a real plant do: a line PLC reads a tank's level from an OPC UA server, a SCADA node reads several PLCs, a BMS writes a setpoint back. The simulators can be devices in one ProtoSim, or in ProtoSim instances on other computers (for example one per Raspberry Pi or per PC on the plant network).</p>
+  <p>A <strong>network link</strong> is a protocol client that polls points on a source device and copies them into tags of a device in this project. It speaks the source's own protocol, so the traffic is real and shows in both devices' traffic logs.</p>
+
+  <h3>The network wizard</h3>
+  <p>Open it with <strong>Network › Network wizard…</strong>, the <strong>Wizard</strong> button above <em>Network links</em>, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd>.</p>
+  <ol>
+    <li><strong>Source</strong> — pick a device in this project, a device in ProtoSim on another computer, or any server or real device.
+      <ul>
+        <li><em>Another computer</em>: the wizard searches the local network and lists every ProtoSim instance that shares its devices, with their devices and tags. Computers on another subnet don't hear the search; type their names or IP addresses in <em>Also ask</em>.</li>
+        <li><em>Any server</em>: pick the protocol, fill in the connection settings, and type the addresses on the next page.</li>
+      </ul></li>
+    <li><strong>Values</strong> — tick the tags to bring over. <em>Read</em> copies the source value into the tag here. <em>Read + write</em> also sends changes made here (by a client, logic, a scenario or simulation) back to the source; the source tag must be <strong>Writeable</strong>, and inputs (DNP3, BACnet inputs, Modbus input registers and discrete inputs, MTConnect) can only be read.</li>
+    <li><strong>Target</strong> — pick the device that receives the values. <em>Create new tags</em> adds a tag per value with a free address the wizard suggests (you can change it), named after the source tag; or copy into tags that already exist. Each target is checked before you continue.</li>
+    <li><strong>Finish</strong> — name the link, set the poll interval, and start it (and the source device, if it is stopped).</li>
+  </ol>
+
+  <h3>The link page</h3>
+  <p>Select a link under <em>Network links</em> to see every point with its last value and status, the cycle count, failures and write-backs, and the client's traffic. Start and stop it, edit the connection while stopped, change directions, add or remove points, and choose whether it starts when the project opens. Read-only points pause their tag's own simulation while the link runs. Links are saved with the project.</p>
+
+  <h3>Addresses</h3>
+  <p>Link points use the client's address syntax. For devices in ProtoSim the wizard fills them in:</p>
+  <table>
+    <tr><th>Protocol</th><th>Point address</th></tr>
+    <tr><td>Modbus TCP / RTU</td><td>The tag address (<code>HR:0</code>, <code>40001</code>, <code>CO:5</code>, <code>HR:10.3</code>), optionally with a unit ID: <code>U2:HR:0</code>. Neighbouring values are read with one request.</td></tr>
+    <tr><td>OPC UA</td><td>A node ID such as <code>ns=2;s=BOB.MARY.PV</code>, or just the path <code>BOB.MARY.PV</code> (ProtoSim's namespace). All nodes are read with one Read.</td></tr>
+    <tr><td>MQTT</td><td>The topic. Writes publish the value as text.</td></tr>
+    <tr><td>Sparkplug B</td><td><code>group/edge node:metric</code> or <code>group/edge node/device:metric</code>. The link asks for a rebirth if it hasn't seen the node's births.</td></tr>
+    <tr><td>REST API</td><td>The tag path (<code>sensors/temperature</code>). For other APIs, <code>path#json.path</code> picks a value out of the response (read-only).</td></tr>
+    <tr><td>SNMP</td><td>The OID, with an optional <code>:syntax</code> for writes (<code>1.3.6.1.4.1.99999.1.1.0:gauge32</code>).</td></tr>
+    <tr><td>BACnet/IP</td><td>The object, such as <code>AV:3</code>; reads and writes its present value (priority 16).</td></tr>
+    <tr><td>DNP3</td><td><code>AI:0</code>, <code>BI:3</code>, <code>C:1</code>; <code>BO:0</code> and <code>AO:2</code> are written with direct-operate commands.</td></tr>
+    <tr><td>MTConnect</td><td>The data item ID (read-only).</td></tr>
+  </table>
+
+  <h3>Sharing devices with other computers</h3>
+  <p><strong>Network › Share devices on the network</strong> (on by default) lets wizards on other computers find this ProtoSim. It answers searches on UDP port <code>47900</code> and serves the list of devices and tags on a TCP port of its own. Windows Firewall may ask to allow ProtoSim the first time; allow it on private networks. Turn sharing off on networks you don't trust: other computers can then no longer find this instance (its devices still answer clients that know their addresses).</p>
+  <div class="note">The device list includes each device's connection settings, including any user names, passwords and community strings that clients need, so that a link on another computer can connect. REST API devices only listen on this computer, so they are not shared. BACnet/IP devices on computers with several network adapters need <em>Local IP address</em> set in their settings.</div>
+</section>
+
 <section id="projects">
   <h2>Project files</h2>
-  <p>Projects are saved as <code>.psim</code> files (JSON). A project holds the devices, their settings, fault settings, tags and values, raw Modbus memory, client sessions with their tag mappings, and logic programs. To open a project at startup, pass its path on the command line: <code>ProtoSim.exe project.psim</code>.</p>
+  <p>Projects are saved as <code>.psim</code> files (JSON). A project holds the devices, their settings, fault settings, tags and values, raw Modbus memory, client sessions with their tag mappings, network links, and logic programs. To open a project at startup, pass its path on the command line: <code>ProtoSim.exe project.psim</code>.</p>
   <div class="note">Projects from earlier versions open unchanged. Tags that use the <em>None</em> simulation kind keep their value, and tags saved before the <strong>Writeable</strong> column existed are not writeable.</div>
 </section>
 
@@ -588,6 +632,7 @@ offset_s,tag,value
     <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Save as</td></tr>
     <tr><td><kbd>F5</kbd></td><td>Start all devices</td></tr>
     <tr><td><kbd>Shift</kbd>+<kbd>F5</kbd></td><td>Stop all devices</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td><td>Network wizard</td></tr>
     <tr><td><kbd>F1</kbd></td><td>Open this help</td></tr>
   </table>
 </section>
@@ -598,6 +643,17 @@ offset_s,tag,value
 </section>
 
 <section id="whats-new">
+  <h2>What's new in 1.3</h2>
+  <ul>
+    <li><strong>Network wizard</strong> connects simulators into a simulation network, in one ProtoSim or across computers: pick a source device, the values, and the device that receives them (see <a href="#network">Simulation network</a>).</li>
+    <li><strong>Network links</strong> poll the source with its own protocol and can write changes back. Every protocol except Scripted device can be a source.</li>
+    <li>ProtoSim instances find each other on the local network (<strong>Network › Share devices on the network</strong>).</li>
+    <li>The MQTT broker publishes tag values as retained messages, so clients that subscribe later get the current value at once.</li>
+    <li>DNP3 outstations now send updated values to masters while running (before, masters only saw the values from when the device started), and floating-point analog inputs are no longer rounded.</li>
+  </ul>
+</section>
+
+<section id="whats-new-1-2">
   <h2>What's new in 1.2</h2>
   <ul>
     <li><strong>Clients</strong> for every protocol pull data in from external servers and devices, and can copy it into project tags (see <a href="#clients">Clients</a>).</li>

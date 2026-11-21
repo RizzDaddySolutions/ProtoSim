@@ -71,6 +71,10 @@ public sealed class SparkplugHostRequest
 
     [Display(Name = "Data type", GroupName = "Target", Order = 7)]
     public TagDataType DataType { get; set; } = TagDataType.Int32;
+
+    /// <summary>Monitor: edge nodes ("group/node", comma separated) asked for a rebirth when none of their births has been seen (used by network links).</summary>
+    [System.ComponentModel.Browsable(false)]
+    public string RebirthIfMissing { get; set; } = string.Empty;
 }
 
 /// <summary>Sparkplug B host application: decodes births, data and deaths, and sends commands.</summary>
@@ -83,6 +87,7 @@ public sealed class SparkplugHostClient(SparkplugHostSettings settings, ClientCo
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentDictionary<string, MetricState> _metrics = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, bool> _online = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _rebirthAsked = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<(string Node, ulong Alias), string> _aliases = new();
     private IMqttClient? _client;
 
@@ -281,6 +286,17 @@ public sealed class SparkplugHostClient(SparkplugHostSettings settings, ClientCo
                 }
                 default:
                 {
+                    foreach (var node in ClientValue.SplitList(r.RebirthIfMissing))
+                    {
+                        // Births are not retained, so a host that connects late has to ask for them; at most every 10 s.
+                        var parts = node.Split('/');
+                        if (parts.Length != 2 || _online.ContainsKey(node)) continue;
+                        if (_rebirthAsked.TryGetValue(node, out var asked) && DateTime.UtcNow - asked < TimeSpan.FromSeconds(10)) continue;
+                        _rebirthAsked[node] = DateTime.UtcNow;
+                        var rebirth = new SparkplugPayload { Timestamp = SparkplugMetric.ToEpochMs(DateTime.UtcNow) };
+                        rebirth.Metrics.Add(new SparkplugMetric { Name = "Node Control/Rebirth", DataType = SparkplugDataType.Boolean, Value = true, Timestamp = rebirth.Timestamp });
+                        await PublishAsync(client, $"{Ns}/{Id(parts[0], "Group ID")}/NCMD/{Id(parts[1], "Edge node ID")}", rebirth, "NCMD Rebirth", cancellationToken);
+                    }
                     var rows = _metrics.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv =>
                     {
                         int colon = kv.Key.IndexOf(':');

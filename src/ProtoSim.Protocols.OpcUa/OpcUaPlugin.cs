@@ -26,6 +26,39 @@ public sealed class OpcUaPlugin : IProtocolPlugin
 
     public string DescribeClient(object clientSettings) => ((OpcUaClientSettings)clientSettings).EndpointUrl;
 
+    // ---- Network links: node IDs; a plain path such as BOB.MARY.PV means ns=2;s=BOB.MARY.PV (ProtoSim's namespace) ----
+
+    public bool SupportsLinks => true;
+
+    public string SuggestTagAddress(IReadOnlyList<(string Address, TagDataType Type)> existing, TagDataType type, string nameHint)
+    {
+        var name = new string(nameHint.Trim().Select(c => c is ':' or ';' or '<' or '>' or '&' or '.' or '/' or '\\' || char.IsControl(c) ? '_' : c).ToArray()).Trim();
+        return IProtocolPlugin.UniqueAddress("Links/" + (name.Length == 0 ? "Value" : name), existing);
+    }
+
+    public string LinkSourceAddress(object serverSettings, string tagAddress) => $"ns=2;s={OpcUaDataModel.NormalizePath(tagAddress)}";
+
+    internal static string LinkNodeId(string address)
+    {
+        var a = address.Trim();
+        if (a.Length == 0) throw new FormatException("Enter a node ID.");
+        if (a.Contains(',') || a.Contains('|')) throw new FormatException("Node IDs in links cannot contain ',' or '|'.");
+        bool nodeId = a.StartsWith("ns=", StringComparison.OrdinalIgnoreCase) || a.StartsWith("nsu=", StringComparison.OrdinalIgnoreCase) ||
+                      a.StartsWith("i=", StringComparison.Ordinal) || a.StartsWith("s=", StringComparison.Ordinal) ||
+                      a.StartsWith("g=", StringComparison.Ordinal) || a.StartsWith("b=", StringComparison.Ordinal);
+        return nodeId ? a : $"ns=2;s={OpcUaDataModel.NormalizePath(a)}";
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points)
+    {
+        var ids = points.Select(p => LinkNodeId(p.Address)).ToList();
+        // One Read for every node; rows come back in request order.
+        return [new LinkRead(new OpcUaClientRequest { Operation = OpcUaOperation.Read, NodeIds = string.Join(",", ids) }, Enumerable.Range(0, ids.Count).ToList())];
+    }
+
+    public object CreateLinkWrite(LinkPoint point, object value) =>
+        new OpcUaClientRequest { Operation = OpcUaOperation.Write, NodeIds = LinkNodeId(point.Address), Values = ValueConverter.Format(value) };
+
     public string AddressHelp =>
         "Path with levels separated by . or /, such as BOB.MARY.SUE.PV or Plant/Tank1/Level. Each level is a folder under Objects (or under the root folder, if one is set), so BOB.MARY.SUE.PV browses as Objects > BOB > MARY > SUE > PV with NodeId ns=2;s=BOB.MARY.SUE.PV. Word order is ignored.";
 

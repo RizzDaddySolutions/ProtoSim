@@ -24,23 +24,43 @@ public sealed class Dnp3DataModel : IDeviceDataModel
             _ => throw new FormatException("DNP3 addresses must be BI:<index> (Bool), AI:<index> (numeric), or C:<index> (integer)."),
         };
         var key = $"{kind}:{index}";
-        if (_bindings.TryGetValue(key, out var existing)) return existing;
-        var binding = new Dnp3Binding(kind, index, type);
-        _bindings.Add(key, binding);
+        Dnp3Binding binding;
+        lock (_bindings)
+        {
+            if (_bindings.TryGetValue(key, out var existing)) return existing;
+            binding = new Dnp3Binding(this, kind, index, type);
+            _bindings.Add(key, binding);
+        }
+        BindingAdded?.Invoke(binding);
         return binding;
     }
 
-    internal IEnumerable<Dnp3Binding> Bindings => _bindings.Values;
+    internal IEnumerable<Dnp3Binding> Bindings
+    {
+        get { lock (_bindings) return _bindings.Values.ToList(); }
+    }
+
+    /// <summary>A tag was added; a running outstation adds the point to its database.</summary>
+    internal event Action<Dnp3Binding>? BindingAdded;
+
+    /// <summary>A value changed; a running outstation updates its database so masters see it.</summary>
+    internal event Action<Dnp3Binding>? ValueChanged;
+
+    internal void OnValueChanged(Dnp3Binding binding) => ValueChanged?.Invoke(binding);
 }
 
 internal enum Dnp3PointType { BinaryInput, AnalogInput, Counter }
 
-internal sealed class Dnp3Binding(Dnp3PointType pointType, int index, TagDataType dataType) : ITagBinding
+internal sealed class Dnp3Binding(Dnp3DataModel model, Dnp3PointType pointType, int index, TagDataType dataType) : ITagBinding
 {
-    private object _value = dataType == TagDataType.Bool ? false : 0d;
+    private object _value = ValueConverter.Coerce(null, dataType);
     public Dnp3PointType PointType { get; } = pointType;
     public int Index { get; } = index;
     public TagDataType DataType { get; } = dataType;
     public object Read() => _value;
-    public void Write(object value) => _value = ValueConverter.Coerce(value, DataType);
+    public void Write(object value)
+    {
+        _value = ValueConverter.Coerce(value, DataType);
+        model.OnValueChanged(this);
+    }
 }

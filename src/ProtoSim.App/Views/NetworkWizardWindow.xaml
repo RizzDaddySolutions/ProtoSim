@@ -1,0 +1,290 @@
+<Window x:Class="ProtoSim.App.Views.NetworkWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
+        xmlns:controls="clr-namespace:ProtoSim.App.Controls"
+        Title="Network wizard" Width="980" Height="680" MinWidth="760" MinHeight="520"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource ApplicationWindowBackgroundBrush}">
+    <Window.Resources>
+        <Style x:Key="StepPanel" TargetType="FrameworkElement">
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+        <Style x:Key="CheckText" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding CheckFailed}" Value="True">
+                    <Setter Property="Foreground" Value="#D83B3B" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <DataTemplate x:Key="SourceDeviceTemplate" DataType="{x:Type vm:SourceDeviceOption}">
+            <StackPanel Margin="2,4">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Details}" Style="{StaticResource Caption}" />
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <DockPanel Margin="24,18,24,18">
+        <!-- Header -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+            <TextBlock Style="{StaticResource Caption}">
+                <Run Text="Connect simulators · step " /><Run Text="{Binding StepNumber, Mode=OneWay}" /><Run Text=" of 4" />
+            </TextBlock>
+            <TextBlock Text="{Binding StepTitle}" Style="{StaticResource PageTitle}" FontSize="22" Margin="0,2,0,0" />
+        </StackPanel>
+
+        <!-- Footer -->
+        <Grid DockPanel.Dock="Bottom" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Error}" Foreground="#D83B3B" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="Back" Command="{Binding BackCommand}" MinWidth="90" Padding="14,6" Margin="0,0,8,0" />
+                <Button Content="Next" Command="{Binding NextCommand}" MinWidth="90" Padding="14,6" Margin="0,0,8,0" IsDefault="True"
+                        Style="{DynamicResource AccentButtonStyle}"
+                        Visibility="{Binding IsLastStep, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                <Button Content="Create link" Click="OnFinish" MinWidth="110" Padding="14,6" Margin="0,0,8,0"
+                        Style="{DynamicResource AccentButtonStyle}"
+                        Visibility="{Binding IsLastStep, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="Cancel" IsCancel="True" MinWidth="90" Padding="14,6" />
+            </StackPanel>
+        </Grid>
+
+        <Grid>
+            <!-- Step 1: source -->
+            <DockPanel>
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel" BasedOn="{StaticResource StepPanel}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Step}" Value="{x:Static vm:WizardStep.Source}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,10"
+                               Text="A link reads values from a simulator with its own protocol (as a real controller would) and copies them into tags of a device in this project. The source can be a device here, a device in ProtoSim on another computer, or any server or real device." />
+                    <RadioButton Content="A device in this project" IsChecked="{Binding IsThisComputer}" GroupName="Source" Margin="0,0,0,4" />
+                    <RadioButton Content="A device in ProtoSim on another computer" IsChecked="{Binding IsOtherComputer}" GroupName="Source" Margin="0,0,0,4" />
+                    <RadioButton Content="Any server or real device (enter its addresses)" IsChecked="{Binding IsManual}" GroupName="Source" />
+                </StackPanel>
+
+                <Grid>
+                    <!-- This computer -->
+                    <ListBox ItemsSource="{Binding LocalDevices}" SelectedItem="{Binding SelectedSource}" ItemTemplate="{StaticResource SourceDeviceTemplate}"
+                             Visibility="{Binding IsThisComputer, Converter={StaticResource BoolToVisibility}}"
+                             Background="{DynamicResource ApplicationPanelBackgroundBrush}" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+                    <!-- Other computer -->
+                    <DockPanel Visibility="{Binding IsOtherComputer, Converter={StaticResource BoolToVisibility}}">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Also ask" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox Grid.Column="1" Text="{Binding HostText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Optional: names or IP addresses of computers on another subnet, separated by commas. The local network is always searched." />
+                            <Button Grid.Column="2" Command="{Binding SearchCommand}" Margin="8,0,0,0" Padding="14,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Search" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding SearchStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="COMPUTERS" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
+                                <ListBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" DisplayMemberPath="Display"
+                                         Background="{DynamicResource ApplicationPanelBackgroundBrush}" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                            </DockPanel>
+                            <DockPanel Grid.Column="2">
+                                <TextBlock DockPanel.Dock="Top" Text="DEVICES" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
+                                <ListBox ItemsSource="{Binding RemoteDevices}" SelectedItem="{Binding SelectedSource}" ItemTemplate="{StaticResource SourceDeviceTemplate}"
+                                         Background="{DynamicResource ApplicationPanelBackgroundBrush}" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                            </DockPanel>
+                        </Grid>
+                    </DockPanel>
+
+                    <!-- Manual -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel MaxWidth="560" HorizontalAlignment="Left">
+                            <TextBlock Text="PROTOCOL" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
+                            <ComboBox ItemsSource="{Binding ManualPlugins}" SelectedItem="{Binding ManualPlugin}" DisplayMemberPath="DisplayName" MinWidth="260" HorizontalAlignment="Left" />
+                            <TextBlock Text="CONNECTION" Style="{StaticResource SectionHeader}" Margin="0,16,0,0" />
+                            <controls:PropertyGrid SelectedObject="{Binding ManualSettings}" LabelWidth="160" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </DockPanel>
+
+            <!-- Step 2: points -->
+            <DockPanel>
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel" BasedOn="{StaticResource StepPanel}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Step}" Value="{x:Static vm:WizardStep.Points}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding PointsHint}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                    <Button Content="Select all" Command="{Binding SelectAllCommand}" Style="{StaticResource ToolbarButton}" />
+                    <Button Content="Select none" Command="{Binding SelectNoneCommand}" Style="{StaticResource ToolbarButton}" />
+                    <Button Content="All read only" Command="{Binding AllReadCommand}" Style="{StaticResource ToolbarButton}" />
+                    <Button Content="All read + write" Command="{Binding AllReadWriteCommand}" Style="{StaticResource ToolbarButton}"
+                            ToolTip="Writeable source tags get Read + write" />
+                    <Button Command="{Binding AddManualPointCommand}" Style="{StaticResource ToolbarButton}"
+                            Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                            <TextBlock Text="Add value" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <DataGrid x:Name="PointsGrid" ItemsSource="{Binding Points}" CanUserAddRows="False" CanUserDeleteRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="" Width="40">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}" Width="180" />
+                        <DataGridTextColumn Header="Source address" Binding="{Binding Address, UpdateSourceTrigger=LostFocus}" ElementStyle="{StaticResource MonoCell}" Width="240" />
+                        <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding DataType}" Width="100"
+                                                ItemsSource="{x:Static vm:EnumLists.DataTypes}" />
+                        <DataGridCheckBoxColumn Header="Writeable" Binding="{Binding SourceWritable, Mode=OneWay}" IsReadOnly="True" Width="90" />
+                        <DataGridTemplateColumn Header="Direction" Width="130">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Direction}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate>
+                                    <ComboBox SelectedItem="{Binding Direction, UpdateSourceTrigger=PropertyChanged}"
+                                              ItemsSource="{Binding DataContext.Directions, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellEditingTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Description" Binding="{Binding Description, Mode=OneWay}" IsReadOnly="True" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <!-- Step 3: target -->
+            <DockPanel>
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel" BasedOn="{StaticResource StepPanel}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Step}" Value="{x:Static vm:WizardStep.Target}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Into device" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox ItemsSource="{Binding TargetDevices}" SelectedItem="{Binding TargetDevice}" DisplayMemberPath="Name" MinWidth="280" />
+                    </StackPanel>
+                    <RadioButton Content="Create new tags for the values (recommended)" IsChecked="{Binding CreateTags}" GroupName="Target" Margin="0,0,0,4" />
+                    <RadioButton Content="Copy into tags that already exist" IsChecked="{Binding MapExisting}" GroupName="Target" />
+                    <TextBlock Text="{Binding TargetHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                </StackPanel>
+                <Grid>
+                    <DataGrid ItemsSource="{Binding IncludedPoints}" CanUserAddRows="False" CanUserDeleteRows="False"
+                              Visibility="{Binding CreateTags, Converter={StaticResource BoolToVisibility}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Value" Binding="{Binding Name, Mode=OneWay}" IsReadOnly="True" Width="180" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding DataType, Mode=OneWay}" IsReadOnly="True" Width="90" />
+                            <DataGridTextColumn Header="New tag address" Binding="{Binding NewAddress, UpdateSourceTrigger=LostFocus}" ElementStyle="{StaticResource MonoCell}" Width="320" />
+                            <DataGridTemplateColumn Header="Check" Width="*" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Check}" ToolTip="{Binding Check}" Style="{StaticResource CheckText}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <DataGrid ItemsSource="{Binding IncludedPoints}" CanUserAddRows="False" CanUserDeleteRows="False"
+                              Visibility="{Binding MapExisting, Converter={StaticResource BoolToVisibility}}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Value" Binding="{Binding Name, Mode=OneWay}" IsReadOnly="True" Width="180" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding DataType, Mode=OneWay}" IsReadOnly="True" Width="90" />
+                            <DataGridTemplateColumn Header="Project tag (Device/Tag)" Width="280">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ExistingTarget}" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox IsEditable="True" IsTextSearchEnabled="True" Text="{Binding ExistingTarget, UpdateSourceTrigger=LostFocus}"
+                                                  ItemsSource="{Binding DataContext.TagReferences, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Check" Width="*" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Check}" ToolTip="{Binding Check}" Style="{StaticResource CheckText}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </DockPanel>
+
+            <!-- Step 4: finish -->
+            <StackPanel MaxWidth="620" HorizontalAlignment="Left">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel" BasedOn="{StaticResource StepPanel}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Step}" Value="{x:Static vm:WizardStep.Finish}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="SUMMARY" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="Link name" Margin="0,0,0,4" />
+                <TextBox Text="{Binding LinkName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="Poll every" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Text="{Binding PollIntervalMs, UpdateSourceTrigger=LostFocus}" Width="90" />
+                    <TextBlock Text="ms" VerticalAlignment="Center" Margin="8,0,0,0" />
+                </StackPanel>
+                <CheckBox Content="Start the link now, and whenever the project opens" IsChecked="{Binding StartNow}" Margin="0,0,0,6" />
+                <CheckBox Content="Start the source device too (it is stopped)" IsChecked="{Binding StartSource}"
+                          Visibility="{Binding CanStartSource, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,14,0,0"
+                           Text="The link appears under Network links in the left panel, where you can watch every value, change directions and see the traffic. Save the project to keep it." />
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -29,6 +29,52 @@ public sealed class SnmpPlugin : IProtocolPlugin
         var s = (SnmpManagerSettings)clientSettings;
         return $"{s.Host}:{s.Port} · {s.Version}";
     }
+    // ---- Network links: one Get for every OID; writes are Sets with the point's syntax ----
+
+    public bool SupportsLinks => true;
+
+    private static (string Oid, SnmpSyntax Syntax) LinkOid(LinkPoint p)
+    {
+        var s = p.Address.Trim();
+        int colon = s.IndexOf(':');
+        var oid = SnmpAddress.NormalizeOid(colon < 0 ? s : s[..colon]);
+        // Parse a stand-in OID so the system group (read-only here, but readable) is accepted too.
+        var syntax = colon < 0 ? SnmpAddress.DefaultSyntax(p.DataType) : SnmpAddress.Parse("1.3.6.1.4.1.1.0" + s[colon..], p.DataType).Syntax;
+        return (oid, syntax);
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points)
+    {
+        var oids = points.Select(LinkOid).ToList();
+        var reads = new List<LinkRead>();
+        // SNMP agents limit the PDU size, so ask for at most 32 objects at a time.
+        for (int start = 0; start < oids.Count; start += 32)
+        {
+            var chunk = Enumerable.Range(start, Math.Min(32, oids.Count - start)).ToList();
+            reads.Add(new LinkRead(new SnmpManagerRequest { Operation = SnmpManagerOperation.Get, Oids = string.Join(",", chunk.Select(i => oids[i].Oid)) }, chunk)
+            {
+                RowAddresses = chunk.Select(i => oids[i].Oid).ToList(),
+                Value = (k, row) => oids[chunk[k]].Syntax == SnmpSyntax.TruthValue && row.Typed is int t ? t == 1 : row.Typed ?? (object?)null,
+            });
+        }
+        return reads;
+    }
+
+    public object CreateLinkWrite(LinkPoint point, object value)
+    {
+        var (oid, syntax) = LinkOid(point);
+        var type = Enum.Parse<SnmpValueType>(syntax.ToString());
+        object coerced = type switch
+        {
+            SnmpValueType.Integer => ValueConverter.Coerce(value, TagDataType.Int32),
+            SnmpValueType.Counter64 => ValueConverter.Coerce(value, TagDataType.UInt64),
+            SnmpValueType.TruthValue => ValueConverter.Coerce(value, TagDataType.Bool),
+            SnmpValueType.String or SnmpValueType.IpAddress => ValueConverter.Coerce(value, TagDataType.String),
+            _ => ValueConverter.Coerce(value, TagDataType.UInt32),
+        };
+        return new SnmpManagerRequest { Operation = SnmpManagerOperation.Set, Oids = oid, ValueType = type, Value = ValueConverter.Format(coerced) };
+    }
+
     public string AddressHelp => SnmpAddress.Help;
     public string DefaultTagAddress(int n) => $"1.3.6.1.4.1.99999.1.{n}.0";
 

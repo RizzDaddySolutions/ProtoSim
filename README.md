@@ -48,8 +48,14 @@ The logic designer now has a compact top bar, a menu for layout and run options,
 | SNMP | A v1/v2c manager: Get, Walk (subtree, with a limit) and Set with an explicit SNMP type. |
 | Scripted device | A line-oriented terminal for ASCII instruments over TCP, UDP or serial: sends each command and waits for its reply (newline, custom terminator or silence), with an optional regex to pull the value out. Listen shows unsolicited messages such as a streaming scale. |
 
+**Simulation network**
+- The **network wizard** (**Network › Network wizard…**, Ctrl+Shift+W) connects simulators the way controllers in a real plant talk to each other: devices in one ProtoSim, or in ProtoSim instances on other computers (one per PC or Raspberry Pi). Pick a source device, tick its tags, and pick the device that receives them; the wizard can create the receiving tags with free addresses.
+- A **network link** polls the source with its own protocol (real traffic, visible in both traffic logs) and copies each value into a project tag. *Read + write* points also send changes made here back to the source, when the source tag is Writeable. Links show every point's value and status, start with the project if you like, and are saved with it.
+- Sources: Modbus TCP/RTU, OPC UA, MQTT, Sparkplug B, REST API (this computer only), SNMP, BACnet/IP, DNP3 and MTConnect (read-only), or any server or real device of those protocols with addresses you type.
+- **LAN discovery**: each ProtoSim answers searches on UDP 47900 and serves its devices and tags (with their connection settings) on a TCP port of its own. Turn it off with **Network › Share devices on the network**. Computers on another subnet can be asked by name or IP.
+
 **Projects**
-- Save and open `.psim` files (JSON). A project holds devices, settings, faults, tags and their values, Modbus memory, client sessions with their tag mappings, and logic programs. A device can be set to start automatically when the project opens, and a client to start polling.
+- Save and open `.psim` files (JSON). A project holds devices, settings, faults, tags and their values, Modbus memory, client sessions with their tag mappings, network links, and logic programs. A device can be set to start automatically when the project opens, and a client to start polling.
 - Command line: `ProtoSim.exe project.psim` opens a project. `ProtoSim.exe --demo modbus-tcp` or `--demo opc-ua` starts a running demo device with sample tags.
 - Light, dark or system theme (View menu).
 

@@ -23,7 +23,7 @@ public partial class AboutWindow : Window
     {
         get
         {
-            var v = typeof(AboutWindow).Assembly.GetName().Version ?? new Version(1, 2);
+            var v = typeof(AboutWindow).Assembly.GetName().Version ?? new Version(1, 3);
             return $"{v.Major}.{v.Minor}" + (v.Build > 0 ? $".{v.Build}" : "");
         }
     }

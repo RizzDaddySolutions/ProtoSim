@@ -15,6 +15,9 @@ public sealed class ProjectDocument
     /// <summary>Client sessions that talk to external servers and devices.</summary>
     public List<ClientDocument> Clients { get; set; } = [];
 
+    /// <summary>Network links that feed project tags from other simulators, here or on other computers.</summary>
+    public List<Network.LinkDocument> Links { get; set; } = [];
+
     /// <summary>Function block programs that wire tags across devices.</summary>
     public List<Logic.LogicProgram> Logic { get; set; } = [];
 

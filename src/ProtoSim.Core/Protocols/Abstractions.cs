@@ -26,6 +26,41 @@ public interface IProtocolPlugin
     /// <summary>Address suggested for the n-th tag a user adds (n starts at 1).</summary>
     string DefaultTagAddress(int n);
 
+    /// <summary>
+    /// An address for a new tag of <paramref name="type"/> that doesn't collide with <paramref name="existing"/> tags
+    /// (used when the network wizard creates tags). <paramref name="nameHint"/> is the source tag's name.
+    /// </summary>
+    string SuggestTagAddress(IReadOnlyList<(string Address, TagDataType Type)> existing, TagDataType type, string nameHint)
+    {
+        var used = existing.Select(e => e.Address.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (int n = 1; ; n++)
+        {
+            var a = DefaultTagAddress(n);
+            if (!used.Contains(a)) return a;
+        }
+    }
+
+    /// <summary>Unique "name", "name 2", "name 3"... used by <see cref="SuggestTagAddress"/> implementations.</summary>
+    static string UniqueAddress(string candidate, IReadOnlyList<(string Address, TagDataType Type)> existing)
+    {
+        var used = existing.Select(e => e.Address.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!used.Contains(candidate)) return candidate;
+        for (int n = 2; ; n++) if (!used.Contains($"{candidate}{n}")) return $"{candidate}{n}";
+    }
+
+    /// <summary>Lower-case words joined by '-', for topic and path suggestions: "Tank level (%)" → "tank-level".</summary>
+    static string Slug(string text)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in text.Trim().ToLowerInvariant())
+        {
+            if (char.IsAsciiLetterOrDigit(c)) sb.Append(c);
+            else if (sb.Length > 0 && sb[^1] != '-') sb.Append('-');
+        }
+        var s = sb.ToString().Trim('-');
+        return s.Length == 0 ? "value" : s;
+    }
+
     /// <summary>Creates settings for a new device; <paramref name="existing"/> lets the plugin avoid e.g. port clashes.</summary>
     object CreateServerSettings(IEnumerable<object> existing);
 
@@ -58,6 +93,34 @@ public interface IProtocolPlugin
 
     /// <summary>Short text for the client's target, e.g. "192.168.1.10:502".</summary>
     string DescribeClient(object clientSettings) => string.Empty;
+
+    // ---- Network links (optional) ----
+
+    /// <summary>True when the client can read individual points for network links (see <see cref="CreateLinkReads"/>).</summary>
+    bool SupportsLinks => false;
+
+    /// <summary>Client settings that reach a device with these server settings running on <paramref name="host"/>.</summary>
+    object CreateLinkClientSettings(object serverSettings, string host) => LinkHost.Retarget(CreateClientSettingsFor(serverSettings), host);
+
+    /// <summary>The client-side address of a tag on a simulated device of this protocol (e.g. OPC UA adds the namespace).</summary>
+    string LinkSourceAddress(object serverSettings, string tagAddress) => tagAddress.Trim();
+
+    /// <summary>Requests that read the points. Throw <see cref="FormatException"/> for an address the client can't read.</summary>
+    IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points) =>
+        throw new NotSupportedException($"{DisplayName} does not support network links.");
+
+    /// <summary>A request that writes <paramref name="value"/> to the point, or throws <see cref="NotSupportedException"/> when it can't be written.</summary>
+    object CreateLinkWrite(LinkPoint point, object value) =>
+        throw new NotSupportedException($"{DisplayName} links are read-only.");
+
+    /// <summary>
+    /// True when a device of this protocol can be reached from other computers, so it is shared on the network.
+    /// False for loopback-only servers (REST) and serial ports.
+    /// </summary>
+    bool AcceptsRemoteLinks => SupportsLinks;
+
+    /// <summary>True when the protocol can write values back to its source (<see cref="LinkDirection.ReadWrite"/>).</summary>
+    bool SupportsLinkWrites => SupportsLinks;
 
     /// <summary>True when multi-word values can use a configurable word order (e.g. Modbus registers).
     /// The tag grid hides the Order column for protocols that don't.</summary>

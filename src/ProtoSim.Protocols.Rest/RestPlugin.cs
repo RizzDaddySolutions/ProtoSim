@@ -28,6 +28,43 @@ public sealed class RestPlugin : IProtocolPlugin
     public object CreateClientRequest() => new RestClientRequest();
     public IProtocolClient CreateClient(object clientSettings, ClientContext context) => new RestApiClient((RestClientSettings)clientSettings, context);
     public string DescribeClient(object clientSettings) => ((RestClientSettings)clientSettings).BaseUrl;
+    // ---- Network links: GET each path; "path#json.path" picks a value out of any JSON response ----
+
+    public bool SupportsLinks => true;
+
+    public string SuggestTagAddress(IReadOnlyList<(string Address, TagDataType Type)> existing, TagDataType type, string nameHint) =>
+        IProtocolPlugin.UniqueAddress("links/" + IProtocolPlugin.Slug(nameHint), existing);
+
+    /// <summary>The server listens on loopback only, so links work on this computer only.</summary>
+    public bool AcceptsRemoteLinks => false;
+
+    private static (string Path, string Extract) SplitLink(LinkPoint p)
+    {
+        var a = p.Address.Trim();
+        if (a.Length == 0) throw new FormatException("Enter a path.");
+        int hash = a.IndexOf('#');
+        return hash < 0 ? (a.Trim('/'), string.Empty) : (a[..hash].Trim().Trim('/'), a[(hash + 1)..].Trim());
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points) =>
+        points.Select((p, i) =>
+        {
+            var (path, extract) = SplitLink(p);
+            return new LinkRead(new RestClientRequest { Method = RestClientMethod.GET, Path = path, Extract = extract }, [i])
+            {
+                // A ProtoSim tag answers {"path","value",...} or just the value; other APIs need "#json.path".
+                Row = (rows, _) => extract.Length > 0 ? rows.FirstOrDefault()
+                    : rows.FirstOrDefault(r => r.Address == "value") ?? rows.FirstOrDefault(r => r.Address == "$") ?? (rows.Count == 1 ? rows[0] : null),
+            };
+        }).ToList();
+
+    public object CreateLinkWrite(LinkPoint point, object value)
+    {
+        var (path, extract) = SplitLink(point);
+        if (extract.Length > 0) throw new NotSupportedException("Points with '#' are read-only.");
+        return new RestClientRequest { Method = RestClientMethod.PUT, Path = path, Body = System.Text.Json.JsonSerializer.Serialize(value), ContentType = "application/json" };
+    }
+
     public string AddressHelp => "Endpoint path relative to the base path, e.g. sensors/temperature serves GET {base URL}/sensors/temperature. PUT/PATCH/POST to the same path writes the value. Other paths go to the JSON database (Database tab).";
     public string DefaultTagAddress(int n) => $"tags/tag{n}";
 

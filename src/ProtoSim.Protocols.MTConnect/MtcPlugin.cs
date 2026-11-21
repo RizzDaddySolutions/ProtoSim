@@ -25,6 +25,37 @@ public sealed class MtcPlugin : IProtocolPlugin
         var s = (MtcClientSettings)clientSettings;
         return string.IsNullOrWhiteSpace(s.Device) ? s.AgentUrl : $"{s.AgentUrl}/{s.Device}";
     }
+    // ---- Network links: one "current" request per cycle, matched by data item id; MTConnect is read-only ----
+
+    public bool SupportsLinks => true;
+    public bool SupportsLinkWrites => false;
+
+    public string LinkSourceAddress(object serverSettings, string tagAddress) => LinkId(tagAddress);
+
+    /// <summary>A data item id, or the id inside a tag address such as Controller/Path/execution:EXECUTION.</summary>
+    private static string LinkId(string address)
+    {
+        var a = address.Trim();
+        if (a.Length == 0) throw new FormatException("Enter a data item id.");
+        // "Axes/Linear[X]/Xact:POSITION:SAMPLE" → "Xact": the last path level before the type.
+        int colon = a.IndexOf(':');
+        var path = colon < 0 ? a : a[..colon];
+        int slash = path.LastIndexOf('/');
+        var id = (slash < 0 ? path : path[(slash + 1)..]).Trim();
+        if (id.Length == 0) throw new FormatException($"'{address}' has no data item id.");
+        return id;
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points)
+    {
+        var ids = points.Select(p => LinkId(p.Address)).ToList();
+        return [new LinkRead(new MtcClientRequest { Operation = MtcClientOperation.Current }, Enumerable.Range(0, ids.Count).ToList())
+        {
+            RowAddresses = ids,
+            Value = (_, row) => row.Value == "UNAVAILABLE" ? null : row.Typed,
+        }];
+    }
+
     public string AddressHelp => MtcAddress.Help;
     public string DefaultTagAddress(int n) => $"Controller/Path/item{n}:MESSAGE";
 

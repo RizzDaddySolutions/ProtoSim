@@ -15,6 +15,7 @@
         <KeyBinding Key="F1" Command="{Binding HelpCommand}" />
         <KeyBinding Key="L" Modifiers="Control" Command="{Binding ShowLogicCommand}" />
         <KeyBinding Key="L" Modifiers="Control+Shift" Command="{Binding ToggleLogicDockCommand}" />
+        <KeyBinding Key="W" Modifiers="Control+Shift" Command="{Binding NetworkWizardCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
@@ -26,6 +27,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:ClientViewModel}">
             <views:ClientView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LinkViewModel}">
+            <views:LinkView />
         </DataTemplate>
 
         <Style x:Key="PluginMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
@@ -62,6 +66,16 @@
                 <MenuItem Header="_Undock designer" IsCheckable="True" IsChecked="{Binding Logic.IsUndocked, Mode=OneWay}"
                           Command="{Binding ToggleLogicDockCommand}" InputGestureText="Ctrl+Shift+L"
                           ToolTip="Open the designer in a window of its own instead of inside the main window" />
+            </MenuItem>
+            <MenuItem Header="_Network">
+                <MenuItem Header="Network _wizard…" Command="{Binding NetworkWizardCommand}" InputGestureText="Ctrl+Shift+W"
+                          ToolTip="Connect simulators on this computer or on other computers into a simulation network" />
+                <Separator />
+                <MenuItem Header="_Start all links" Command="{Binding StartAllLinksCommand}" />
+                <MenuItem Header="S_top all links" Command="{Binding StopAllLinksCommand}" />
+                <Separator />
+                <MenuItem Header="Share devices on the _network" IsCheckable="True" IsChecked="{Binding ShareOnNetwork}"
+                          ToolTip="{Binding SharingStatus}" />
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="Theme: _System" IsCheckable="True" IsChecked="{Binding IsSystemTheme, Mode=OneWay}"
@@ -132,6 +146,8 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="3*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="2*" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="2*" />
                     <RowDefinition Height="Auto" />
@@ -213,7 +229,42 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="4" Margin="0,12,0,0">
+                <DockPanel Grid.Row="4" Margin="4,14,0,6">
+                    <Button DockPanel.Dock="Right" Command="{Binding NetworkWizardCommand}" Style="{StaticResource ToolbarButton}"
+                            ToolTip="Connect a simulator here or on another computer (Ctrl+Shift+W)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                            <TextBlock Text="Wizard" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="NETWORK LINKS" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox Grid.Row="5" ItemsSource="{Binding Links}" SelectedItem="{Binding SelectedLink}"
+                         Background="{DynamicResource ApplicationPanelBackgroundBrush}"
+                         BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:LinkViewModel}">
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Style="{StaticResource StatusDot}" Fill="{Binding State, Converter={StaticResource StateToBrush}}"
+                                         Margin="0,0,10,0" ToolTip="{Binding Link.LastMessage}" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceDescription}">
+                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Summary, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="6" Margin="0,12,0,0">
                     <StackPanel Orientation="Horizontal">
                         <Button Command="{Binding StartAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Start all devices (F5)">
                             <StackPanel Orientation="Horizontal">
@@ -227,7 +278,7 @@
                                 <TextBlock Text="Stop all" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove the selected device or client">
+                        <Button Command="{Binding RemoveSelectedCommand}" Style="{StaticResource ToolbarButton}" ToolTip="Remove the selected device, client or network link">
                             <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
                         </Button>
                     </StackPanel>
@@ -252,7 +303,7 @@
                                                                Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
                                                     <TextBlock Text="ProtoSim" Style="{StaticResource PageTitle}" />
                                                      <TextBlock TextWrapping="Wrap" Margin="0,8,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                                Text="Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to, and pull data in from external servers and devices with clients. Add a device or client from the left panel to get started." />
+                                                                Text="Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to, pull data in from external servers and devices with clients, and connect simulators on this and other computers into a network with the network wizard. Add a device from the left panel to get started." />
                                                     <StackPanel Orientation="Horizontal">
                                                         <Button Content="Open project…" Padding="16,8"
                                                                 Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" />

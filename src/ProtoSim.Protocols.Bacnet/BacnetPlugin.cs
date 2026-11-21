@@ -1,3 +1,4 @@
+using System.IO.BACnet;
 using ProtoSim.Core.Data;
 using ProtoSim.Core.Protocols;
 using ProtoSim.Core.Simulation;
@@ -26,6 +27,66 @@ public sealed class BacnetPlugin : IProtocolPlugin
         var s = (BacnetClientSettings)clientSettings;
         return $"{s.DeviceAddress} · device {s.DeviceInstance}";
     }
+    // ---- Network links: ReadProperty present-value of every object; writes use priority 16 ----
+
+    public bool SupportsLinks => true;
+
+    /// <summary>Also picks the local interface that reaches the device: with several network adapters the BACnet stack can't choose one itself.</summary>
+    public object CreateLinkClientSettings(object serverSettings, string host)
+    {
+        var c = (BacnetClientSettings)LinkHost.Retarget(CreateClientSettingsFor(serverSettings), host);
+        if (string.IsNullOrWhiteSpace(c.LocalAddress))
+        {
+            int colon = c.DeviceAddress.LastIndexOf(':');
+            var ip = colon > 0 ? c.DeviceAddress[..colon] : c.DeviceAddress;
+            c.LocalAddress = LocalAddressFor(ip);
+        }
+        return c;
+    }
+
+    private static string LocalAddressFor(string deviceIp)
+    {
+        if (!System.Net.IPAddress.TryParse(deviceIp, out var ip) || System.Net.IPAddress.IsLoopback(ip)) return "127.0.0.1";
+        try
+        {
+            // Connecting a UDP socket sends nothing; it only asks the OS which interface routes to the device.
+            using var probe = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, System.Net.Sockets.ProtocolType.Udp);
+            probe.Connect(ip, 47808);
+            return ((System.Net.IPEndPoint)probe.LocalEndPoint!).Address.ToString();
+        }
+        catch (System.Net.Sockets.SocketException) { return string.Empty; }
+    }
+
+    /// <summary>"AV:3/Zone Setpoint" → "AV:3".</summary>
+    public string LinkSourceAddress(object serverSettings, string tagAddress) => LinkObject(tagAddress);
+
+    private static string LinkObject(string address)
+    {
+        var a = BacnetAddressSpec.Parse(address);
+        return BacnetAddressSpec.KeyOf(a.Type, a.Instance);
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points)
+    {
+        var objects = points.Select(p => LinkObject(p.Address)).ToList();
+        var request = new BacnetClientRequest { Operation = BacnetClientOperation.ReadProperty, Objects = string.Join(",", objects), Property = BacnetPropertyIds.PROP_PRESENT_VALUE };
+        return [new LinkRead(request, Enumerable.Range(0, objects.Count).ToList())
+        {
+            Value = (_, row) => row.Raw.EndsWith("error", StringComparison.Ordinal) || row.Raw.EndsWith("empty", StringComparison.Ordinal)
+                ? null
+                : row.Typed ?? ClientValue.Parse(row.Value),
+        }];
+    }
+
+    public object CreateLinkWrite(LinkPoint point, object value)
+    {
+        var key = LinkObject(point.Address);
+        if (key.StartsWith("AI:", StringComparison.Ordinal) || key.StartsWith("BI:", StringComparison.Ordinal) || key.StartsWith("MSI:", StringComparison.Ordinal))
+            throw new NotSupportedException($"{key} is an input; BACnet inputs are read-only.");
+        var text = value is bool b ? (b ? "1" : "0") : ValueConverter.Format(value);
+        return new BacnetClientRequest { Operation = BacnetClientOperation.WriteProperty, Objects = key, Property = BacnetPropertyIds.PROP_PRESENT_VALUE, Value = text };
+    }
+
     public string AddressHelp => BacnetAddressSpec.Help;
     public string DefaultTagAddress(int n) => $"AV:{n}";
 

@@ -27,6 +27,45 @@ public sealed class SparkplugPlugin : IProtocolPlugin
         var s = (SparkplugHostSettings)clientSettings;
         return $"{s.Host}:{s.Port} · spBv1.0/{s.GroupId}";
     }
+    // ---- Network links: "group/node[/device]:metric"; reads monitor births and data, writes send NCMD/DCMD ----
+
+    public bool SupportsLinks => true;
+
+    public string LinkSourceAddress(object serverSettings, string tagAddress)
+    {
+        var s = (SparkplugSettings)serverSettings;
+        var a = SparkplugAddress.Parse(tagAddress);
+        return a.Device == null ? $"{s.GroupId}/{s.EdgeNodeId}:{a.Metric}" : $"{s.GroupId}/{s.EdgeNodeId}/{a.Device}:{a.Metric}";
+    }
+
+    private static (string Group, string Node, string? Device, string Metric) LinkMetric(LinkPoint p)
+    {
+        var a = p.Address.Trim();
+        int colon = a.IndexOf(':');
+        var owner = colon > 0 ? a[..colon].Split('/') : [];
+        if (colon <= 0 || colon == a.Length - 1 || owner.Length is < 2 or > 3 || owner.Any(o => o.Length == 0))
+            throw new FormatException($"'{p.Address}' is not a Sparkplug metric such as ProtoSim/EdgeNode1:Inputs/Temperature or ProtoSim/EdgeNode1/Pump1:Speed.");
+        return (owner[0], owner[1], owner.Length == 3 ? owner[2] : null, a[(colon + 1)..]);
+    }
+
+    public IReadOnlyList<LinkRead> CreateLinkReads(IReadOnlyList<LinkPoint> points)
+    {
+        var metrics = points.Select(LinkMetric).ToList();
+        var keys = metrics.Select(m => m.Device == null ? $"{m.Group}/{m.Node}:{m.Metric}" : $"{m.Group}/{m.Node}/{m.Device}:{m.Metric}").ToList();
+        var nodes = string.Join(",", metrics.Select(m => $"{m.Group}/{m.Node}").Distinct(StringComparer.Ordinal));
+        return [new LinkRead(new SparkplugHostRequest { Operation = SparkplugHostOperation.Monitor, RebirthIfMissing = nodes }, Enumerable.Range(0, keys.Count).ToList()) { RowAddresses = keys }];
+    }
+
+    public object CreateLinkWrite(LinkPoint point, object value)
+    {
+        var m = LinkMetric(point);
+        return new SparkplugHostRequest
+        {
+            Operation = SparkplugHostOperation.Command, GroupId = m.Group, EdgeNodeId = m.Node, DeviceId = m.Device ?? string.Empty,
+            Metric = m.Metric, DataType = point.DataType, Value = ValueConverter.Format(ValueConverter.Coerce(value, point.DataType)),
+        };
+    }
+
     public string AddressHelp => SparkplugAddress.Help;
     public string DefaultTagAddress(int n) => $"Device1:Metric{n}";
 

@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using ProtoSim.App.Mvvm;
 using ProtoSim.App.Services;
 using ProtoSim.Core;
+using ProtoSim.Core.Network;
 using ProtoSim.Core.Project;
 using ProtoSim.Core.Protocols;
 using ProtoSim.Core.Simulation;
@@ -24,6 +25,9 @@ public sealed class MainViewModel : ObservableObject
     private object? _selected;
     private DeviceViewModel? _selectedDevice;
     private ClientViewModel? _selectedClient;
+    private LinkViewModel? _selectedLink;
+    private readonly DiscoveryService _discovery;
+    private bool _shareOnNetwork;
     private string? _filePath;
     private bool _simulationEnabled;
     private string _statusText = "Ready";
@@ -55,11 +59,18 @@ public sealed class MainViewModel : ObservableObject
         HelpCommand = new RelayCommand(ShowHelp);
         ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
         ShowLogicCommand = new RelayCommand(ShowLogic);
+        NetworkWizardCommand = new RelayCommand(ShowNetworkWizard);
+        StartAllLinksCommand = new RelayCommand(() => { TagDirectory.Refresh(Devices); foreach (var l in Links) l.Start(); }, () => Links.Any(l => !l.Link.IsRunning));
+        StopAllLinksCommand = new AsyncRelayCommand(StopAllLinksAsync, () => Links.Any(l => l.Link.IsRunning));
         ToggleLogicDockCommand = new RelayCommand(ToggleLogicDock);
         Logic.ToggleDockCommand = ToggleLogicDockCommand;
         Logic.IsUndocked = UiLayout.Current.LogicUndocked;
         _simulationEnabled = UiLayout.Current.SimulationEnabled;
         Engine.IsEnabled = _simulationEnabled;
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        _discovery = new DiscoveryService(() => dispatcher.InvokeAsync(BuildCatalog).Task);
+        _shareOnNetwork = UiLayout.Current.ShareOnNetwork;
+        if (_shareOnNetwork) StartSharing(quiet: true);
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
         _timer.Start();
     }
@@ -82,6 +93,12 @@ public sealed class MainViewModel : ObservableObject
     public bool IsLogicSelected => ReferenceEquals(_selected, Logic);
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
     public ObservableCollection<ClientViewModel> Clients { get; } = [];
+
+    /// <summary>Network links that feed tags here from other simulators (this computer or others).</summary>
+    public ObservableCollection<LinkViewModel> Links { get; } = [];
+    public ICommand NetworkWizardCommand { get; }
+    public ICommand StartAllLinksCommand { get; }
+    public ICommand StopAllLinksCommand { get; }
     public IReadOnlyList<PluginActionViewModel> AddDeviceActions { get; }
     public IReadOnlyList<PluginActionViewModel> AddClientActions { get; }
 
@@ -113,6 +130,7 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!SetProperty(ref _selectedDevice, value) || value == null) return;
             if (_selectedClient != null) { _selectedClient = null; OnPropertyChanged(nameof(SelectedClient)); }
+            if (_selectedLink != null) { _selectedLink = null; OnPropertyChanged(nameof(SelectedLink)); }
             Selected = value;
         }
     }
@@ -124,9 +142,41 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!SetProperty(ref _selectedClient, value) || value == null) return;
             if (_selectedDevice != null) { _selectedDevice = null; OnPropertyChanged(nameof(SelectedDevice)); }
+            if (_selectedLink != null) { _selectedLink = null; OnPropertyChanged(nameof(SelectedLink)); }
             Selected = value;
         }
     }
+
+    public LinkViewModel? SelectedLink
+    {
+        get => _selectedLink;
+        set
+        {
+            if (!SetProperty(ref _selectedLink, value) || value == null) return;
+            if (_selectedDevice != null) { _selectedDevice = null; OnPropertyChanged(nameof(SelectedDevice)); }
+            if (_selectedClient != null) { _selectedClient = null; OnPropertyChanged(nameof(SelectedClient)); }
+            Selected = value;
+        }
+    }
+
+    /// <summary>Answer network wizards on other computers with this project's devices and tags.</summary>
+    public bool ShareOnNetwork
+    {
+        get => _shareOnNetwork;
+        set
+        {
+            if (!SetProperty(ref _shareOnNetwork, value)) return;
+            if (value) StartSharing(quiet: false);
+            else _discovery.Stop();
+            UiLayout.Current.ShareOnNetwork = value;
+            UiLayout.Save();
+            OnPropertyChanged(nameof(SharingStatus));
+        }
+    }
+
+    public string SharingStatus => _discovery.IsRunning
+        ? $"Shared on the network (UDP {DiscoveryService.Port}, catalog TCP {_discovery.CatalogPort})"
+        : _discovery.LastError ?? "Not shared on the network";
 
     public bool SimulationEnabled
     {
@@ -149,14 +199,18 @@ public sealed class MainViewModel : ObservableObject
         foreach (var d in Devices) d.Refresh(ReferenceEquals(d, _selected));
         Logic.Refresh(Devices, IsLogicSelected || _logicWindow != null);
         foreach (var c in Clients) c.Refresh();
+        if (Links.Count > 0) TagDirectory.Refresh(Devices);
+        foreach (var l in Links) l.Refresh();
         OnPropertyChanged(nameof(LogicSummary));
 
         int running = Devices.Count(d => d.IsRunning);
         long connections = Devices.Sum(d => d.Stats.ActiveConnections);
         double rate = Devices.Sum(d => d.Stats.RequestsPerSecond);
         int polling = Clients.Count(c => c.IsPolling);
+        int linked = Links.Count(l => l.Link.IsRunning);
         StatusText = $"{running}/{Devices.Count} devices running · {connections} connections · {rate:F1} req/s · " +
                      (Clients.Count > 0 ? $"{polling}/{Clients.Count} clients polling · " : "") +
+                     (Links.Count > 0 ? $"{linked}/{Links.Count} links running · " : "") +
                      $"simulation {(SimulationEnabled ? "enabled" : "disabled")}";
     }
 
@@ -247,13 +301,20 @@ public sealed class MainViewModel : ObservableObject
                 await c.DisconnectAsync();
                 Clients.Remove(c);
                 break;
+            case LinkViewModel l:
+                if (!Confirm($"Remove network link '{l.Name}'? Tags it created stay in their device.")) return;
+                await l.Link.StopAsync();
+                Links.Remove(l);
+                break;
             default:
                 return;
         }
         _selectedDevice = null;
         _selectedClient = null;
+        _selectedLink = null;
         OnPropertyChanged(nameof(SelectedDevice));
         OnPropertyChanged(nameof(SelectedClient));
+        OnPropertyChanged(nameof(SelectedLink));
         Selected = null;
     }
 
@@ -282,6 +343,8 @@ public sealed class MainViewModel : ObservableObject
         CloseLogicWindow();
         UiLayout.Save();
         await Logic.ShutdownAsync();
+        _discovery.Stop();
+        await StopAllLinksAsync();
         foreach (var c in Clients) await c.DisconnectAsync();
         await StopAllAsync();
         Engine.Dispose();
@@ -302,8 +365,10 @@ public sealed class MainViewModel : ObservableObject
         }
         _selectedDevice = null;
         _selectedClient = null;
+        _selectedLink = null;
         OnPropertyChanged(nameof(SelectedDevice));
         OnPropertyChanged(nameof(SelectedClient));
+        OnPropertyChanged(nameof(SelectedLink));
         Selected = Logic;
     }
 
@@ -371,7 +436,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task NewProjectAsync()
     {
-        if ((Devices.Count > 0 || Clients.Count > 0 || Logic.Programs.Count > 0) && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
+        if ((Devices.Count > 0 || Clients.Count > 0 || Links.Count > 0 || Logic.Programs.Count > 0) && !Confirm("Close the current project? Unsaved changes will be lost.")) return;
         await ClearAsync();
         _filePath = null;
         OnPropertyChanged(nameof(Title));
@@ -381,6 +446,9 @@ public sealed class MainViewModel : ObservableObject
     {
         await Logic.StopAsync();
         Logic.Clear();
+        await StopAllLinksAsync();
+        Links.Clear();
+        _selectedLink = null;
         foreach (var c in Clients.ToList()) await c.DisconnectAsync();
         Clients.Clear();
         _selectedClient = null;
@@ -456,6 +524,16 @@ public sealed class MainViewModel : ObservableObject
                 foreach (var m in cd.Mappings) client.Mappings.Add(new ClientMappingViewModel(m.Source, m.Target));
             }
 
+            foreach (var ld in doc.Links)
+            {
+                var plugin = Catalog.Find(ld.PluginId);
+                if (plugin is not { SupportsLinks: true }) { missing.Add(ld.PluginId); continue; }
+                var settings = ProjectSerializer.FromElement(ld.Settings, plugin.ClientSettingsType!) ?? plugin.CreateClientSettings();
+                var link = new NetworkLink(plugin, ld.Name, settings, TagDirectory, ld.SourceDescription) { PollIntervalMs = ld.PollIntervalMs, AutoStart = ld.AutoStart };
+                foreach (var p in ld.Points) link.AddPoint(p);
+                Links.Add(new LinkViewModel(link, TagDirectory));
+            }
+
             Logic.Load(doc.Logic, doc.LogicAutoRun);
 
             _filePath = path;
@@ -468,6 +546,11 @@ public sealed class MainViewModel : ObservableObject
             {
                 TagDirectory.Refresh(Devices);
                 foreach (var c in Clients.Where(c => c.AutoPoll)) c.StartPolling();
+            }
+            if (Links.Any(l => l.Link.AutoStart))
+            {
+                TagDirectory.Refresh(Devices);
+                foreach (var l in Links.Where(l => l.Link.AutoStart)) l.Start();
             }
             if (Logic.AutoRun && Logic.Programs.Count > 0)
             {
@@ -533,6 +616,7 @@ public sealed class MainViewModel : ObservableObject
                 Mappings = c.Mappings.Select(m => m.ToModel()).ToList(),
             });
         }
+        doc.Links = Links.Select(l => l.Link.ToDocument()).ToList();
         doc.Logic = Logic.ToModels();
         doc.LogicAutoRun = Logic.AutoRun;
         await ProjectSerializer.SaveAsync(doc, path);
@@ -540,6 +624,77 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(Title));
         StatusText = $"Saved {path}";
     }
+
+    // ---- Network ----
+
+    private void ShowNetworkWizard()
+    {
+        TagDirectory.Refresh(Devices);
+        var vm = new NetworkWizardViewModel(this);
+        var window = new Views.NetworkWizardWindow { DataContext = vm, Owner = Application.Current.MainWindow };
+        window.ShowDialog();
+    }
+
+    /// <summary>Adds a link made by the wizard, selects it and optionally starts it.</summary>
+    public LinkViewModel AddLink(NetworkLink link, bool start)
+    {
+        var used = Links.Select(l => l.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var name = link.Name;
+        for (int n = 2; used.Contains(name); n++) name = $"{link.Name} {n}";
+        link.Name = name;
+        var vm = new LinkViewModel(link, TagDirectory);
+        Links.Add(vm);
+        SelectedLink = vm;
+        TagDirectory.Refresh(Devices);
+        if (start) vm.Start();
+        return vm;
+    }
+
+    private async Task StopAllLinksAsync()
+    {
+        foreach (var l in Links.ToList()) await l.Link.StopAsync();
+    }
+
+    private void StartSharing(bool quiet)
+    {
+        if (_discovery.Start() || quiet) return;
+        Views.MessageDialog.Show(_discovery.LastError ?? "Network sharing could not start.", "Share devices on the network",
+            MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>Tags of a device as other computers' wizards see them; tags whose address the client can't read are left out.</summary>
+    public static List<SharedTag> SharedTags(DeviceViewModel d)
+    {
+        var tags = new List<SharedTag>();
+        foreach (var t in d.Tags.Select(t => t.Tag))
+        {
+            string address;
+            try { address = d.Plugin.LinkSourceAddress(d.Settings, t.Address); }
+            catch (Exception ex) when (ex is FormatException or ArgumentException or NotSupportedException) { continue; }
+            tags.Add(new SharedTag { Name = t.Name, Address = address, DataType = t.DataType, WordOrder = t.WordOrder, Writable = t.Writable, Description = t.Description });
+        }
+        return tags;
+    }
+
+    /// <summary>What network wizards on other computers see. Runs on the UI thread.</summary>
+    private DiscoveryCatalog BuildCatalog() => new()
+    {
+        InstanceId = DiscoveryService.InstanceId,
+        Name = Environment.MachineName,
+        Project = _filePath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_filePath),
+        Version = typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? string.Empty,
+        Devices = Devices.Where(d => d.Plugin.SupportsLinks && d.Plugin.AcceptsRemoteLinks).Select(d => new SharedDevice
+        {
+            Name = d.Name,
+            PluginId = d.Plugin.Id,
+            Protocol = d.Plugin.DisplayName,
+            Running = d.IsRunning,
+            Endpoint = d.Endpoint,
+            ServerSettings = ProjectSerializer.ToElement(d.Settings),
+            SupportsWrites = d.Plugin.SupportsLinkWrites,
+            Tags = SharedTags(d),
+        }).ToList(),
+    };
 
     // ---- Misc ----
 
