@@ -1,37 +1,37 @@
 <UserControl x:Class="ProtoSim.App.Views.LogView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel>
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8" VerticalAlignment="Center">
-            <ToggleButton IsChecked="{Binding IsPaused}" Padding="10,5" Margin="0,0,6,0" ToolTip="Pause the display (traffic keeps being captured)">
+            <ToggleButton IsChecked="{Binding IsPaused}" Padding="10,5" Margin="0,0,6,0" ToolTip.Tip="Pause the display (traffic keeps being captured)">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE769;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                    <PathIcon Data="{StaticResource IconPause}" Margin="0,0,6,0" />
                     <TextBlock Text="Pause" />
                 </StackPanel>
             </ToggleButton>
-            <Button Command="{Binding ClearCommand}" Style="{StaticResource ToolbarButton}">
+            <Button Command="{Binding ClearCommand}" Classes="toolbar">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE894;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                    <PathIcon Data="{StaticResource IconClear}" Margin="0,0,6,0" />
                     <TextBlock Text="Clear" />
                 </StackPanel>
             </Button>
-            <Button Command="{Binding ExportCommand}" Style="{StaticResource ToolbarButton}">
+            <Button Command="{Binding ExportCommand}" Classes="toolbar">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xEDE1;" Style="{StaticResource Icon}" Margin="0,0,6,0" />
+                    <PathIcon Data="{StaticResource IconExport}" Margin="0,0,6,0" />
                     <TextBlock Text="Export" />
                 </StackPanel>
             </Button>
-            <CheckBox Content="Capture" IsChecked="{Binding IsCapturing}" Margin="8,0" VerticalAlignment="Center" ToolTip="Turn off to stop recording traffic (saves CPU under heavy load)" />
+            <CheckBox Content="Capture" IsChecked="{Binding IsCapturing}" Margin="8,0" VerticalAlignment="Center" ToolTip.Tip="Turn off to stop recording traffic (saves CPU under heavy load)" />
             <CheckBox Content="Auto-scroll" IsChecked="{Binding AutoScroll}" Margin="8,0" VerticalAlignment="Center" />
             <CheckBox Content="Frames" IsChecked="{Binding ShowFrames}" Margin="8,0" VerticalAlignment="Center" />
             <CheckBox Content="Events" IsChecked="{Binding ShowEvents}" Margin="8,0" VerticalAlignment="Center" />
             <TextBlock Text="Filter" VerticalAlignment="Center" Margin="12,0,6,0" />
-            <TextBox Width="220" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=250}" ToolTip="Matches summary, remote address or hex bytes" />
+            <TextBox Width="220" Text="{Binding FilterText}" ToolTip.Tip="Matches summary, remote address or hex bytes" />
         </WrapPanel>
 
         <DataGrid x:Name="Grid" ItemsSource="{Binding View}" IsReadOnly="True" FontSize="12">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Time" Binding="{Binding Time}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                <DataGridTextColumn Header="Time" Binding="{Binding Time}" CellStyleClasses="mono" Width="Auto" />
                 <DataGridTemplateColumn Header="Type" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -42,7 +42,7 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Remote" Binding="{Binding Remote}" Width="Auto" />
                 <DataGridTextColumn Header="Summary" Binding="{Binding Summary}" Width="Auto" />
-                <DataGridTextColumn Header="Bytes" Binding="{Binding Hex}" ElementStyle="{StaticResource MonoCell}" Width="Auto" />
+                <DataGridTextColumn Header="Bytes" Binding="{Binding Hex}" CellStyleClasses="mono" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

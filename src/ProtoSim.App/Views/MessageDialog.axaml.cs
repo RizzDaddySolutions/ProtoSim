@@ -1,24 +1,21 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Threading;
+using ProtoSim.App.Platform;
 
 namespace ProtoSim.App.Views;
 
-/// <summary>
-/// Themed replacement for <see cref="MessageBox"/> so messages and confirmations match the rest of the app.
-/// Takes the same arguments and returns the same results as <c>MessageBox.Show</c>.
-/// </summary>
+/// <summary>Themed message box: takes a message and buttons, and blocks the caller until the user answers.</summary>
 public partial class MessageDialog : Window
 {
-    private static readonly Brush WarningBrush = Freeze(Color.FromRgb(0xE0, 0x9B, 0x1A));
-    private static readonly Brush ErrorBrush = Freeze(Color.FromRgb(0xD8, 0x3B, 0x3B));
-
     private MessageBoxResult _result;
+
+    public MessageDialog() : this(string.Empty, string.Empty, MessageBoxButton.OK, MessageBoxImage.None) { }
 
     private MessageDialog(string message, string title, MessageBoxButton buttons, MessageBoxImage image)
     {
         InitializeComponent();
-        Title = "ProtoSim";
         Heading.Text = title;
         MessageText.Text = message;
         _result = buttons switch
@@ -35,19 +32,13 @@ public partial class MessageDialog : Window
     public static MessageBoxResult Show(string message, string title,
         MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.None, Window? owner = null)
     {
-        var app = Application.Current;
-        if (app == null) return MessageBox.Show(message, title, buttons, image);
-        if (!app.Dispatcher.CheckAccess())
-            return app.Dispatcher.Invoke(() => Show(message, title, buttons, image, owner));
+        if (!Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.Invoke(() => Show(message, title, buttons, image, owner));
 
         var dialog = new MessageDialog(message, title, buttons, image);
-        owner ??= app.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? app.MainWindow;
-        if (owner is { IsLoaded: true, IsVisible: true } && !ReferenceEquals(owner, dialog))
-            dialog.Owner = owner;
-        else
-            dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-
-        dialog.ShowDialog();
+        owner ??= Modal.ActiveWindow;
+        if (owner is { IsVisible: true }) Modal.Wait(dialog.ShowDialog<bool>(owner));
+        else Modal.ShowDialog(dialog);
         return dialog._result;
     }
 
@@ -57,21 +48,19 @@ public partial class MessageDialog : Window
 
     private void SetIcon(MessageBoxImage image)
     {
-        // MessageBoxImage has aliased values (Error == Hand == Stop, Warning == Exclamation, Information == Asterisk).
-        (string? glyph, Brush? brush) = image switch
+        (string? key, Color? color) = image switch
         {
-            MessageBoxImage.Error => ("", ErrorBrush),
-            MessageBoxImage.Warning => ("", WarningBrush),
-            MessageBoxImage.Question => ("", null),
-            MessageBoxImage.Information => ("", null),
+            MessageBoxImage.Error => ("IconClose", Color.FromRgb(0xD8, 0x3B, 0x3B)),
+            MessageBoxImage.Warning => ("IconRecord", Color.FromRgb(0xE0, 0x9B, 0x1A)),
+            MessageBoxImage.Question => ("IconSearch", (Color?)null),
+            MessageBoxImage.Information => ("IconDevice", (Color?)null),
             _ => (null, null),
         };
-        if (glyph == null) return;
-
-        IconGlyph.Text = glyph;
-        if (brush != null) IconGlyph.Foreground = brush;
-        else IconGlyph.SetResourceReference(TextBlock.ForegroundProperty, "AccentFillColorDefaultBrush");
-        IconGlyph.Visibility = Visibility.Visible;
+        if (key == null || !Application.Current!.TryFindResource(key, out var geometry) || geometry is not Geometry g) return;
+        IconGlyph.Data = g;
+        if (color is { } c) IconGlyph.Foreground = new SolidColorBrush(c);
+        else if (Application.Current!.TryGetResource("AccentFillColorDefaultBrush", ActualThemeVariant, out var brush) && brush is IBrush accent) IconGlyph.Foreground = accent;
+        IconGlyph.IsVisible = true;
     }
 
     private void AddButtons(MessageBoxButton buttons)
@@ -91,22 +80,16 @@ public partial class MessageDialog : Window
             {
                 Content = label,
                 MinWidth = 96,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 Padding = new Thickness(20, 6, 20, 6),
                 Margin = new Thickness(i == 0 ? 0 : 8, 0, 0, 0),
                 IsDefault = i == 0,
                 // Esc maps to the same answer as closing the window.
                 IsCancel = result == _result,
             };
-            if (i == 0) button.SetResourceReference(StyleProperty, "AccentButtonStyle");
-            button.Click += (_, _) => { _result = result; DialogResult = true; };
+            if (i == 0) button.Classes.Add("accent");
+            button.Click += (_, _) => { _result = result; Close(true); };
             ButtonPanel.Children.Add(button);
         }
-    }
-
-    private static Brush Freeze(Color c)
-    {
-        var b = new SolidColorBrush(c);
-        b.Freeze();
-        return b;
     }
 }

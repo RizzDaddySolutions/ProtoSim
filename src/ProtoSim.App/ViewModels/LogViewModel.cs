@@ -1,12 +1,12 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text;
-using System.Windows.Data;
+using Avalonia.Collections;
 using System.Windows.Input;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Mvvm;
 using ProtoSim.Core;
 using ProtoSim.Core.Diagnostics;
-using Microsoft.Win32;
 
 namespace ProtoSim.App.ViewModels;
 
@@ -44,14 +44,14 @@ public sealed class LogViewModel : ObservableObject
     public LogViewModel(TrafficLog source)
     {
         _source = source;
-        View = CollectionViewSource.GetDefaultView(Entries);
+        View = new DataGridCollectionView(Entries);
         View.Filter = Filter;
         ClearCommand = new RelayCommand(Clear);
         ExportCommand = new RelayCommand(Export, () => Entries.Count > 0);
     }
 
     public ObservableCollection<TrafficEntryViewModel> Entries { get; } = [];
-    public ICollectionView View { get; }
+    public DataGridCollectionView View { get; }
     public int MaxEntries { get; set; } = 5000;
 
     public ICommand ClearCommand { get; }

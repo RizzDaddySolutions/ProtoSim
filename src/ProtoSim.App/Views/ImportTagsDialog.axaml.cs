@@ -1,4 +1,5 @@
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 
 namespace ProtoSim.App.Views;
 
@@ -11,6 +12,8 @@ public enum TagImportMode
 /// <summary>Asks whether imported CSV tags should be appended to, or replace, the device's tags.</summary>
 public partial class ImportTagsDialog : Window
 {
+    public ImportTagsDialog() : this(string.Empty, 0, 0) { }
+
     public ImportTagsDialog(string fileName, int importCount, int existingCount)
     {
         FileName = fileName;
@@ -26,5 +29,7 @@ public partial class ImportTagsDialog : Window
 
     public TagImportMode Mode => OverwriteOption.IsChecked == true ? TagImportMode.Overwrite : TagImportMode.Append;
 
-    private void OnImport(object sender, RoutedEventArgs e) => DialogResult = true;
+    private void OnImport(object? sender, RoutedEventArgs e) => Close(true);
+
+    private void OnCancel(object? sender, RoutedEventArgs e) => Close(false);
 }

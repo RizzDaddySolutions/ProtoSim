@@ -1,5 +1,6 @@
 using System.Text.Json;
-using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
 
 namespace ProtoSim.App.Services;
 
@@ -12,24 +13,28 @@ public sealed class WindowPlacement
     public double Height { get; set; }
     public bool Maximized { get; set; }
 
-    public static WindowPlacement From(Window w)
+    public static WindowPlacement From(Window w) => new()
     {
-        var r = w.WindowState == WindowState.Normal ? new Rect(w.Left, w.Top, w.Width, w.Height) : w.RestoreBounds;
-        return new WindowPlacement { Left = r.Left, Top = r.Top, Width = r.Width, Height = r.Height, Maximized = w.WindowState == WindowState.Maximized };
-    }
+        Left = w.Position.X,
+        Top = w.Position.Y,
+        Width = w.Width,
+        Height = w.Height,
+        Maximized = w.WindowState == WindowState.Maximized,
+    };
 
-    /// <summary>Restores the bounds, ignoring them if they no longer fit on the screens (e.g. a monitor was unplugged).</summary>
+    /// <summary>Restores the bounds, ignoring a position that no longer fits on the screens (e.g. a monitor was unplugged).</summary>
     public void ApplyTo(Window w)
     {
         if (Width < 200 || Height < 150) return;
-        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
-            SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
-        if (!screen.IntersectsWith(new Rect(Left + 40, Top + 10, Math.Max(1, Width - 80), 30))) return;
-        w.WindowStartupLocation = WindowStartupLocation.Manual;
-        w.Left = Left;
-        w.Top = Top;
         w.Width = Width;
         w.Height = Height;
+        var position = new PixelPoint((int)Left, (int)Top);
+        var target = new PixelRect(position.X + 40, position.Y + 10, Math.Max(1, (int)Width - 80), 30);
+        if (w.Screens.All.Any(s => s.Bounds.Intersects(target)))
+        {
+            w.WindowStartupLocation = WindowStartupLocation.Manual;
+            w.Position = position;
+        }
         if (Maximized) w.WindowState = WindowState.Maximized;
     }
 }
@@ -69,8 +74,11 @@ public sealed class UiLayout
 
     public WindowPlacement? MainWindow { get; set; }
 
-    /// <summary>AvalonDock layout XML of the logic designer's panels.</summary>
-    public string? LogicPanels { get; set; }
+    /// <summary>Logic designer panels the user has hidden, by panel name.</summary>
+    public List<string> LogicHiddenPanels { get; set; } = [];
+
+    /// <summary>Width of the logic designer's panel column.</summary>
+    public double LogicPanelWidth { get; set; } = 250;
 
     /// <summary>True when the designer opens in its own window instead of inside the main window.</summary>
     public bool LogicUndocked { get; set; }

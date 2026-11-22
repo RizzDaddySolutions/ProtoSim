@@ -1,7 +1,7 @@
 using System.ComponentModel;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Threading;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Threading;
 using ProtoSim.App.Services;
 using ProtoSim.App.ViewModels;
 
@@ -22,15 +22,33 @@ public partial class MainWindow : Window
             _placementSaveTimer.Stop();
             SavePlacement();
         };
-        LocationChanged += OnPlacementChanged;
-        SizeChanged += OnPlacementChanged;
-        StateChanged += OnWindowStateChanged;
-        DataContextChanged += (_, e) =>
+        PositionChanged += (_, _) => SchedulePlacementSave();
+        SizeChanged += (_, _) => SchedulePlacementSave();
+        DataContextChanged += OnDataContextChanged;
+        NavSplitter.DragCompleted += (_, _) =>
         {
-            if (e.OldValue is MainViewModel old) old.PropertyChanged -= OnViewModelChanged;
-            if (e.NewValue is MainViewModel vm) vm.PropertyChanged += OnViewModelChanged;
-            ApplyPanels();
+            if (DataContext is MainViewModel { LeftPanelCollapsed: false }) RememberNavWidth(NavColumn.ActualWidth);
         };
+
+        // Shortcuts use Command on macOS and Ctrl elsewhere.
+        if (OperatingSystem.IsMacOS())
+        {
+            foreach (var binding in KeyBindings.ToList())
+                if (binding.Gesture is { } g && g.KeyModifiers.HasFlag(KeyModifiers.Control))
+                    binding.Gesture = new KeyGesture(g.Key, (g.KeyModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta);
+        }
+    }
+
+    private ColumnDefinition NavColumn => ContentGrid.ColumnDefinitions[0];
+
+    private MainViewModel? _vm;
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_vm != null) _vm.PropertyChanged -= OnViewModelChanged;
+        _vm = DataContext as MainViewModel;
+        if (_vm != null) _vm.PropertyChanged += OnViewModelChanged;
+        ApplyPanels();
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -42,9 +60,9 @@ public partial class MainWindow : Window
     /// <summary>Sizes the left panel and its lists from the view settings (hidden lists give their space to the others).</summary>
     private void ApplyPanels()
     {
-        if (DataContext is not MainViewModel vm) return;
-        ClientsRow.Height = vm.ShowClientsPanel ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
-        LinksRow.Height = vm.ShowLinksPanel ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+        if (_vm is not { } vm) return;
+        NavGrid.RowDefinitions[3].Height = vm.ShowClientsPanel ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+        NavGrid.RowDefinitions[5].Height = vm.ShowLinksPanel ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
         if (vm.LeftPanelCollapsed)
         {
             if (NavColumn.Width.IsAbsolute && NavColumn.ActualWidth > 0) RememberNavWidth(NavColumn.ActualWidth);
@@ -58,21 +76,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnNavSplitterDragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
-    {
-        if (DataContext is MainViewModel { LeftPanelCollapsed: false }) RememberNavWidth(NavColumn.ActualWidth);
-    }
-
     private static void RememberNavWidth(double width)
     {
         if (Math.Abs(UiLayout.Current.LeftPanelWidth - width) < 0.5) return;
         UiLayout.Current.LeftPanelWidth = width;
         UiLayout.Save();
     }
-
-    private void OnPlacementChanged(object? sender, EventArgs e) => SchedulePlacementSave();
-
-    private void OnWindowStateChanged(object? sender, EventArgs e) => SchedulePlacementSave();
 
     private void SchedulePlacementSave()
     {
@@ -83,11 +92,12 @@ public partial class MainWindow : Window
 
     private void SavePlacement()
     {
+        if (WindowState == WindowState.Minimized) return;
         UiLayout.Current.MainWindow = WindowPlacement.From(this);
         UiLayout.Save();
     }
 
-    protected override async void OnClosing(CancelEventArgs e)
+    protected override async void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
 
@@ -120,9 +130,6 @@ public partial class MainWindow : Window
         }
 
         // Close after the current closing event has exited.
-        await Dispatcher.BeginInvoke(new Action(() =>
-        {
-            Close();
-        }));
+        Dispatcher.UIThread.Post(Close);
     }
 }

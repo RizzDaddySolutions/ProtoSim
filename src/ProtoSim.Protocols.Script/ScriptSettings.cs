@@ -61,8 +61,8 @@ public sealed class ScriptSettings : ITcpServerSettings
     [Range(0, 86_400)]
     public int IdleTimeoutSeconds { get; set; }
 
-    [Display(Name = "Serial port", GroupName = "Serial", Order = 10, Description = "COM port, e.g. COM3. A virtual COM port pair (e.g. com0com) works for testing.")]
-    public string PortName { get; set; } = "COM1";
+    [Display(Name = "Serial port", GroupName = "Serial", Order = 10, Description = SerialPorts.Help + " A virtual port pair (com0com on Windows, socat on Linux and macOS) works for testing.")]
+    public string PortName { get; set; } = SerialPorts.DefaultName;
 
     [Display(Name = "Baud rate", GroupName = "Serial", Order = 11)]
     [Range(300, 921_600)]

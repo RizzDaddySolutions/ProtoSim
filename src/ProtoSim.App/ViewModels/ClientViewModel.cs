@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Mvvm;
 using ProtoSim.Core;
 using ProtoSim.Core.Data;

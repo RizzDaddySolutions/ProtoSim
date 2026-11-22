@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Threading;
+using ProtoSim.App.Platform;
+using Avalonia;
+using Avalonia.Media;
+using Avalonia.Threading;
 using ProtoSim.App.Mvvm;
 using ProtoSim.Core;
 using ProtoSim.Core.Logic;
@@ -82,7 +83,7 @@ public sealed class LogicViewModel : ObservableObject
     {
         _directory = directory;
         _engine = new LogicEngine(directory);
-        _reload = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => ReloadEngine(), Dispatcher.CurrentDispatcher);
+        _reload = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => ReloadEngine());
 
         Palette = BlockLibrary.Categories
             .Select(c => new PaletteGroupViewModel(c, BlockLibrary.All.Where(d => d.Category == c)
@@ -574,10 +575,13 @@ public sealed class WireViewModel : ObservableObject
     public static Geometry Curve(Point a, Point b)
     {
         double dx = Math.Max(40, Math.Abs(b.X - a.X) / 2);
-        var figure = new PathFigure { StartPoint = a };
-        figure.Segments.Add(new BezierSegment(new Point(a.X + dx, a.Y), new Point(b.X - dx, b.Y), b, true));
-        var g = new PathGeometry([figure]);
-        g.Freeze();
+        var g = new StreamGeometry();
+        using (var c = g.Open())
+        {
+            c.BeginFigure(a, false);
+            c.CubicBezierTo(new Point(a.X + dx, a.Y), new Point(b.X - dx, b.Y), b);
+            c.EndFigure(false);
+        }
         return g;
     }
 

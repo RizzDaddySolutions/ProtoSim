@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Mvvm;
 using ProtoSim.Core;
 using ProtoSim.Core.Data;
@@ -169,12 +170,20 @@ public sealed class NetworkWizardViewModel : ObservableObject
             OnPropertyChanged(nameof(StepNumber));
             OnPropertyChanged(nameof(StepTitle));
             OnPropertyChanged(nameof(IsLastStep));
+            OnPropertyChanged(nameof(IsSourceStep));
+            OnPropertyChanged(nameof(IsPointsStep));
+            OnPropertyChanged(nameof(IsTargetStep));
+            OnPropertyChanged(nameof(IsFinishStep));
             CommandManager.InvalidateRequerySuggested();
         }
     }
 
     public int StepNumber => (int)Step + 1;
     public bool IsLastStep => Step == WizardStep.Finish;
+    public bool IsSourceStep => Step == WizardStep.Source;
+    public bool IsPointsStep => Step == WizardStep.Points;
+    public bool IsTargetStep => Step == WizardStep.Target;
+    public bool IsFinishStep => Step == WizardStep.Finish;
 
     public string StepTitle => Step switch
     {

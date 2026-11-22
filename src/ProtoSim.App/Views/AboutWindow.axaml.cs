@@ -1,11 +1,13 @@
-using System.Reflection;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using ProtoSim.Core.Protocols;
 
 namespace ProtoSim.App.Views;
 
 public partial class AboutWindow : Window
 {
+    public AboutWindow() : this(new PluginCatalog(), []) { }
+
     public AboutWindow(PluginCatalog catalog, IReadOnlyList<string> pluginErrors)
     {
         Protocols = catalog.Plugins.OrderBy(plugin => plugin.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToArray();
@@ -27,4 +29,6 @@ public partial class AboutWindow : Window
             return $"{v.Major}.{v.Minor}" + (v.Build > 0 ? $".{v.Build}" : "");
         }
     }
+
+    private void OnClose(object? sender, RoutedEventArgs e) => Close(true);
 }

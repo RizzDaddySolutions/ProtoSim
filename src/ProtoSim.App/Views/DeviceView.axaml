@@ -1,0 +1,478 @@
+<UserControl x:Class="ProtoSim.App.Views.DeviceView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
+             xmlns:views="clr-namespace:ProtoSim.App.Views"
+             xmlns:controls="clr-namespace:ProtoSim.App.Controls">
+        <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBox Text="{Binding Name}" FontSize="22" FontWeight="SemiBold"
+                         BorderThickness="0" Background="Transparent" Padding="0" HorizontalAlignment="Left" MinWidth="200"
+                         ToolTip.Tip="Click to rename" />
+                <TextBlock Classes="caption" Margin="0,2,0,0">
+                    <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" server · " /><Run Text="{Binding Endpoint, Mode=OneWay}" />
+                </TextBlock>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border CornerRadius="12" Padding="10,4" Margin="0,0,12,0" BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" MaxWidth="420">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Classes="statusDot" Fill="{Binding State, Converter={StaticResource StateToBrush}}" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
+                    </StackPanel>
+                </Border>
+                <Button Command="{Binding StartCommand}" Classes="accent" Padding="14,6" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal">
+                        <PathIcon Data="{StaticResource IconPlay}" Margin="0,0,6,0" />
+                        <TextBlock Text="Start" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding StopCommand}" Padding="14,6">
+                    <StackPanel Orientation="Horizontal">
+                        <PathIcon Data="{StaticResource IconStop}" Margin="0,0,6,0" />
+                        <TextBlock Text="Stop" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <TabControl Grid.Row="1" Padding="0" SelectedIndex="{Binding SelectedTabIndex}">
+            <!-- Raw data -->
+            <TabItem Header="Data" IsVisible="{Binding HasDataAreas}">
+                <DockPanel DataContext="{Binding SelectedArea}" Margin="0,10,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <ComboBox ItemsSource="{Binding DataContext.Areas, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  SelectedItem="{Binding DataContext.SelectedArea, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  DisplayMemberBinding="{Binding Name}" Width="190" Margin="0,0,12,4" />
+                        <TextBlock Text="Start" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=LostFocus}" Width="80" Margin="0,0,12,4" ToolTip.Tip="0-based start offset" />
+                        <TextBlock Text="Rows" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox Text="{Binding RowCount, UpdateSourceTrigger=LostFocus}" Width="70" Margin="0,0,12,4" />
+                        <Button Command="{Binding PreviousPageCommand}" Classes="toolbar" ToolTip.Tip="Previous page" Margin="0,0,4,4">
+                            <PathIcon Data="{StaticResource IconLeft}" />
+                        </Button>
+                        <Button Command="{Binding NextPageCommand}" Classes="toolbar" ToolTip.Tip="Next page" Margin="0,0,12,4">
+                            <PathIcon Data="{StaticResource IconRight}" />
+                        </Button>
+                        <StackPanel Orientation="Horizontal" IsVisible="{Binding IsWord}" Margin="0,0,12,4">
+                            <TextBlock Text="Format" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <ComboBox ItemsSource="{x:Static vm:AreaViewModel.Formats}" SelectedItem="{Binding Format}" Width="120" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding RangeText}" Classes="caption" VerticalAlignment="Center" Margin="0,0,0,4" />
+                    </WrapPanel>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="Visible rows:" VerticalAlignment="Center" Margin="0,0,8,4" Classes="caption" />
+                        <TextBox Text="{Binding FillValue}" Width="90" Margin="0,0,6,4" />
+                        <Button Content="Fill" Command="{Binding FillCommand}" Classes="toolbar" Margin="0,0,6,4" />
+                        <Button Content="Clear" Command="{Binding ClearCommand}" Classes="toolbar" Margin="0,0,6,4" />
+                        <Button Content="Randomize" Command="{Binding RandomizeCommand}" Classes="toolbar" Margin="0,0,6,4" />
+                        <Button Content="Sequence 0,1,2…" Command="{Binding IncrementCommand}" Classes="toolbar" Margin="0,0,6,4" />
+                    </WrapPanel>
+
+                    <Grid>
+                        <DataGrid x:Name="WordGrid" ItemsSource="{Binding Rows}"
+                                  IsVisible="{Binding IsWord}"
+                                  PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding">
+                            <DataGrid.Columns>
+                            <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=OneWay}" IsReadOnly="True" CellStyleClasses="mono" Width="Auto" />
+                            <DataGridTextColumn Header="Offset" Binding="{Binding Index, Mode=OneWay}" IsReadOnly="True" CellStyleClasses="mono" Width="Auto" />
+                            <DataGridTemplateColumn Header="Value (double-click to edit)" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate><Border Classes.changed="{Binding IsChanged}" Padding="12,0" VerticalAlignment="Stretch"><TextBlock Text="{Binding ValueText}" Classes="monoCell" /></Border></DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate><TextBox Text="{Binding ValueText, Mode=TwoWay}" FontFamily="{DynamicResource MonoFont}" MinHeight="24" Padding="8,2" /></DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="" Binding="{Binding Error, Mode=OneWay}" IsReadOnly="True" CellStyleClasses="errorCell" Width="Auto" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <DataGrid ItemsSource="{Binding Rows}"
+                                  IsVisible="{Binding IsBit}" IsReadOnly="True">
+                            <DataGrid.Columns>
+                            <DataGridTextColumn Header="Address" Binding="{Binding Address, Mode=OneWay}" CellStyleClasses="mono" Width="Auto" />
+                            <DataGridTextColumn Header="Offset" Binding="{Binding Index, Mode=OneWay}" CellStyleClasses="mono" Width="Auto" />
+                            <DataGridTemplateColumn Header="Value" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox IsChecked="{Binding BitValue}" VerticalAlignment="Center" MinWidth="0" />
+                                                <TextBlock Text="{Binding ValueText}" Classes="monoCell" Margin="4,0,0,0" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Tags -->
+            <TabItem Header="Tags &amp; simulation">
+                <DockPanel Margin="0,10,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button Command="{Binding AddTagCommand}" Classes="toolbar">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconAdd}" Margin="0,0,6,0" />
+                                <TextBlock Text="Add tag" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="Duplicate" Command="{Binding DuplicateTagCommand}" Classes="toolbar" />
+                        <Button Content="Remove" Click="OnRemoveSelectedTags" Classes="toolbar"
+                                ToolTip.Tip="Remove the selected tags (Delete). Shift+click selects a range, Ctrl+click adds or removes single tags." />
+                        <Button Content="Clear all tags…" Click="OnClearAllTags" Classes="toolbar"
+                                ToolTip.Tip="Remove every tag from this simulator" />
+                        <Button Content="Import CSV…" Command="{Binding ImportTagsCommand}" Classes="toolbar" />
+                        <Button Content="Export CSV…" Command="{Binding ExportTagsCommand}" Classes="toolbar" />
+                    </WrapPanel>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8" VerticalAlignment="Center">
+                        <Button Command="{Binding StartRecordingCommand}" Classes="toolbar"
+                                ToolTip.Tip="Record every tag's value changes (from simulation, clients or edits) until you stop">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconRecord}" Foreground="#D83B3B" Margin="0,0,6,0" />
+                                <TextBlock Text="Record" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="Stop &amp; save…" Command="{Binding StopRecordingCommand}" Classes="toolbar" />
+                        <TextBlock Text="every" VerticalAlignment="Center" Margin="8,0,4,4" />
+                        <TextBox Text="{Binding RecordIntervalMs, UpdateSourceTrigger=LostFocus}" Width="56" MinHeight="30" Margin="0,0,4,4"
+                                 IsEnabled="{Binding IsRecording, Converter={StaticResource InverseBool}}" ToolTip.Tip="Sampling interval in milliseconds" />
+                        <TextBlock Text="ms" VerticalAlignment="Center" Margin="0,0,16,4" />
+                        <Button Command="{Binding ReplayCommand}" Classes="toolbar"
+                                ToolTip.Tip="Play a recording (or any time,tag,value CSV) back into the tags; their simulation pauses meanwhile">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconPlay}" Margin="0,0,6,0" />
+                                <TextBlock Text="Replay…" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="Stop replay" Command="{Binding StopReplayCommand}" Classes="toolbar" />
+                        <ComboBox ItemsSource="{Binding ReplaySpeeds}" SelectedItem="{Binding ReplaySpeed}" DisplayMemberBinding="{Binding StringFormat='{}{0}×'}" Width="80" MinHeight="30" Margin="8,0,4,4"
+                                  IsEnabled="{Binding IsReplaying, Converter={StaticResource InverseBool}}" ToolTip.Tip="Replay speed" />
+                        <CheckBox Content="Loop" IsChecked="{Binding ReplayLoop}" VerticalAlignment="Center" Margin="4,0,12,4"
+                                  IsEnabled="{Binding IsReplaying, Converter={StaticResource InverseBool}}" />
+                        <TextBlock Text="{Binding RecordReplayStatus}" VerticalAlignment="Center" Margin="0,0,0,4" FontWeight="SemiBold" />
+                    </WrapPanel>
+                    <TextBlock DockPanel.Dock="Top" Classes="caption" TextWrapping="Wrap" Margin="0,0,0,8">
+                        <Run Text="Address formats: " /><Run Text="{Binding AddressHelp, Mode=OneWay}" />
+                    </TextBlock>
+
+                     <DataGrid x:Name="TagGrid" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}"
+                               SelectionMode="Extended"
+                               SelectionChanged="OnTagSelectionChanged"
+                               PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding" FrozenColumnCount="1">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Opening="OnTagContextMenuOpening">
+                                <MenuItem x:Name="DeleteTagsItem" Header="_Delete tag" Click="OnRemoveSelectedTags" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Tag.Name}" Width="Auto" />
+                                <DataGridTextColumn Header="Address" Binding="{Binding Tag.Address}" CellStyleClasses="mono" Width="Auto" />
+                                <DataGridTemplateColumn Header="Type" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate><ComboBox Classes="grid" ItemsSource="{x:Static vm:EnumLists.DataTypes}" SelectedItem="{Binding Tag.DataType, Mode=TwoWay}" /></DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Order" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate><ComboBox Classes="grid" ItemsSource="{x:Static vm:EnumLists.WordOrders}" SelectedItem="{Binding Tag.WordOrder, Mode=TwoWay}" IsEnabled="{Binding UsesWordOrder}" /></DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" CellStyleClasses="mono" Width="Auto" />
+                                <DataGridTemplateColumn Header="Writeable" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate><CheckBox Classes="gridCheck" IsChecked="{Binding Tag.Writable, Mode=TwoWay}" /></DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Simulate" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate><CheckBox Classes="gridCheck" IsChecked="{Binding Tag.Simulation.Enabled, Mode=TwoWay}" /></DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Simulation" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate><ComboBox Classes="grid" ItemsSource="{x:Static vm:EnumLists.SimulationKinds}" SelectedItem="{Binding Tag.Simulation.Kind, Mode=TwoWay}" IsEnabled="{Binding !Tag.Writable}" /></DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Min" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding Tag.Simulation.Min}" Classes.dim="{Binding !UsesRange}" VerticalAlignment="Center" Margin="12,0" /></DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate><TextBox Text="{Binding Tag.Simulation.Min, Mode=TwoWay}" IsEnabled="{Binding UsesRange}" MinHeight="24" Padding="8,2" /></DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Max" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding Tag.Simulation.Max}" Classes.dim="{Binding !UsesRange}" VerticalAlignment="Center" Margin="12,0" /></DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate><TextBox Text="{Binding Tag.Simulation.Max, Mode=TwoWay}" IsEnabled="{Binding UsesRange}" MinHeight="24" Padding="8,2" /></DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Period (s)" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding Tag.Simulation.PeriodSeconds}" Classes.dim="{Binding !UsesPeriod}" VerticalAlignment="Center" Margin="12,0" /></DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate><TextBox Text="{Binding Tag.Simulation.PeriodSeconds, Mode=TwoWay}" IsEnabled="{Binding UsesPeriod}" MinHeight="24" Padding="8,2" /></DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Step" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding Tag.Simulation.Step}" Classes.dim="{Binding !UsesStep}" VerticalAlignment="Center" Margin="12,0" /></DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate><TextBox Text="{Binding Tag.Simulation.Step, Mode=TwoWay}" IsEnabled="{Binding UsesStep}" MinHeight="24" Padding="8,2" /></DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Every (ms)" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding Tag.Simulation.IntervalMs}" Classes.dim="{Binding !UsesInterval}" VerticalAlignment="Center" Margin="12,0" /></DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate><TextBox Text="{Binding Tag.Simulation.IntervalMs, Mode=TwoWay}" IsEnabled="{Binding UsesInterval}" MinHeight="24" Padding="8,2" /></DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Tag.Description}" Width="Auto" />
+                            <DataGridTemplateColumn Header="Status" Width="Auto" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Error}" Foreground="#D83B3B" TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding Error}" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Scenario -->
+            <TabItem Header="Scenario">
+                <DockPanel Margin="0,10,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button Command="{Binding RunScenarioCommand}" Classes="toolbar"
+                                ToolTip.Tip="Run the steps below in real time against this device's tags, faults and server">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconPlay}" Margin="0,0,6,0" />
+                                <TextBlock Text="Run scenario" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="Stop" Command="{Binding StopScenarioCommand}" Classes="toolbar" />
+                        <ComboBox ItemsSource="{Binding ReplaySpeeds}" SelectedItem="{Binding ScenarioSpeed}" DisplayMemberBinding="{Binding StringFormat='{}{0}×'}" Width="80" MinHeight="30" Margin="8,0,4,4"
+                                  IsEnabled="{Binding IsScenarioRunning, Converter={StaticResource InverseBool}}" ToolTip.Tip="Speed" />
+                        <Button Content="Insert example" Command="{Binding InsertScenarioExampleCommand}" Classes="toolbar" Margin="12,0,4,4"
+                                ToolTip.Tip="Replace the script with an annotated example" />
+                        <TextBlock Text="{Binding ScenarioStatus}" VerticalAlignment="Center" Margin="8,0,0,4" FontWeight="SemiBold" />
+                    </WrapPanel>
+                    <TextBlock DockPanel.Dock="Top" Classes="caption" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Text="Each line is '&lt;time&gt; &lt;action&gt;'. Tags the scenario sets or ramps pause their simulation until it ends; fault settings it changes are put back afterwards. The script is saved with the project. Steps are logged on the Traffic tab." />
+                    <Border DockPanel.Dock="Top" Classes="card" Padding="12,8" Margin="0,0,0,8"
+                            IsVisible="{Binding ScenarioError, Converter={StaticResource HasValue}}">
+                        <TextBlock Text="{Binding ScenarioError}" Foreground="#D83B3B" TextWrapping="Wrap" />
+                    </Border>
+                    <TextBox Text="{Binding ScenarioText}" FontFamily="{StaticResource MonoFont}"
+                             AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                             IsReadOnly="{Binding IsScenarioRunning}" />
+                </DockPanel>
+            </TabItem>
+
+            <!-- API clients (REST API) -->
+            <TabItem Header="API clients" IsVisible="{Binding HasApiClients}">
+                <DockPanel DataContext="{Binding ApiClients}" Margin="0,10,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button Command="{Binding AddClientCommand}" Classes="toolbar">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconAdd}" Margin="0,0,6,0" />
+                                <TextBlock Text="Add client" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="Remove" Command="{Binding RemoveClientCommand}" Classes="toolbar" />
+                        <Button Content="New secret" Command="{Binding NewSecretCommand}" Classes="toolbar"
+                                ToolTip.Tip="Generate a new random secret for the selected client" />
+                        <Button Content="Revoke all tokens" Command="{Binding RevokeTokensCommand}" Classes="toolbar" />
+                        <TextBlock Classes="caption" VerticalAlignment="Center" Margin="8,0,0,4">
+                            <Run Text="{Binding ActiveTokens, Mode=OneWay}" /><Run Text=" active tokens · token endpoint " /><Run Text="{Binding TokenUrl, Mode=OneWay}" />
+                        </TextBlock>
+                    </WrapPanel>
+                    <Border DockPanel.Dock="Top" Classes="card" Padding="12,8" Margin="0,0,0,8"
+                            IsVisible="{Binding !RequiresAuthentication}">
+                        <TextBlock TextWrapping="Wrap" Text="Bearer tokens are not required right now, so any client can call the API. Turn on 'Require bearer token' on the Settings tab to enforce them." />
+                    </Border>
+
+                    <!-- Token and examples for the selected client -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Left" Content="Get token for selected client" Command="{Binding IssueTokenCommand}"
+                                    Classes="accent" Padding="12,5" Margin="0,0,8,0" />
+                            <Button DockPanel.Dock="Right" Content="Copy" Command="{Binding CopyTokenCommand}" Padding="12,5" Margin="8,0,0,0" />
+                            <TextBox Text="{Binding TokenText, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}"
+                                     VerticalContentAlignment="Center" ToolTip.Tip="Bearer token to put in the Authorization header" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding TokenInfo}" Classes="caption" Margin="0,0,0,10" />
+                        <DockPanel Margin="0,0,0,4">
+                            <Button DockPanel.Dock="Right" Content="Copy" Command="{Binding CopyExamplesCommand}" Classes="toolbar" />
+                            <TextBlock Text="EXAMPLE REQUESTS" Classes="sectionHeader" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBox Text="{Binding Examples, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}"
+                                 TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" MaxHeight="190" />
+                    </StackPanel>
+
+                    <DataGrid ItemsSource="{Binding Clients}" SelectedItem="{Binding SelectedClient}"
+                             
+                              PreparingCellForEdit="OnPreparingCellForEdit" CellEditEnding="OnCellEditEnding">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Enabled" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate><CheckBox Classes="gridCheck" IsChecked="{Binding Enabled, Mode=TwoWay}" /></DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto" MinWidth="120" />
+                            <DataGridTextColumn Header="Client ID" Binding="{Binding ClientId}" CellStyleClasses="mono" Width="Auto" MinWidth="140" />
+                            <DataGridTextColumn Header="Client secret" Binding="{Binding ClientSecret}" CellStyleClasses="mono" Width="Auto" MinWidth="200" />
+                            <DataGridTextColumn Header="Scopes (space-separated, empty = any)" Binding="{Binding Scope}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- JSON database (REST API) -->
+            <TabItem Header="Database" IsVisible="{Binding HasDatabase}">
+                <DockPanel DataContext="{Binding Database}" Margin="0,10,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button Command="{Binding ApplyCommand}" Classes="toolbar" ToolTip.Tip="Validate the JSON and save it as the database">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconSave}" Margin="0,0,6,0" />
+                                <TextBlock Text="Apply changes" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="Discard" Command="{Binding DiscardCommand}" Classes="toolbar" />
+                        <Button Content="Recreate…" Command="{Binding RecreateCommand}" Classes="toolbar" Margin="12,0,4,4"
+                                ToolTip.Tip="Throw away all data and start again from the sample database" />
+                        <Button Content="Import…" Command="{Binding ImportCommand}" Classes="toolbar"
+                                ToolTip.Tip="Replace the database with an exported JSON file" />
+                        <Button Content="Export…" Command="{Binding ExportCommand}" Classes="toolbar"
+                                ToolTip.Tip="Save the database to a JSON file, e.g. to use it on another computer" />
+                        <Button Content="Open folder" Command="{Binding OpenFolderCommand}" Classes="toolbar" Margin="12,0,4,4" />
+                    </WrapPanel>
+                    <TextBlock DockPanel.Dock="Top" Classes="caption" TextWrapping="Wrap" Margin="0,0,0,8">
+                        <Run Text="Each top-level property is a resource: an array is a collection (GET/POST {base}/name, GET/PUT/PATCH/DELETE {base}/name/{id}), an object is a single resource (GET/PUT/PATCH {base}/name). Changes made through the API are saved immediately to " /><Run Text="{Binding DatabasePath, Mode=OneWay}" FontFamily="{StaticResource MonoFont}" /><Run Text="." />
+                    </TextBlock>
+                    <Border DockPanel.Dock="Top" Classes="card" Padding="12,8" Margin="0,0,0,8"
+                            IsVisible="{Binding Error, Converter={StaticResource HasValue}}">
+                        <TextBlock Text="{Binding Error}" Foreground="#D83B3B" TextWrapping="Wrap" />
+                    </Border>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="220" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <DataGrid ItemsSource="{Binding Collections}" IsReadOnly="True" Margin="0,0,10,0" VerticalAlignment="Stretch">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Resource" Binding="{Binding Name}" CellStyleClasses="mono" Width="Auto" />
+                                <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="Auto" />
+                                <DataGridTextColumn Header="Items" Binding="{Binding Count}" Width="Auto" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBox Grid.Column="1" Text="{Binding JsonText}" FontFamily="{StaticResource MonoFont}"
+                                 AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 VerticalContentAlignment="Top" />
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Traffic -->
+            <TabItem Header="Traffic">
+                <views:LogView DataContext="{Binding Log}" Margin="0,10,0,0" />
+            </TabItem>
+
+            <!-- Connections & statistics -->
+            <TabItem Header="Connections">
+                <DockPanel Margin="0,10,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Active connections" Classes="caption" /><TextBlock Text="{Binding Stats.ActiveConnections}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Requests / s" Classes="caption" /><TextBlock Text="{Binding Stats.RequestsPerSecond}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Requests" Classes="caption" /><TextBlock Text="{Binding Stats.Requests, StringFormat='{}{0:N0}'}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Responses" Classes="caption" /><TextBlock Text="{Binding Stats.Responses, StringFormat='{}{0:N0}'}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Exceptions sent" Classes="caption" /><TextBlock Text="{Binding Stats.Exceptions, StringFormat='{}{0:N0}'}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Not answered" Classes="caption" /><TextBlock Text="{Binding Stats.Dropped, StringFormat='{}{0:N0}'}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Malformed frames" Classes="caption" /><TextBlock Text="{Binding Stats.Malformed, StringFormat='{}{0:N0}'}" Classes="statValue" /></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Bytes in / out" Classes="caption" />
+                            <TextBlock Classes="statValue"><Run Text="{Binding Stats.BytesIn, Mode=OneWay, StringFormat='{}{0:N0}'}" /><Run Text=" / " /><Run Text="{Binding Stats.BytesOut, Mode=OneWay, StringFormat='{}{0:N0}'}" /></TextBlock></StackPanel></Border>
+                        <Border Classes="card stat"><StackPanel><TextBlock Text="Total connections" Classes="caption" /><TextBlock Text="{Binding Stats.TotalConnections, StringFormat='{}{0:N0}'}" Classes="statValue" /></StackPanel></Border>
+                    </WrapPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" Content="Reset counters" Command="{Binding ResetStatisticsCommand}" />
+                        <TextBlock Text="CONNECTED CLIENTS" Classes="sectionHeader" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <DataGrid ItemsSource="{Binding Connections}" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="Auto" />
+                            <DataGridTextColumn Header="Remote endpoint" Binding="{Binding RemoteEndPoint}" Width="Auto" />
+                            <DataGridTextColumn Header="Connected at" Binding="{Binding ConnectedAt}" Width="Auto" />
+                            <DataGridTextColumn Header="Requests" Binding="{Binding Requests}" Width="Auto" />
+                            <DataGridTextColumn Header="Last activity" Binding="{Binding LastActivity}" Width="Auto" />
+                            <DataGridTemplateColumn Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Disconnect" HorizontalAlignment="Left" Padding="10,2"
+                                                Command="{Binding DataContext.DropConnectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Settings -->
+            <TabItem Header="Settings">
+                <DockPanel Margin="0,10,0,0" MaxWidth="760" HorizontalAlignment="Left">
+                    <StackPanel DockPanel.Dock="Top">
+                        <Border Classes="card" Padding="12,8" Margin="0,0,0,8"
+                                IsVisible="{Binding !CanEditSettings}">
+                            <TextBlock Text="Stop the device to change its settings." />
+                        </Border>
+                        <CheckBox Content="Start this device automatically when the project is opened" IsChecked="{Binding AutoStart}" Margin="0,0,0,4" />
+                    </StackPanel>
+                    <controls:PropertyGrid SelectedObject="{Binding Settings}" IsEnabled="{Binding CanEditSettings}" />
+                </DockPanel>
+            </TabItem>
+
+            <!-- Fault injection -->
+            <TabItem Header="Fault injection">
+                <DockPanel Margin="0,10,0,0" MaxWidth="760" HorizontalAlignment="Left">
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Classes="caption" Margin="0,0,0,4"
+                               Text="Make the device misbehave to test how clients handle slow responses, timeouts, error replies and dropped connections. Changes apply immediately, even while running." />
+                    <controls:PropertyGrid SelectedObject="{Binding Faults}" />
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.RowSpan="2" Background="#88000000" IsVisible="{Binding IsImporting}">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    Margin="20" Padding="28,22" CornerRadius="8">
+                <StackPanel Spacing="12">
+                    <ProgressBar IsIndeterminate="True" Width="180" />
+                    <TextBlock Text="Loading tags…" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

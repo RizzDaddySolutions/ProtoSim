@@ -24,7 +24,7 @@ public sealed class ScriptClientSettings
     public int Port { get; set; } = 10001;
 
     [Display(Name = "Serial port", GroupName = "Serial", Order = 10)]
-    public string PortName { get; set; } = "COM1";
+    public string PortName { get; set; } = SerialPorts.DefaultName;
 
     [Display(Name = "Baud rate", GroupName = "Serial", Order = 11)]
     [Range(300, 921_600)]

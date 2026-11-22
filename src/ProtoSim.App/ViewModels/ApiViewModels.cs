@@ -1,9 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Windows;
 using System.Windows.Input;
-using Microsoft.Win32;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Mvvm;
 using ProtoSim.App.Views;
 using ProtoSim.Core;
@@ -142,7 +141,7 @@ public sealed class ApiClientsViewModel : ObservableObject
     internal static void CopyText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
-        try { Clipboard.SetText(text); }
+        try { Modal.SetClipboardText(text); }
         catch (Exception ex) { MessageDialog.Show($"Couldn't copy to the clipboard: {ex.Message}", "Copy", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 }
@@ -276,8 +275,8 @@ public sealed class DatabaseViewModel : ObservableObject
     private void OpenFolder()
     {
         if (File.Exists(DatabasePath))
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{DatabasePath}\"") { UseShellExecute = true });
+            Shell.Reveal(DatabasePath);
         else if (Path.GetDirectoryName(DatabasePath) is { } dir && Directory.Exists(dir))
-            Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
+            Shell.Open(dir);
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Mvvm;
 using ProtoSim.Core;
 using ProtoSim.Core.Data;
@@ -124,7 +125,7 @@ public sealed class AreaViewModel : ObservableObject
         }
         catch (FormatException ex)
         {
-            Views.MessageDialog.Show(ex.Message, "Fill", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            Views.MessageDialog.Show(ex.Message, "Fill", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

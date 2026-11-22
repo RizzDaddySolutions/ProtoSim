@@ -1,0 +1,303 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ProtoSim.App.ViewModels"
+             x:Class="ProtoSim.App.Views.LogicView">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="WireBrush" Color="#8C8C8C" />
+        <SolidColorBrush x:Key="WireOnBrush" Color="#2EA043" />
+        <SolidColorBrush x:Key="SelectBrush" Color="#3B82F6" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#D83B3B" />
+        <VisualBrush x:Key="GridBrush" TileMode="Tile" SourceRect="0,0,20,20" DestinationRect="0,0,20,20" Opacity="0.35">
+            <VisualBrush.Visual>
+                <Rectangle Width="20" Height="20" Stroke="#80808080" StrokeThickness="0.5" />
+            </VisualBrush.Visual>
+        </VisualBrush>
+
+        <DataTemplate x:Key="PaletteItemTemplate" DataType="{x:Type vm:PaletteItemViewModel}">
+            <Border Classes="paletteItem" Padding="8,5" Margin="0,1" CornerRadius="4" Cursor="Hand" ToolTip.Tip="{Binding Description}"
+                    PointerPressed="OnPalettePressed" PointerMoved="OnPaletteMoved">
+                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.paletteItem"><Setter Property="Background" Value="Transparent" /></Style>
+        <Style Selector="Border.paletteItem:pointerover"><Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" /></Style>
+        <Style Selector="Button.logic"><Setter Property="Height" Value="32" /><Setter Property="MinWidth" Value="34" /><Setter Property="Margin" Value="0,0,6,0" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" /></Style>
+        <Style Selector="Ellipse.port">
+            <Setter Property="Width" Value="11" />
+            <Setter Property="Height" Value="11" />
+            <Setter Property="Fill" Value="{DynamicResource LogicBlockBackground}" />
+            <Setter Property="Stroke" Value="{DynamicResource WireBrush}" />
+            <Setter Property="StrokeThickness" Value="2" />
+            <Setter Property="Cursor" Value="Cross" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Ellipse.port.on"><Setter Property="Fill" Value="{DynamicResource WireOnBrush}" /><Setter Property="Stroke" Value="{DynamicResource WireOnBrush}" /></Style>
+        <Style Selector="Ellipse.port:pointerover"><Setter Property="Stroke" Value="{DynamicResource SelectBrush}" /></Style>
+        <Style Selector="TextBlock.portValue"><Setter Property="FontFamily" Value="{DynamicResource MonoFont}" /><Setter Property="FontSize" Value="10.5" /><Setter Property="Foreground" Value="{DynamicResource LogicBlockForeground}" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+        <Style Selector="TextBlock.portName"><Setter Property="FontSize" Value="11.5" /><Setter Property="Foreground" Value="{DynamicResource LogicBlockForeground}" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+        <Style Selector="Path.wire"><Setter Property="Stroke" Value="{DynamicResource WireBrush}" /><Setter Property="StrokeThickness" Value="2" /></Style>
+        <Style Selector="Path.wire.active"><Setter Property="Stroke" Value="{DynamicResource WireOnBrush}" /><Setter Property="StrokeThickness" Value="3" /></Style>
+        <Style Selector="Path.wire.selected"><Setter Property="Stroke" Value="{DynamicResource SelectBrush}" /><Setter Property="StrokeThickness" Value="3" /></Style>
+        <Style Selector="Border.block"><Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" /></Style>
+        <Style Selector="Border.block.hasError"><Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" /></Style>
+        <Style Selector="Border.block.selected"><Setter Property="BorderBrush" Value="{DynamicResource SelectBrush}" /></Style>
+        <Style Selector="TextBlock.status"><Setter Property="Foreground" Value="#D83B3B" /></Style>
+        <Style Selector="TextBlock.status.running"><Setter Property="Foreground" Value="#2EA043" /></Style>
+        <Style Selector="ItemsControl.canvas > ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" Padding="4,2">
+            <MenuItem Header="_Options">
+                <MenuItem x:Name="EditSelectionMenuItem" Header="Edit _selection" ToggleType="CheckBox" Click="OnSelectionEditorToggled" />
+                <MenuItem Header="Run when the project _opens" ToggleType="CheckBox" IsChecked="{Binding AutoRun}" />
+                <Separator />
+                <MenuItem Header="Restore _panels" Click="OnResetLayout" />
+                <MenuItem Header="_Undock designer" ToggleType="CheckBox" IsChecked="{Binding IsUndocked, Mode=OneWay}"
+                          Command="{Binding ToggleDockCommand}" ToolTip.Tip="Move the designer to its own window" />
+            </MenuItem>
+            <MenuItem x:Name="PanelsMenu" Header="_Panels" />
+        </Menu>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="12,8,12,8" VerticalAlignment="Center">
+            <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" DisplayMemberBinding="{Binding Name}"
+                      MinWidth="170" Height="32" Margin="0,0,6,0" VerticalAlignment="Center" />
+            <Button Command="{Binding AddProgramCommand}" Classes="logic" ToolTip.Tip="Add a program">
+                <StackPanel Orientation="Horizontal">
+                    <PathIcon Data="{StaticResource IconAdd}" Margin="0,0,6,0" />
+                    <TextBlock Text="Program" />
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding RemoveProgramCommand}" Classes="logic" ToolTip.Tip="Delete this program">
+                <PathIcon Data="{StaticResource IconDelete}" />
+            </Button>
+            <Button Command="{Binding RunCommand}" Classes="logic"
+                    ToolTip.Tip="Run every enabled program. Tags written by Tag out blocks stop simulating while logic runs.">
+                <StackPanel Orientation="Horizontal">
+                    <PathIcon Data="{StaticResource IconPlay}" Foreground="#2EA043" Margin="0,0,6,0" />
+                    <TextBlock Text="Run" />
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding StopCommand}" Classes="logic">
+                <StackPanel Orientation="Horizontal">
+                    <PathIcon Data="{StaticResource IconStop}" Margin="0,0,6,0" />
+                    <TextBlock Text="Stop" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="{Binding Status}" Classes="status" Classes.running="{Binding IsRunning}" Width="260"
+                       VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0" />
+        </StackPanel>
+
+        <Grid x:Name="Body" ColumnDefinitions="250,5,*">
+            <!-- Panels: one per block category plus the project tags. Show or hide them from the Panels menu. -->
+            <ScrollViewer x:Name="PanelColumn" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="PanelStack" Spacing="4" Margin="0,0,2,0">
+                    <Expander x:Name="ProjectTagsPanel" Header="Project tags" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <DockPanel>
+                            <TextBox DockPanel.Dock="Top" Text="{Binding TagFilter}" MinHeight="30" Margin="0,0,0,4" Watermark="Filter tags" />
+                            <TextBlock DockPanel.Dock="Top" x:Name="DropHint" Text="Drop = Tag in · Ctrl+drop = Tag out" Classes="caption" Margin="2,0,0,4" />
+                            <ScrollViewer MaxHeight="320" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding TagItems}" ItemTemplate="{StaticResource PaletteItemTemplate}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+            <GridSplitter x:Name="PanelSplitter" Grid.Column="1" ResizeDirection="Columns" DragCompleted="OnPanelSplitterDragCompleted" />
+
+            <Grid Grid.Column="2">
+                <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <LayoutTransformControl x:Name="ZoomHost">
+                        <Grid x:Name="Surface" Width="4000" Height="3000" Focusable="True" DragDrop.AllowDrop="True"
+                              Background="{StaticResource GridBrush}"
+                              PointerPressed="OnSurfacePressed" PointerMoved="OnSurfaceMoved" PointerReleased="OnSurfaceReleased" KeyDown="OnSurfaceKeyDown">
+
+                            <!-- Wires -->
+                            <ItemsControl ItemsSource="{Binding SelectedProgram.Wires}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:WireViewModel}">
+                                        <Panel>
+                                            <Path Data="{Binding Geometry}" Stroke="Transparent" StrokeThickness="12" Cursor="Hand"
+                                                  PointerPressed="OnWirePressed" ToolTip.Tip="{Binding Description}" />
+                                            <Path Data="{Binding Geometry}" Classes="wire" Classes.active="{Binding IsActive}"
+                                                  Classes.selected="{Binding IsSelected}" IsHitTestVisible="False" />
+                                        </Panel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Blocks -->
+                            <ItemsControl ItemsSource="{Binding SelectedProgram.Blocks}" Classes="canvas">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:BlockViewModel}">
+                                        <Border Classes="block" Classes.hasError="{Binding HasError}" Classes.selected="{Binding IsSelected}"
+                                                Width="{Binding BlockWidth}" Height="{Binding Height}" CornerRadius="6" BorderThickness="1.5"
+                                                Background="{DynamicResource LogicBlockBackground}" BoxShadow="0 1 8 0 #30000000"
+                                                ToolTip.Tip="{Binding Error}">
+                                            <Border.ContextMenu>
+                                                <ContextMenu Opening="OnBlockContextMenuOpening">
+                                                    <MenuItem Header="_Edit properties" Click="OnEditBlock" />
+                                                    <MenuItem Header="_Delete" Click="OnDeleteBlock" />
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Grid RowDefinitions="44,*">
+                                                <Border Background="{DynamicResource LogicBlockBackground}" CornerRadius="5,5,0,0" Padding="8,4,8,4"
+                                                        Cursor="SizeAll" PointerPressed="OnBlockPressed">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource LogicBlockForeground}" />
+                                                            <TextBlock Text="{Binding Subtitle}" FontSize="10.5" TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource LogicBlockForeground}" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="1" Text="{Binding LiveText}" FontFamily="{DynamicResource MonoFont}" FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource LogicBlockForeground}" />
+                                                    </Grid>
+                                                </Border>
+                                                <ItemsControl Grid.Row="1" ItemsSource="{Binding Inputs}" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:PortViewModel}">
+                                                            <Grid Height="22" Width="86" ToolTip.Tip="{Binding ToolTip}">
+                                                                <Ellipse Classes="port" Classes.on="{Binding IsOn}" HorizontalAlignment="Left" Margin="-6.5,0,0,0" Tag="port"
+                                                                         PointerPressed="OnPortPressed" />
+                                                                <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                                    <TextBlock Text="{Binding Name}" Classes="portName" />
+                                                                    <TextBlock Text="{Binding ValueText}" Classes="portValue" Margin="5,0,0,0" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <ItemsControl Grid.Row="1" ItemsSource="{Binding Outputs}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:PortViewModel}">
+                                                            <Grid Height="22" Width="86" ToolTip.Tip="{Binding ToolTip}">
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,10,0" HorizontalAlignment="Right" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                                    <TextBlock Text="{Binding ValueText}" Classes="portValue" Margin="0,0,5,0" />
+                                                                    <TextBlock Text="{Binding Name}" Classes="portName" />
+                                                                </StackPanel>
+                                                                <Ellipse Classes="port" Classes.on="{Binding IsOn}" HorizontalAlignment="Right" Margin="0,0,-6.5,0" Tag="port"
+                                                                         PointerPressed="OnPortPressed" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Path x:Name="TempWire" Stroke="{DynamicResource SelectBrush}" StrokeThickness="2" StrokeDashArray="4,2"
+                                  IsHitTestVisible="False" IsVisible="False" />
+                        </Grid>
+                    </LayoutTransformControl>
+                </ScrollViewer>
+
+                <Border x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" IsHitTestVisible="False">
+                    <TextBlock TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="Drag blocks or project tags from the panels onto the canvas, then drag from an output (right side) to an input (left side) to wire them. Tags from any device can be combined in one program." />
+                </Border>
+
+                <TextBlock x:Name="ZoomHint" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,20" Classes="caption"
+                           Text="Ctrl + wheel to zoom · Delete removes the selection" IsHitTestVisible="False" />
+
+                <Border x:Name="SelectionEditor" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Padding="14" Width="360" MaxHeight="650" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" BoxShadow="0 4 20 0 #50000000">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Top" HorizontalAlignment="Right" Padding="6" Click="OnSelectionEditorClose" ToolTip.Tip="Close">
+                            <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" />
+                        </Button>
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+                                <!-- Program -->
+                                <StackPanel IsVisible="{Binding SelectedProgram, Converter={StaticResource HasValue}}" Margin="0,0,0,14">
+                                    <TextBlock Text="PROGRAM" Classes="sectionHeader" Margin="0,0,0,6" />
+                                    <TextBox Text="{Binding SelectedProgram.Name, UpdateSourceTrigger=LostFocus}" MinHeight="30" ToolTip.Tip="Program name" />
+                                    <Grid Margin="0,6,0,0" ColumnDefinitions="*,Auto,70,Auto">
+                                        <CheckBox Content="Enabled" IsChecked="{Binding SelectedProgram.Enabled}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="Scan" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBox Grid.Column="2" Text="{Binding SelectedProgram.ScanMs, UpdateSourceTrigger=LostFocus}" MinHeight="30" />
+                                        <TextBlock Grid.Column="3" Text="ms" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                    </Grid>
+                                    <TextBlock Text="{Binding SelectedProgram.Problems}" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               IsVisible="{Binding SelectedProgram.Problems, Converter={StaticResource HasValue}, FallbackValue=False}" />
+                                </StackPanel>
+
+                                <!-- Selected block -->
+                                <ContentControl Content="{Binding SelectedProgram.SelectedBlock}" Focusable="False"
+                                                IsVisible="{Binding SelectedProgram.SelectedBlock, Converter={StaticResource HasValue}, FallbackValue=False}">
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate DataType="{x:Type vm:BlockViewModel}">
+                                            <StackPanel>
+                                                <TextBlock Text="BLOCK" Classes="sectionHeader" Margin="0,0,0,6" />
+                                                <TextBlock Text="{Binding Def.DisplayName}" FontWeight="SemiBold" FontSize="15" />
+                                                <TextBlock Text="{Binding Def.Description}" Classes="caption" TextWrapping="Wrap" Margin="0,2,0,10" />
+                                                <TextBlock Text="Label" Margin="0,0,0,2" />
+                                                <TextBox Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MinHeight="30" Margin="0,0,0,8" ToolTip.Tip="Optional name shown on the block" />
+                                                <ItemsControl ItemsSource="{Binding Params}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:ParamViewModel}">
+                                                            <StackPanel Margin="0,0,0,8">
+                                                                <TextBlock Text="{Binding Name}" Margin="0,0,0,2" />
+                                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=LostFocus}" MinHeight="30" IsVisible="{Binding IsText}" />
+                                                                <CheckBox IsChecked="{Binding BoolValue}" Content="{Binding Name}" IsVisible="{Binding IsBool}" />
+                                                                <ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding Value}" MinHeight="30" HorizontalAlignment="Stretch" IsVisible="{Binding IsChoice}" />
+                                                                <AutoCompleteBox ItemsSource="{Binding TagReferences}" FilterMode="Contains" MinHeight="30"
+                                                                                 Text="{Binding Value}" IsVisible="{Binding IsTag}" />
+                                                                <TextBlock Text="{Binding Help}" Classes="caption" TextWrapping="Wrap"
+                                                                           IsVisible="{Binding Help, Converter={StaticResource HasValue}}" />
+                                                                <TextBlock Text="{Binding Error}" Classes="error" TextWrapping="Wrap"
+                                                                           IsVisible="{Binding Error, Converter={StaticResource HasValue}}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="{Binding Error}" Classes="error" TextWrapping="Wrap" Margin="0,4,0,0" IsVisible="{Binding HasError}" />
+                                                <Button Content="Delete block" Click="OnDeleteSelection" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="12,6" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
+
+                                <!-- Selected wire -->
+                                <ContentControl Content="{Binding SelectedProgram.SelectedWire}" Focusable="False"
+                                                IsVisible="{Binding SelectedProgram.SelectedWire, Converter={StaticResource HasValue}, FallbackValue=False}">
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate DataType="{x:Type vm:WireViewModel}">
+                                            <StackPanel>
+                                                <TextBlock Text="WIRE" Classes="sectionHeader" Margin="0,0,0,6" />
+                                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                                                <Button Content="Delete wire" Click="OnDeleteSelection" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="12,6" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
+
+                                <!-- Nothing selected -->
+                                <StackPanel IsVisible="{Binding SelectedProgram.Selected, Converter={StaticResource HasValue}, ConverterParameter=invert, FallbackValue=True}">
+                                    <TextBlock Text="HOW IT WORKS" Classes="sectionHeader" Margin="0,0,0,6" />
+                                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="Each program runs every scan: blocks are evaluated in wiring order, left to right through the data flow. Bool signals are 0/1 and wires carrying true turn green while running. Tag in reads any device's tag; Tag out writes one (its own simulation pauses while logic runs). Loops are allowed: a block fed by its own output sees the previous scan's value, so tanks, thermal models and control loops can be built from Integrator, Lag, PID and Hysteresis blocks. Edits apply immediately while running; timers and counters keep their state." />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</UserControl>

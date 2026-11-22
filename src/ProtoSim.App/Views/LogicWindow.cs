@@ -1,8 +1,9 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Threading;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Services;
 using ProtoSim.App.ViewModels;
 
@@ -20,30 +21,29 @@ public sealed class LogicWindow : Window
         MinWidth = 760;
         MinHeight = 480;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        SetResourceReference(BackgroundProperty, "ApplicationWindowBackgroundBrush");
         _placementSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _placementSaveTimer.Tick += (_, _) =>
         {
             _placementSaveTimer.Stop();
             SavePlacement();
         };
-        LocationChanged += (_, _) => SchedulePlacementSave();
+        PositionChanged += (_, _) => SchedulePlacementSave();
         SizeChanged += (_, _) => SchedulePlacementSave();
-        StateChanged += (_, _) => SchedulePlacementSave();
-        Icon = Application.Current.MainWindow?.Icon;
+        Icon = Modal.MainWindow?.Icon;
         DataContext = main.Logic;
         Content = new Border { Padding = new Thickness(12), Child = new LogicView() };
-        SetBinding(TitleProperty, new Binding(nameof(MainViewModel.Title)) { Source = main, StringFormat = "Logic designer · {0}" });
+        Bind(TitleProperty, new Binding(nameof(MainViewModel.Title)) { Source = main, StringFormat = "Logic designer · {0}" });
         UiLayout.Current.LogicWindow?.ApplyTo(this);
 
         // The main window's shortcuts work here too.
-        InputBindings.Add(new KeyBinding(main.SaveCommand, Key.S, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(main.SaveAsCommand, Key.S, ModifierKeys.Control | ModifierKeys.Shift));
-        InputBindings.Add(new KeyBinding(main.OpenCommand, Key.O, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(main.StartAllCommand, Key.F5, ModifierKeys.None));
-        InputBindings.Add(new KeyBinding(main.StopAllCommand, Key.F5, ModifierKeys.Shift));
-        InputBindings.Add(new KeyBinding(main.HelpCommand, Key.F1, ModifierKeys.None));
-        InputBindings.Add(new KeyBinding(main.ToggleLogicDockCommand, Key.L, ModifierKeys.Control | ModifierKeys.Shift));
+        var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        KeyBindings.Add(new KeyBinding { Command = main.SaveCommand, Gesture = new KeyGesture(Key.S, command) });
+        KeyBindings.Add(new KeyBinding { Command = main.SaveAsCommand, Gesture = new KeyGesture(Key.S, command | KeyModifiers.Shift) });
+        KeyBindings.Add(new KeyBinding { Command = main.OpenCommand, Gesture = new KeyGesture(Key.O, command) });
+        KeyBindings.Add(new KeyBinding { Command = main.StartAllCommand, Gesture = new KeyGesture(Key.F5) });
+        KeyBindings.Add(new KeyBinding { Command = main.StopAllCommand, Gesture = new KeyGesture(Key.F5, KeyModifiers.Shift) });
+        KeyBindings.Add(new KeyBinding { Command = main.HelpCommand, Gesture = new KeyGesture(Key.F1) });
+        KeyBindings.Add(new KeyBinding { Command = main.ToggleLogicDockCommand, Gesture = new KeyGesture(Key.L, command | KeyModifiers.Shift) });
     }
 
     private void SchedulePlacementSave()
@@ -58,7 +58,7 @@ public sealed class LogicWindow : Window
         UiLayout.Save();
     }
 
-    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
         _placementSaveTimer.Stop();

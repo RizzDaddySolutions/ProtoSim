@@ -1,0 +1,305 @@
+<Window x:Class="ProtoSim.App.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:ProtoSim.App.ViewModels"
+        xmlns:views="clr-namespace:ProtoSim.App.Views"
+        Title="{Binding Title}" Width="1440" Height="900" MinWidth="980" MinHeight="600"
+        Icon="avares://ProtoSim/icon.ico" WindowStartupLocation="CenterScreen">
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding NewCommand}" />
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveAsCommand}" />
+        <KeyBinding Gesture="F5" Command="{Binding StartAllCommand}" />
+        <KeyBinding Gesture="Shift+F5" Command="{Binding StopAllCommand}" />
+        <KeyBinding Gesture="F1" Command="{Binding HelpCommand}" />
+        <KeyBinding Gesture="Ctrl+L" Command="{Binding ShowLogicCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+L" Command="{Binding ToggleLogicDockCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding NetworkWizardCommand}" />
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleLeftPanelCommand}" />
+    </Window.KeyBindings>
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:DeviceViewModel}"><views:DeviceView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LogicViewModel}"><views:LogicView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ClientViewModel}"><views:ClientView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LinkViewModel}"><views:LinkView /></DataTemplate>
+    </Window.DataTemplates>
+
+    <Window.Styles>
+        <Style Selector="MenuItem.plugins MenuItem">
+            <Setter Property="Header" Value="{Binding DisplayName}" />
+            <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="ToolTip.Tip" Value="{Binding Description}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <DockPanel>
+        <Menu DockPanel.Dock="Top" Padding="4,2">
+            <MenuItem Header="_File">
+                <MenuItem Header="_New project" Command="{Binding NewCommand}" InputGesture="Ctrl+N" />
+                <MenuItem Header="_Open…" Command="{Binding OpenCommand}" InputGesture="Ctrl+O" />
+                <MenuItem Header="_Save" Command="{Binding SaveCommand}" InputGesture="Ctrl+S" />
+                <MenuItem Header="Save _as…" Command="{Binding SaveAsCommand}" InputGesture="Ctrl+Shift+S" />
+                <Separator />
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Simulation">
+                <MenuItem Header="Add _device" ItemsSource="{Binding AddDeviceActions}" Classes="plugins" />
+                <MenuItem Header="Add _client" ItemsSource="{Binding AddClientActions}" Classes="plugins"
+                          ToolTip.Tip="Connect to an external server or device and pull its data into project tags" />
+                <MenuItem Header="D_uplicate device" Command="{Binding DuplicateSelectedCommand}" />
+                <MenuItem Header="_Remove selected" Command="{Binding RemoveSelectedCommand}" />
+                <Separator />
+                <MenuItem Header="_Start all devices" Command="{Binding StartAllCommand}" InputGesture="F5" />
+                <MenuItem Header="S_top all devices" Command="{Binding StopAllCommand}" InputGesture="Shift+F5" />
+            </MenuItem>
+            <MenuItem Header="_Logic">
+                <MenuItem Header="Logic _designer" Command="{Binding ShowLogicCommand}" InputGesture="Ctrl+L"
+                          ToolTip.Tip="Function block programs that combine tags from different devices" />
+                <MenuItem Header="_Undock designer" ToggleType="CheckBox" IsChecked="{Binding Logic.IsUndocked, Mode=OneWay}"
+                          Command="{Binding ToggleLogicDockCommand}" InputGesture="Ctrl+Shift+L"
+                          ToolTip.Tip="Open the designer in a window of its own instead of inside the main window" />
+            </MenuItem>
+            <MenuItem Header="_Network">
+                <MenuItem Header="Network _wizard…" Command="{Binding NetworkWizardCommand}" InputGesture="Ctrl+Shift+W"
+                          ToolTip.Tip="Connect simulators on this computer or on other computers into a simulation network" />
+                <Separator />
+                <MenuItem Header="_Start all links" Command="{Binding StartAllLinksCommand}" />
+                <MenuItem Header="S_top all links" Command="{Binding StopAllLinksCommand}" />
+                <Separator />
+                <MenuItem Header="Share devices on the _network" ToggleType="CheckBox" IsChecked="{Binding ShareOnNetwork}"
+                          ToolTip.Tip="{Binding SharingStatus}" />
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Clients panel" ToggleType="CheckBox" IsChecked="{Binding ShowClientsPanel}"
+                          ToolTip.Tip="Show the Clients list in the left panel" />
+                <MenuItem Header="_Network links panel" ToggleType="CheckBox" IsChecked="{Binding ShowLinksPanel}"
+                          ToolTip.Tip="Show the Network links list in the left panel" />
+                <Separator />
+                <MenuItem Header="Theme: _System" ToggleType="CheckBox" IsChecked="{Binding IsSystemTheme, Mode=OneWay}"
+                          Command="{Binding SetThemeCommand}" CommandParameter="System" />
+                <MenuItem Header="Theme: _Light" ToggleType="CheckBox" IsChecked="{Binding IsLightTheme, Mode=OneWay}"
+                          Command="{Binding SetThemeCommand}" CommandParameter="Light" />
+                <MenuItem Header="Theme: _Dark" ToggleType="CheckBox" IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                          Command="{Binding SetThemeCommand}" CommandParameter="Dark" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_View help" Command="{Binding HelpCommand}" InputGesture="F1" />
+                <Separator />
+                <MenuItem Header="_About ProtoSim" Command="{Binding AboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <Border DockPanel.Dock="Top" Padding="8,4" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+            <ToggleButton IsChecked="{Binding SimulationEnabled}" Height="32" Padding="10,5" HorizontalAlignment="Left" VerticalContentAlignment="Center"
+                          ToolTip.Tip="Enable or disable simulated tag values">
+                <StackPanel Orientation="Horizontal">
+                    <PathIcon Data="{StaticResource IconPlay}" Margin="0,0,6,0" IsVisible="{Binding !SimulationEnabled}" />
+                    <PathIcon Data="{StaticResource IconStop}" Margin="0,0,6,0" IsVisible="{Binding SimulationEnabled}" />
+                    <TextBlock Text="Enable Simulation" IsVisible="{Binding !SimulationEnabled}" />
+                    <TextBlock Text="Disable Simulation" IsVisible="{Binding SimulationEnabled}" />
+                </StackPanel>
+            </ToggleButton>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Padding="12,6" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+            <TextBlock Text="{Binding StatusText}" Classes="caption" />
+        </Border>
+
+        <Grid x:Name="ContentGrid">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="290" MinWidth="220" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Navigation -->
+            <Grid x:Name="NavGrid" Grid.Row="0" Margin="12,12,6,12" IsVisible="{Binding LeftPanelExpanded}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="3*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Margin="4,0,0,6">
+                    <Menu DockPanel.Dock="Right" Background="Transparent">
+                        <MenuItem ToolTip.Tip="Add a simulated device" ItemsSource="{Binding AddDeviceActions}" Classes="plugins">
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <PathIcon Data="{StaticResource IconAdd}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Add" />
+                                </StackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
+                    </Menu>
+                    <TextBlock Text="SIMULATED DEVICES" Classes="sectionHeader" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                         Classes="nav"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:DeviceViewModel}">
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Classes="statusDot" Fill="{Binding State, Converter={StaticResource StateToBrush}}"
+                                         Margin="0,0,10,0" ToolTip.Tip="{Binding StatusText}" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Classes="caption">
+                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Endpoint, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <DockPanel Grid.Row="2" Margin="4,14,0,6" IsVisible="{Binding ShowClientsPanel}">
+                    <Menu DockPanel.Dock="Right" Background="Transparent">
+                        <MenuItem ToolTip.Tip="Add a client that connects to an external server or device" ItemsSource="{Binding AddClientActions}" Classes="plugins">
+                            <MenuItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <PathIcon Data="{StaticResource IconAdd}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Add" />
+                                </StackPanel>
+                            </MenuItem.Header>
+                        </MenuItem>
+                    </Menu>
+                    <TextBlock Text="CLIENTS" Classes="sectionHeader" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox Grid.Row="3" ItemsSource="{Binding Clients}" SelectedItem="{Binding SelectedClient}"
+                         IsVisible="{Binding ShowClientsPanel}"
+                         Classes="nav"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ClientViewModel}">
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Classes="statusDot" Fill="{Binding State, Converter={StaticResource StateToBrush}}"
+                                         Margin="0,0,10,0" ToolTip.Tip="{Binding LastMessage}" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Classes="caption" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" → " /><Run Text="{Binding Endpoint, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <DockPanel Grid.Row="4" Margin="4,14,0,6" IsVisible="{Binding ShowLinksPanel}">
+                    <Button DockPanel.Dock="Right" Command="{Binding NetworkWizardCommand}" Classes="toolbar"
+                            ToolTip.Tip="Connect a simulator here or on another computer (Ctrl+Shift+W)">
+                        <StackPanel Orientation="Horizontal">
+                            <PathIcon Data="{StaticResource IconAdd}" Margin="0,0,6,0" />
+                            <TextBlock Text="Wizard" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="NETWORK LINKS" Classes="sectionHeader" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <ListBox Grid.Row="5" ItemsSource="{Binding Links}" SelectedItem="{Binding SelectedLink}"
+                         IsVisible="{Binding ShowLinksPanel}"
+                         Classes="nav"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:LinkViewModel}">
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Classes="statusDot" Fill="{Binding State, Converter={StaticResource StateToBrush}}"
+                                         Margin="0,0,10,0" ToolTip.Tip="{Binding Link.LastMessage}" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Classes="caption" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDescription}">
+                                        <Run Text="{Binding ProtocolName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Summary, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="6" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding StartAllCommand}" Classes="toolbar" ToolTip.Tip="Start all devices (F5)">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconPlay}" Margin="0,0,6,0" />
+                                <TextBlock Text="Start all" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding StopAllCommand}" Classes="toolbar" ToolTip.Tip="Stop all devices (Shift+F5)">
+                            <StackPanel Orientation="Horizontal">
+                                <PathIcon Data="{StaticResource IconStop}" Margin="0,0,6,0" />
+                                <TextBlock Text="Stop all" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding RemoveSelectedCommand}" Classes="toolbar" ToolTip.Tip="Remove the selected device, client or network link">
+                            <PathIcon Data="{StaticResource IconDelete}" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <GridSplitter x:Name="NavSplitter" Grid.Row="0" Grid.Column="1" Width="5" ResizeDirection="Columns"
+                          IsVisible="{Binding LeftPanelExpanded}" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                          Background="Transparent" ResizeBehavior="PreviousAndNext" />
+
+            <!-- Show/hide tab in the middle of the divider -->
+            <Button Grid.Row="0" Grid.Column="1" Command="{Binding ToggleLeftPanelCommand}" Width="16" Height="48" Padding="0"
+                    MinWidth="0" MinHeight="0" HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand" ZIndex="1">
+                <Panel>
+                    <PathIcon Data="{StaticResource IconLeft}" Width="9" Height="9" IsVisible="{Binding LeftPanelExpanded}" ToolTip.Tip="Hide the left panel (Ctrl+B)" />
+                    <PathIcon Data="{StaticResource IconRight}" Width="9" Height="9" IsVisible="{Binding LeftPanelCollapsed}" ToolTip.Tip="Show the left panel (Ctrl+B)" />
+                </Panel>
+            </Button>
+
+            <!-- Content -->
+            <ContentControl Grid.Row="0" Grid.Column="2" Content="{Binding Selected}" Margin="6,12,12,12" Focusable="False"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+            <Border Grid.Row="0" Grid.Column="2" Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Padding="32"
+                    IsVisible="{Binding Selected, Converter={StaticResource HasValue}, ConverterParameter=invert}">
+                <StackPanel>
+                    <PathIcon Data="{StaticResource IconDevice}" Width="40" Height="40" HorizontalAlignment="Left" Margin="0,0,0,12"
+                              Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
+                    <TextBlock Text="ProtoSim" Classes="pageTitle" />
+                    <TextBlock TextWrapping="Wrap" Margin="0,8,0,20" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="Simulate industrial devices that real protocol clients (SCADA, HMI, PLC programs) can connect to, pull data in from external servers and devices with clients, and connect simulators on this and other computers into a network with the network wizard. Add a device from the left panel to get started." />
+                    <Button Content="Open project…" Padding="16,8" Command="{Binding OpenCommand}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+        </DockPanel>
+
+        <Border Background="#88000000" IsVisible="{Binding IsLoadingProject}">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="28,22" CornerRadius="8">
+                <StackPanel Spacing="12">
+                    <ProgressBar IsIndeterminate="True" Width="180" />
+                    <TextBlock Text="Loading project…" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>

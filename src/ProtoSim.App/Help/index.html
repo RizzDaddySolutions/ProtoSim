@@ -264,7 +264,7 @@
 <section id="logic">
   <h2>Logic designer</h2>
   <p>Choose <strong>Logic &gt; Logic designer</strong> (Ctrl+L) to build function block programs that tie devices together, so several simulators behave like one plant. For example, a tank level on a Modbus device can start a pump whose run feedback is an OPC UA tag, while a BACnet setpoint feeds a PID loop.</p>
-  <p><strong>Arranging the designer.</strong> Each block group (Tags, Logic, Compare, Math, Timers, Process), <em>Project tags</em> and <em>Properties</em> is a panel. Drag a panel's title bar or tab onto the docking guides to dock it to the left, top, right or bottom, drop it elsewhere to float it in its own window, or use the pin to auto-hide it. <strong>Reset panels</strong> restores the default arrangement. <strong>Logic &gt; Undock designer</strong> (Ctrl+Shift+L, or the <strong>Undock</strong> button) moves the whole designer into a window of its own, for example on a second monitor; <strong>Dock in main window</strong> brings it back. The panel arrangement, docked/undocked state and window position are remembered per user (in <code>%LocalAppData%\ProtoSim\ui-layout.json</code>), not in the project file.</p>
+  <p><strong>Arranging the designer.</strong> Each block group (Tags, Logic, Compare, Math, Timers, Process) and <em>Project tags</em> is a collapsible panel beside the canvas. Click a panel's title to open or close it, drag the divider to resize the column, and use <strong>Panels</strong> to hide or show individual panels. <strong>Options &gt; Restore panels</strong> brings them all back, and <strong>Options &gt; Undock designer</strong> moves the designer to its own window. These choices are remembered.</p>
   <h3>Building a program</h3>
   <ul>
     <li><strong>Add blocks</strong> by dragging them from the palette onto the canvas. Under <em>Project tags</em>, every tag of every device is listed as <code>Device/Tag</code>: drop one to get a <em>Tag in</em> block, or hold <kbd>Ctrl</kbd> while dropping to get a <em>Tag out</em> block.</li>
@@ -647,6 +647,7 @@ offset_s,tag,value
 <section id="whats-new">
   <h2>What's new in 1.3</h2>
   <ul>
+    <li>ProtoSim now runs on <strong>Windows, macOS and Linux</strong>, with a new cross-platform interface. On macOS, shortcuts use <kbd>Command</kbd> instead of <kbd>Ctrl</kbd>. Ports below 1024 (such as Modbus 502) may need extra rights on Linux and macOS, so use a higher port there.</li>
     <li><strong>Network wizard</strong> connects simulators into a simulation network, in one ProtoSim or across computers: pick a source device, the values, and the device that receives them (see <a href="#network">Simulation network</a>).</li>
     <li><strong>Network links</strong> poll the source with its own protocol and can write changes back. Every protocol except Scripted device can be a source.</li>
     <li>ProtoSim instances find each other on the local network (<strong>Network › Share devices on the network</strong>).</li>

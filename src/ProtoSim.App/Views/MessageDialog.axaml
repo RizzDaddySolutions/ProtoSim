@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ProtoSim.App.Views.MessageDialog"
+        Title="ProtoSim" Width="460" MinHeight="180" SizeToContent="Height"
+        CanResize="False" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="24,20,24,20">
+        <!-- Buttons are filled in code so each button set gets the right labels and defaults. -->
+        <StackPanel x:Name="ButtonPanel" DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,20,0,0" />
+        <Grid ColumnDefinitions="Auto,*">
+            <PathIcon x:Name="IconGlyph" Width="28" Height="28" VerticalAlignment="Top" Margin="0,2,16,0" IsVisible="False" />
+            <StackPanel Grid.Column="1">
+                <TextBlock x:Name="Heading" Classes="pageTitle" FontSize="18" TextWrapping="Wrap" />
+                <!-- Selectable so error details can be copied. -->
+                <ScrollViewer MaxHeight="360" Margin="0,8,0,0">
+                    <SelectableTextBlock x:Name="MessageText" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </ScrollViewer>
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</Window>

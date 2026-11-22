@@ -72,7 +72,7 @@ public sealed class ModbusRtuSerialPlugin : IProtocolPlugin
         string[] ports;
         try { ports = SerialPort.GetPortNames(); }
         catch (Exception) { ports = []; }
-        return new ModbusRtuSerialClientSettings { PortName = ports.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).FirstOrDefault() ?? "COM1" };
+        return new ModbusRtuSerialClientSettings { PortName = ports.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).FirstOrDefault() ?? SerialPorts.DefaultName };
     }
     public object CreateClientRequest() => new ModbusClientRequest();
     public IProtocolClient CreateClient(object clientSettings, ClientContext context) =>

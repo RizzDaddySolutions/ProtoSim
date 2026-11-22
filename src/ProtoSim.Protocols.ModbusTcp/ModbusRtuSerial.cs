@@ -17,8 +17,8 @@ public sealed class ModbusRtuSerialSettings : ModbusDeviceSettings
     }
 
     [Display(Name = "Serial port", GroupName = "Serial", Order = 1,
-        Description = "COM port name, e.g. COM3. To test without hardware, create a virtual COM port pair (e.g. com0com) and connect the master to the other end.")]
-    public string PortName { get; set; } = "COM1";
+        Description = SerialPorts.Help + " To test without hardware, create a virtual port pair (com0com on Windows, socat on Linux and macOS) and connect the master to the other end.")]
+    public string PortName { get; set; } = SerialPorts.DefaultName;
 
     [Display(Name = "Baud rate", GroupName = "Serial", Order = 2)]
     [Range(300, 921_600)]

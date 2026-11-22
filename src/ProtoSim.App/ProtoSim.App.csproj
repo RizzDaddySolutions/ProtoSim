@@ -1,19 +1,18 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net10.0</TargetFramework>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <RootNamespace>ProtoSim.App</RootNamespace>
     <AssemblyName>ProtoSim</AssemblyName>
-    <!-- Fluent ThemeMode APIs are flagged experimental. -->
-    <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <ApplicationIcon>icon.ico</ApplicationIcon>
 
-    <!-- Standalone Windows publish defaults. External plugins remain separate DLLs in Plugins. -->
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
+    <!-- Standalone publish: dotnet publish -r win-x64|linux-x64|linux-arm64|osx-x64|osx-arm64.
+         External plugins remain separate DLLs in Plugins. -->
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
@@ -31,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="icon.ico" />
+    <AvaloniaResource Include="icon.ico" />
     <EmbeddedResource Include="Help\index.html" />
     <!-- Help opens in the default browser, so it ships as a loose file next to the executable. -->
     <None Update="Help\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
@@ -52,9 +51,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dirkster.AvalonDock" Version="5.0.2" />
-    <PackageReference Include="Dirkster.AvalonDock.Themes.VS2013" Version="5.0.2" />
-    <PackageReference Include="Dirkster.AvalonDock.Serializer.Xml" Version="5.0.2" />
+    <PackageReference Include="Avalonia" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+    <!-- Newer than the version Avalonia pulls in, which has a known vulnerability. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
     <PackageReference Include="System.DirectoryServices" Version="11.0.0" />
   </ItemGroup>
 

@@ -1,6 +1,6 @@
 # ProtoSim
 
-ProtoSim is an industrial protocol simulator for Windows (C#, .NET 10, WPF with the built-in Fluent theme). It simulates devices that real clients (SCADA, HMI, PLC programs) can talk to, and its own clients pull data in from external servers and devices. Each protocol is a plugin.
+ProtoSim is a cross-platform industrial protocol simulator for Windows, macOS and Linux (C#, .NET 10, Avalonia UI with the Fluent theme). It simulates devices that real clients (SCADA, HMI, PLC programs) can talk to, and its own clients pull data in from external servers and devices. Each protocol is a plugin.
 
 ![Simulated OPC UA device](docs/screenshots/opcua-device.png)
 
@@ -93,7 +93,7 @@ Built on the official OPC Foundation .NET Standard stack (2.0.2).
 
 ## Build and run
 
-Requires the .NET 10 SDK on Windows. NuGet restores the OPC UA packages on the first build.
+Requires the .NET 10 SDK on Windows, macOS or Linux. NuGet restores the packages on the first build.
 
 ```bash
 dotnet build ProtoSim.slnx
@@ -104,10 +104,32 @@ dotnet test ProtoSim.slnx
 ```
 
 ```bash
-dotnet run --project src/ProtoSim.App -- --demo opc-ua
+dotnet run --project src/ProtoSim.App
 ```
 
 Build output goes to `artifacts/`. If the repository sits in a very deep folder, it goes to `%TEMP%\ProtoSim\artifacts` instead, to stay under the Windows 260-character path limit.
+
+### Standalone builds
+
+Each build is a single self-contained executable, so the target computer doesn't need .NET:
+
+```bash
+dotnet publish src/ProtoSim.App -c Release -r win-x64 -o publish/win-x64
+dotnet publish src/ProtoSim.App -c Release -r linux-x64 -o publish/linux-x64
+dotnet publish src/ProtoSim.App -c Release -r linux-arm64 -o publish/linux-arm64
+dotnet publish src/ProtoSim.App -c Release -r osx-arm64 -o publish/osx-arm64
+dotnet publish src/ProtoSim.App -c Release -r osx-x64 -o publish/osx-x64
+```
+
+Any OS can build for any other. `linux-arm64` also covers a 64-bit Raspberry Pi OS with a desktop.
+
+### Platform notes
+
+- **Linux:** needs a desktop (X11, or Wayland through XWayland) and the usual libraries: on Debian or Ubuntu, `sudo apt install libx11-6 libice6 libsm6 libfontconfig1`.
+- **macOS:** the published executable isn't signed. Run `xattr -d com.apple.quarantine ProtoSim` once, then `chmod +x ProtoSim`. Shortcuts use Command instead of Ctrl.
+- **Ports below 1024** (Modbus 502, SNMP 161) need extra rights on Linux and on some macOS setups. Use a higher port in the device settings (such as 5020), or on Linux grant the executable `cap_net_bind_service` with `setcap`.
+- **Serial ports** are named `COM3` on Windows, `/dev/ttyUSB0` on Linux (your user must be in the `dialout` group) and `/dev/cu.usbserial-XXXX` on macOS.
+- **Settings and data** are stored in the per-user app data folder: `%LocalAppData%\ProtoSim`, `~/.local/share/ProtoSim` or `~/Library/Application Support/ProtoSim`.
 
 ## REST API
 
@@ -184,7 +206,7 @@ src/
   ProtoSim.Protocols.Script     Scripted device plugin: rule engine and templates over TCP, UDP or serial
   ProtoSim.Protocols.Snmp       SNMP agent plugin: MIB view of system group and tag OIDs, v1/v2c requests, traps
   ProtoSim.Protocols.SparkplugB Sparkplug B plugin: protobuf payload codec, edge node over MQTTnet, embedded broker
-  ProtoSim.App                  WPF UI (MVVM); knows protocols only through IProtocolPlugin
+  ProtoSim.App                  Avalonia UI (MVVM); knows protocols only through IProtocolPlugin
 tests/
   ModbusTcp.Tests               Codec, addressing, request handler, RTU framing/CRC, loopback tests, the Modbus TCP client and Writeable tags
   OpcUa.Tests                   Variable model and loopback tests with the OPC UA client (browse, read, write, subscribe, security, login, Writeable)
@@ -205,7 +227,7 @@ The UI never references protocol types. Everything it shows comes from these Cor
 - `IProtocolServer`: the running simulated device.
 - `IProtocolClient` (optional): a client session. A plugin opts in by returning client settings and request types; `ClientResultRow.Typed` carries the value copied into mapped tags.
 - `ITagBinding.RemoteWritable`: the tag's Writeable box. Protocols check it (or `RemoteWriteGuard` for values shared by several tags) before applying a client write.
-- Settings and request objects are plain classes. A reflection-based property grid edits them (using `[Display]`, `[Range]` and `[Browsable(false)]` attributes), and they are saved as JSON. **A new protocol needs no WPF code.**
+- Settings and request objects are plain classes. A reflection-based property grid edits them (using `[Display]`, `[Range]` and `[Browsable(false)]` attributes), and they are saved as JSON. **A new protocol needs no UI code.**
 
 ## Adding a protocol
 

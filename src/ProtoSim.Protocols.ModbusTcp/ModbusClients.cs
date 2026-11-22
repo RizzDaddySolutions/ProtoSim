@@ -44,8 +44,8 @@ public sealed class ModbusRtuOverTcpClientSettings : ModbusClientSettings;
 
 public sealed class ModbusRtuSerialClientSettings : ModbusClientTiming
 {
-    [Display(Name = "Serial port", GroupName = "Serial", Order = 1, Description = "COM port name, e.g. COM3.")]
-    public string PortName { get; set; } = "COM1";
+    [Display(Name = "Serial port", GroupName = "Serial", Order = 1, Description = SerialPorts.Help)]
+    public string PortName { get; set; } = SerialPorts.DefaultName;
 
     [Display(Name = "Baud rate", GroupName = "Serial", Order = 2)]
     [Range(300, 921_600)]

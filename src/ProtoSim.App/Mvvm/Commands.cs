@@ -1,5 +1,5 @@
-using System.Windows;
 using System.Windows.Input;
+using ProtoSim.App.Platform;
 
 namespace ProtoSim.App.Mvvm;
 

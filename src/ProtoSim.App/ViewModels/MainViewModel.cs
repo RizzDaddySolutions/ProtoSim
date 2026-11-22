@@ -1,4 +1,3 @@
-using Microsoft.Win32;
 using ProtoSim.App.Mvvm;
 using ProtoSim.App.Services;
 using ProtoSim.Core;
@@ -9,9 +8,10 @@ using ProtoSim.Core.Simulation;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text;
-using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
+using ProtoSim.App.Platform;
+using WindowState = Avalonia.Controls.WindowState;
+using Avalonia.Threading;
 
 namespace ProtoSim.App.ViewModels;
 
@@ -60,7 +60,7 @@ public sealed class MainViewModel : ObservableObject
         SetThemeCommand = new RelayCommand(p => SetTheme(p as string));
         AboutCommand = new RelayCommand(ShowAbout);
         HelpCommand = new RelayCommand(ShowHelp);
-        ExitCommand = new RelayCommand(() => Application.Current.MainWindow?.Close());
+        ExitCommand = new RelayCommand(() => Modal.MainWindow?.Close());
         ShowLogicCommand = new RelayCommand(ShowLogic);
         NetworkWizardCommand = new RelayCommand(ShowNetworkWizard);
         ToggleLeftPanelCommand = new RelayCommand(() => LeftPanelCollapsed = !LeftPanelCollapsed);
@@ -71,11 +71,11 @@ public sealed class MainViewModel : ObservableObject
         Logic.IsUndocked = UiLayout.Current.LogicUndocked;
         _simulationEnabled = UiLayout.Current.SimulationEnabled;
         Engine.IsEnabled = _simulationEnabled;
-        var dispatcher = Dispatcher.CurrentDispatcher;
-        _discovery = new DiscoveryService(() => dispatcher.InvokeAsync(BuildCatalog).Task);
+        var dispatcher = Dispatcher.UIThread;
+        _discovery = new DiscoveryService(() => dispatcher.InvokeAsync(BuildCatalog).GetTask());
         _shareOnNetwork = UiLayout.Current.ShareOnNetwork;
         if (_shareOnNetwork) StartSharing(quiet: true);
-        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher.CurrentDispatcher);
+        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick());
         _timer.Start();
     }
 
@@ -155,9 +155,9 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RemoveSelectedCommand { get; }
     public ICommand DuplicateSelectedCommand { get; }
     public ICommand SetThemeCommand { get; }
-    public bool IsSystemTheme => Application.Current.ThemeMode == ThemeMode.System;
-    public bool IsLightTheme => Application.Current.ThemeMode == ThemeMode.Light;
-    public bool IsDarkTheme => Application.Current.ThemeMode == ThemeMode.Dark;
+    public bool IsSystemTheme => UiLayout.Current.Theme is not ("Light" or "Dark");
+    public bool IsLightTheme => UiLayout.Current.Theme == "Light";
+    public bool IsDarkTheme => UiLayout.Current.Theme == "Dark";
     public ICommand AboutCommand { get; }
     public ICommand HelpCommand { get; }
     public ICommand ExitCommand { get; }
@@ -240,6 +240,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void Tick()
     {
+        CommandManager.InvalidateRequerySuggested(); // keeps button enabled states current
         foreach (var d in Devices) d.Refresh(ReferenceEquals(d, _selected));
         Logic.Refresh(Devices, IsLogicSelected || _logicWindow != null);
         foreach (var c in Clients) c.Refresh();
@@ -435,7 +436,7 @@ public sealed class MainViewModel : ObservableObject
         {
             CloseLogicWindow();
             ShowLogic();
-            Application.Current.MainWindow?.Activate();
+            Modal.MainWindow?.Activate();
         }
         UiLayout.Save();
     }
@@ -675,8 +676,7 @@ public sealed class MainViewModel : ObservableObject
     {
         TagDirectory.Refresh(Devices);
         var vm = new NetworkWizardViewModel(this);
-        var window = new Views.NetworkWizardWindow { DataContext = vm, Owner = Application.Current.MainWindow };
-        window.ShowDialog();
+        Modal.ShowDialog(new Views.NetworkWizardWindow { DataContext = vm });
     }
 
     /// <summary>Adds a link made by the wizard, selects it and optionally starts it.</summary>
@@ -744,28 +744,17 @@ public sealed class MainViewModel : ObservableObject
 
     private void SetTheme(string? theme)
     {
-        Application.Current.ThemeMode = theme switch
-        {
-            "Light" => ThemeMode.Light,
-            "Dark" => ThemeMode.Dark,
-            _ => ThemeMode.System,
-        };
+        UiLayout.Current.Theme = theme is "Light" or "Dark" ? theme : "System";
+        UiLayout.Save();
+        App.ApplyTheme();
         OnPropertyChanged(nameof(IsSystemTheme));
         OnPropertyChanged(nameof(IsLightTheme));
         OnPropertyChanged(nameof(IsDarkTheme));
-        UiLayout.Current.Theme = theme switch
-        {
-            "Light" => "Light",
-            "Dark" => "Dark",
-            _ => "System",
-        };
-        UiLayout.Save();
-        App.RaiseThemeChanged();
     }
 
     private void ShowAbout()
     {
-        new Views.AboutWindow(Catalog, PluginErrors) { Owner = Application.Current.MainWindow }.ShowDialog();
+        Modal.ShowDialog(new Views.AboutWindow(Catalog, PluginErrors));
     }
 
     private static void ShowHelp()
@@ -786,14 +775,6 @@ public sealed class MainViewModel : ObservableObject
             resourceStream.CopyTo(fileStream);
         }
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(tempFilePath) { UseShellExecute = true });
-
-        //var path = Path.Combine(AppContext.BaseDirectory, "Help", "index.html");
-        //if (!File.Exists(path))
-        //{
-        //    Views.MessageDialog.Show($"The help file was not found:{Environment.NewLine}{path}", "Help", MessageBoxButton.OK, MessageBoxImage.Warning);
-        //    return;
-        //}
-        //System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        Shell.Open(tempFilePath);
     }
 }

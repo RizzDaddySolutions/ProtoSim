@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using System.Windows.Input;
+using Avalonia.Threading;
+using ProtoSim.App.Platform;
 using ProtoSim.App.Mvvm;
 using ProtoSim.App.Services;
 using ProtoSim.App.Views;
@@ -9,7 +10,6 @@ using ProtoSim.Core.Data;
 using ProtoSim.Core.Diagnostics;
 using ProtoSim.Core.Protocols;
 using ProtoSim.Core.Simulation;
-using Microsoft.Win32;
 
 namespace ProtoSim.App.ViewModels;
 
@@ -171,7 +171,7 @@ public sealed class DeviceViewModel : ObservableObject
             return;
         }
 
-        runner.Completed += (r, error) => Application.Current?.Dispatcher.BeginInvoke(() =>
+        runner.Completed += (r, error) => Dispatcher.UIThread.Post(() =>
         {
             if (!ReferenceEquals(r, _scenario)) return;
             _scenario = null;
@@ -228,9 +228,7 @@ public sealed class DeviceViewModel : ObservableObject
 
         public Task SetDeviceRunningAsync(bool running)
         {
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher == null) return Task.CompletedTask;
-            return dispatcher.InvokeAsync(() => running ? device.StartAsync() : device.StopAsync()).Task.Unwrap();
+            return Dispatcher.UIThread.InvokeAsync(() => running ? device.StartAsync() : device.StopAsync());
         }
 
         public void Log(string message) => device.TrafficLog.Info("", message);
@@ -345,7 +343,7 @@ public sealed class DeviceViewModel : ObservableObject
             if (answer != MessageBoxResult.Yes) return;
         }
 
-        replayer.Completed += r => Application.Current?.Dispatcher.BeginInvoke(() =>
+        replayer.Completed += r => Dispatcher.UIThread.Post(() =>
         {
             if (!ReferenceEquals(r, _replayer)) return;
             _replayer = null;
@@ -529,7 +527,7 @@ public sealed class DeviceViewModel : ObservableObject
     private void OnServerStateChanged(object? sender, EventArgs e)
     {
         var server = (IProtocolServer)sender!;
-        Application.Current?.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (!ReferenceEquals(server, _server)) return;
             if (server.State == ServerState.Faulted) LastError = server.LastError;
@@ -647,11 +645,8 @@ public sealed class DeviceViewModel : ObservableObject
             if (Tags.Count > 0)
             {
                 IsImporting = false;
-                var choice = new ImportTagsDialog(Path.GetFileName(dlg.FileName), tags.Count, Tags.Count)
-                {
-                    Owner = Application.Current.MainWindow,
-                };
-                if (choice.ShowDialog() != true) return;
+                var choice = new ImportTagsDialog(Path.GetFileName(dlg.FileName), tags.Count, Tags.Count);
+                if (!Modal.ShowDialog(choice)) return;
                 IsImporting = true;
                 if (choice.Mode == TagImportMode.Overwrite) RemoveAllTags();
             }

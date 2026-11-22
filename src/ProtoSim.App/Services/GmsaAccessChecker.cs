@@ -20,6 +20,7 @@ public sealed record GmsaAccessResult(bool HasAccess, HttpStatusCode? StatusCode
 /// authenticates to the endpoint with it. This only works if the current user (or a group they're in)
 /// is listed in the gMSA's PrincipalsAllowedToRetrieveManagedPassword. Intended for testing only.
 /// </remarks>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public sealed class GmsaAccessChecker
 {
     private readonly string? _domainController;
