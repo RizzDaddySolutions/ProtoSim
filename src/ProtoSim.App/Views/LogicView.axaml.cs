@@ -17,7 +17,9 @@ namespace ProtoSim.App.Views;
 /// </summary>
 public partial class LogicView : UserControl
 {
-    private const string PaletteDataFormat = "protosim-palette-item";
+    private static readonly DataFormat<PaletteItemViewModel> PaletteDataFormat =
+        DataFormat.CreateInProcessFormat<PaletteItemViewModel>("protosim-palette-item");
+
     private const string ProjectTagsId = "Project tags";
     private static readonly List<WeakReference<LogicView>> Instances = [];
 
@@ -27,6 +29,7 @@ public partial class LogicView : UserControl
 
     private Point _paletteDown;
     private PaletteItemViewModel? _dragItem;
+    private PointerPressedEventArgs? _dragPress;
     private BlockViewModel? _dragBlock;
     private Vector _dragOffset;
     private PortViewModel? _wireFrom;
@@ -58,7 +61,7 @@ public partial class LogicView : UserControl
     {
         lock (Instances)
             foreach (var r in Instances)
-                if (r.TryGetTarget(out var view) && view.GetVisualRoot() != null) view.SaveLayout();
+                if (r.TryGetTarget(out var view) && view.IsAttachedToVisualTree()) view.SaveLayout();
     }
 
     private LogicViewModel? Vm => DataContext as LogicViewModel;
@@ -211,35 +214,31 @@ public partial class LogicView : UserControl
         if (sender is not Control { DataContext: PaletteItemViewModel item } || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         _paletteDown = e.GetPosition(this);
         _dragItem = item;
+        _dragPress = e; // DoDragDropAsync starts from the press, once the pointer has moved far enough
     }
 
     private async void OnPaletteMoved(object? sender, PointerEventArgs e)
     {
-        if (_dragItem is not { } item) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragItem = null; return; }
+        if (_dragItem is not { } item || _dragPress is not { } press) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragItem = null; _dragPress = null; return; }
         var delta = e.GetPosition(this) - _paletteDown;
         if (Math.Abs(delta.X) < 4 && Math.Abs(delta.Y) < 4) return;
         _dragItem = null;
-#pragma warning disable CS0618 // the object-based API is the one that carries in-process objects on every platform
-        var data = new DataObject();
-        data.Set(PaletteDataFormat, item);
-        await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
-#pragma warning restore CS0618
+        _dragPress = null;
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(PaletteDataFormat, item));
+        await DragDrop.DoDragDropAsync(press, data, DragDropEffects.Copy);
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-#pragma warning disable CS0618
-        e.DragEffects = e.Data.Contains(PaletteDataFormat) ? DragDropEffects.Copy : DragDropEffects.None;
-#pragma warning restore CS0618
+        e.DragEffects = e.DataTransfer.Contains(PaletteDataFormat) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-#pragma warning disable CS0618
-        if (Vm == null || e.Data.Get(PaletteDataFormat) is not PaletteItemViewModel item) return;
-#pragma warning restore CS0618
+        if (Vm == null || e.DataTransfer.TryGetValue(PaletteDataFormat) is not { } item) return;
         var program = EnsureProgram();
         var def = item.Def;
         if (item.TagReference != null && HasCommandKey(e.KeyModifiers)) def = BlockLibrary.Find("TAG_OUT")!;
