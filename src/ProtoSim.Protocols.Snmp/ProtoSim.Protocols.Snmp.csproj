@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Lextm.SharpSnmpLib" Version="12.5.7" />
+    <PackageReference Include="Lextm.SharpSnmpLib" Version="12.5.8" />
     <ProjectReference Include="..\ProtoSim.Core\ProtoSim.Core.csproj" />
   </ItemGroup>
 

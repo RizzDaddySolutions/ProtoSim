@@ -28,7 +28,7 @@
         <!-- Buttons -->
         <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
             <Button DockPanel.Dock="Right" Content="Close" IsDefault="True" IsCancel="True" Click="OnClose"
-                    Classes="accent" Padding="20,6" MinWidth="96" />
+                    Classes="accent" Padding="20,6" MinWidth="96" HorizontalAlignment="Center" />
             <TextBlock Text="MIT License" Classes="caption" VerticalAlignment="Center" />
         </DockPanel>
 
