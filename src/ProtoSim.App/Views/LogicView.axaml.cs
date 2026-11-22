@@ -17,9 +17,6 @@ namespace ProtoSim.App.Views;
 /// </summary>
 public partial class LogicView : UserControl
 {
-    private static readonly DataFormat<PaletteItemViewModel> PaletteDataFormat =
-        DataFormat.CreateInProcessFormat<PaletteItemViewModel>("protosim-palette-item");
-
     private const string ProjectTagsId = "Project tags";
     private static readonly List<WeakReference<LogicView>> Instances = [];
 
@@ -29,7 +26,9 @@ public partial class LogicView : UserControl
 
     private Point _paletteDown;
     private PaletteItemViewModel? _dragItem;
-    private PointerPressedEventArgs? _dragPress;
+    private bool _isPaletteDragging;
+    private Cursor? _dropCursor;
+    private Cursor? _noDropCursor;
     private BlockViewModel? _dragBlock;
     private Vector _dragOffset;
     private PortViewModel? _wireFrom;
@@ -49,8 +48,11 @@ public partial class LogicView : UserControl
         Body.ColumnDefinitions[0].Width = new GridLength(width);
         DataContextChanged += (_, _) => OnViewModelChanged();
         DetachedFromVisualTree += (_, _) => SaveLayout();
-        Surface.AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        Surface.AddHandler(DragDrop.DropEvent, OnDrop);
+        // Palette drags stay inside the app (pointer capture), so they behave the same on every OS.
+        AddHandler(PointerMovedEvent, OnPaletteDragMoved, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, OnPaletteDragReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(PointerCaptureLostEvent, (_, _) => EndPaletteDrag(), RoutingStrategies.Direct | RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(KeyDownEvent, OnPaletteDragKeyDown, RoutingStrategies.Tunnel);
         Scroller.AddHandler(PointerWheelChangedEvent, OnCanvasWheel, RoutingStrategies.Tunnel);
         BuildPanelsMenu();
         ApplyHiddenPanels();
@@ -214,35 +216,66 @@ public partial class LogicView : UserControl
         if (sender is not Control { DataContext: PaletteItemViewModel item } || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         _paletteDown = e.GetPosition(this);
         _dragItem = item;
-        _dragPress = e; // DoDragDropAsync starts from the press, once the pointer has moved far enough
-    }
-
-    private async void OnPaletteMoved(object? sender, PointerEventArgs e)
-    {
-        if (_dragItem is not { } item || _dragPress is not { } press) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) { _dragItem = null; _dragPress = null; return; }
-        var delta = e.GetPosition(this) - _paletteDown;
-        if (Math.Abs(delta.X) < 4 && Math.Abs(delta.Y) < 4) return;
-        _dragItem = null;
-        _dragPress = null;
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(PaletteDataFormat, item));
-        await DragDrop.DoDragDropAsync(press, data, DragDropEffects.Copy);
-    }
-
-    private void OnDragOver(object? sender, DragEventArgs e)
-    {
-        e.DragEffects = e.DataTransfer.Contains(PaletteDataFormat) ? DragDropEffects.Copy : DragDropEffects.None;
+        _isPaletteDragging = false;
+        e.Pointer.Capture(this);
         e.Handled = true;
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private void OnPaletteDragMoved(object? sender, PointerEventArgs e)
     {
-        if (Vm == null || e.DataTransfer.TryGetValue(PaletteDataFormat) is not { } item) return;
+        if (_dragItem is not { } item) return;
+        if (!_isPaletteDragging)
+        {
+            var delta = e.GetPosition(this) - _paletteDown;
+            if (Math.Abs(delta.X) < 4 && Math.Abs(delta.Y) < 4) return;
+            _isPaletteDragging = true;
+            DragGhostText.Text = item.Title;
+            DragGhost.IsVisible = true;
+        }
+        var at = e.GetPosition(DragLayer);
+        Canvas.SetLeft(DragGhost, at.X + 12);
+        Canvas.SetTop(DragGhost, at.Y + 8);
+        bool over = IsOverCanvas(e);
+        DragGhost.Opacity = over ? 0.95 : 0.55;
+        Cursor = over
+            ? _dropCursor ??= new Cursor(StandardCursorType.DragCopy)
+            : _noDropCursor ??= new Cursor(StandardCursorType.No);
+    }
+
+    private void OnPaletteDragReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_dragItem is not { } item) return;
+        bool drop = _isPaletteDragging && IsOverCanvas(e);
+        var at = e.GetPosition(Surface);
+        var modifiers = e.KeyModifiers;
+        EndPaletteDrag();
+        e.Pointer.Capture(null);
+        if (drop) DropOnCanvas(item, at, modifiers);
+    }
+
+    private void OnPaletteDragKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || _dragItem == null) return;
+        EndPaletteDrag();
+        e.Handled = true;
+    }
+
+    private void EndPaletteDrag()
+    {
+        _dragItem = null;
+        _isPaletteDragging = false;
+        DragGhost.IsVisible = false;
+        Cursor = null;
+    }
+
+    private bool IsOverCanvas(PointerEventArgs e) => new Rect(Scroller.Bounds.Size).Contains(e.GetPosition(Scroller));
+
+    private void DropOnCanvas(PaletteItemViewModel item, Point at, KeyModifiers modifiers)
+    {
+        if (Vm == null) return;
         var program = EnsureProgram();
         var def = item.Def;
-        if (item.TagReference != null && HasCommandKey(e.KeyModifiers)) def = BlockLibrary.Find("TAG_OUT")!;
-        var at = e.GetPosition(Surface);
+        if (item.TagReference != null && HasCommandKey(modifiers)) def = BlockLibrary.Find("TAG_OUT")!;
         program.AddBlock(def, new Point(at.X - 30, at.Y - 12), item.TagReference);
         UpdateEmptyHint();
         Surface.Focus();

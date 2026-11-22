@@ -15,7 +15,7 @@
 
         <DataTemplate x:Key="PaletteItemTemplate" DataType="{x:Type vm:PaletteItemViewModel}">
             <Border Classes="paletteItem" Padding="8,5" Margin="0,1" CornerRadius="4" Cursor="Hand" ToolTip.Tip="{Binding Description}"
-                    PointerPressed="OnPalettePressed" PointerMoved="OnPaletteMoved">
+                    PointerPressed="OnPalettePressed">
                 <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
             </Border>
         </DataTemplate>
@@ -52,6 +52,7 @@
         </Style>
     </UserControl.Styles>
 
+    <Panel>
     <DockPanel>
         <Menu DockPanel.Dock="Top" Padding="4,2">
             <MenuItem Header="_Options">
@@ -114,7 +115,7 @@
             <Grid Grid.Column="2">
                 <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <LayoutTransformControl x:Name="ZoomHost">
-                        <Grid x:Name="Surface" Width="4000" Height="3000" Focusable="True" DragDrop.AllowDrop="True"
+                        <Grid x:Name="Surface" Width="4000" Height="3000" Focusable="True"
                               Background="{StaticResource GridBrush}"
                               PointerPressed="OnSurfacePressed" PointerMoved="OnSurfaceMoved" PointerReleased="OnSurfaceReleased" KeyDown="OnSurfaceKeyDown">
 
@@ -300,4 +301,13 @@
             </Grid>
         </Grid>
     </DockPanel>
+
+    <!-- Follows the pointer while a palette item is dragged onto the canvas. -->
+    <Canvas x:Name="DragLayer" IsHitTestVisible="False">
+        <Border x:Name="DragGhost" IsVisible="False" Padding="10,6" CornerRadius="4" BorderThickness="1"
+                Background="{DynamicResource LogicBlockBackground}" BorderBrush="{DynamicResource SelectBrush}" BoxShadow="0 2 8 0 #50000000">
+            <TextBlock x:Name="DragGhostText" FontWeight="SemiBold" Foreground="{DynamicResource LogicBlockForeground}" />
+        </Border>
+    </Canvas>
+    </Panel>
 </UserControl>
