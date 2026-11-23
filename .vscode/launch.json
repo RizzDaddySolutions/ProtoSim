@@ -1,0 +1,39 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ProtoSim",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build ProtoSim",
+            "program": "${workspaceFolder}/artifacts/bin/ProtoSim.App/debug/ProtoSim.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/artifacts/bin/ProtoSim.App/debug",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Launch Integrated Browser",
+            "request": "launch",
+            "type": "editor-browser",
+            "url": "http://localhost:8080",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "name": "Attach to Integrated Browser",
+            "request": "attach",
+            "type": "editor-browser",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "editor-browser",
+            "request": "launch",
+            "name": "Launch Integrated Browser against localhost",
+            "url": "http://localhost:8080",
+            "webRoot": "${workspaceFolder}"
+        }
+    ]
+}
