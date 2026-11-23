@@ -9,10 +9,12 @@
     <AssemblyName>ProtoSim</AssemblyName>
     <ApplicationIcon>icon.ico</ApplicationIcon>
 
-    <!-- Standalone publish: dotnet publish -r win-x64|linux-x64|linux-arm64|osx-x64|osx-arm64.
+    <!-- Publish always makes one standalone executable, for this machine unless
+         -r win-x64|linux-x64|linux-arm64|osx-x64|osx-arm64 is given. Normal builds stay framework-dependent.
          External plugins remain separate DLLs in Plugins. -->
-    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
-    <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
+    <UseCurrentRuntimeIdentifier Condition="'$(_IsPublishing)' == 'true' And '$(RuntimeIdentifier)' == ''">true</UseCurrentRuntimeIdentifier>
+    <SelfContained Condition="'$(_IsPublishing)' == 'true' Or '$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <PublishSingleFile Condition="'$(_IsPublishing)' == 'true' Or '$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
